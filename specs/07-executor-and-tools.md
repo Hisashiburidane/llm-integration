@@ -1,0 +1,110 @@
+# 07. Executor and Tools
+
+## Principle
+
+Fields and components are not tools. They are context. Tools should remain generic and stable.
+
+Recommended tool set:
+
+```ts
+get_active_ui_context()
+fill_fields(scopeId, values)
+highlight_fields(scopeId, fieldIds)
+focus_field(scopeId, fieldId)
+invoke_action(scopeId, actionId, args)
+navigate(target)
+run_executor_steps(steps)
+```
+
+## Executor Step Model
+
+```ts
+type ExecutorStep =
+  | { type: 'navigate'; target: string }
+  | { type: 'fill'; scopeId: string; values: Record<string, unknown> }
+  | { type: 'highlight'; scopeId: string; ids: string[] }
+  | { type: 'focus'; scopeId: string; id: string }
+  | { type: 'click'; scopeId: string; actionId: string; args?: Record<string, unknown> }
+  | { type: 'waitForScope'; scopeId: string; timeoutMs?: number }
+  | { type: 'openAssistantMessage'; content: string };
+```
+
+## Visible Execution
+
+Executor should optionally run step-by-step with UI feedback.
+
+This is important for the product feeling:
+
+- user sees page navigate
+- fields fill one by one
+- uncertain fields highlight
+- assistant explains progress
+
+## Fill Fields
+
+Fill fields should support write modes:
+
+```ts
+type WriteMode = 'registered' | 'adapter' | 'dom';
+```
+
+Execution priority:
+
+1. registered setter
+2. adapter-specific form API
+3. DOM event simulation
+
+## LLM Output Shape
+
+For form filling, LLM should output structured mapping:
+
+```json
+{
+  "values": {
+    "receiverName": "张三",
+    "receiverPhone": "12233322112",
+    "receiverAddress": "广东揭阳 xx 街道 23 号楼 902"
+  },
+  "uncertainFields": ["goodsType"],
+  "notes": ["物品被描述为手机，映射到数码产品"]
+}
+```
+
+## Action Invocation
+
+Actions should be explicit or adapter-provided for production reliability.
+
+DOM button click is fallback only.
+
+## Error Handling
+
+Executor must return structured results:
+
+```ts
+type ExecutorResult = {
+  ok: boolean;
+  completed: ExecutorStep[];
+  failed?: { step: ExecutorStep; reason: string };
+  warnings?: string[];
+};
+```
+
+## Policy Checks
+
+Before executing a step, executor must check:
+
+- scope visibility
+- action risk
+- user confirmation requirement
+- value exposure policy
+- whether DOM fallback is allowed
+
+## Demo Requirements
+
+First demo should include:
+
+- fill form from text
+- highlight uncertain fields
+- explain validation errors
+- save executor steps to localStorage
+- replay saved steps visibly
