@@ -1,21 +1,15 @@
 {
-  "name": "progressive-ai-interaction-vue-site",
+  "name": "llm-integration-monorepo",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
-  },
-  "dependencies": {
-    "@ant-design/icons-vue": "^7.0.1",
-    "@vitejs/plugin-vue": "^5.2.1",
-    "ant-design-vue": "^4.2.6",
-    "echarts": "^6.1.0",
-    "vite": "^6.0.3",
-    "vue": "^3.5.13",
-    "vue-echarts": "^8.0.1"
+    "dev": "pnpm build:lib && pnpm --parallel --filter @llm-ui/website --filter @llm-ui/vue-examples dev",
+    "dev:examples": "pnpm build:lib && pnpm --filter @llm-ui/vue-examples dev",
+    "dev:react-example": "pnpm --filter llm-integration-dashboard-demo dev",
+    "build": "pnpm -r build",
+    "build:lib": "pnpm --filter @llm-ui/vue build",
+    "build:examples": "pnpm --filter './examples/**' build",
+    "build:website": "pnpm --filter @llm-ui/website build"
   },
   "packageManager": "pnpm@9.15.0"
 }
