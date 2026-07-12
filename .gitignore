@@ -9,8 +9,8 @@ dist/
 !.env.example
 *.local
 *.tsbuildinfo
-poc/react-dashboard-demo/vite.config.js
-poc/react-dashboard-demo/vite.config.d.ts
+**/vite.config.js
+**/vite.config.d.ts
 
 .DS_Store
 Thumbs.db
