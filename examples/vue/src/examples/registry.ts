@@ -3,7 +3,7 @@ import TextToFormDemo from './TextToFormDemo.vue';
 import TodoDemo from './TodoDemo.vue';
 import FocusViewDemo from './FocusViewDemo.vue';
 
-export type CodeBlock = { key: string; tab: string; code: string };
+export type CodeBlock = { key: string; tab: string; code: string; language?: 'typescript' | 'javascript' | 'xml' | 'json' };
 
 export type DemoSpec = {
   id: string;
