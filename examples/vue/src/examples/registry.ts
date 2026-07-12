@@ -1,6 +1,7 @@
 import type { Component } from 'vue';
 import TextToFormDemo from './TextToFormDemo.vue';
 import TodoDemo from './TodoDemo.vue';
+import FocusViewDemo from './FocusViewDemo.vue';
 
 export type CodeBlock = { key: string; tab: string; code: string };
 
@@ -23,6 +24,35 @@ const form = reactive({
 
 <template>
   <ExpressForm v-model="form" />
+</template>`;
+
+const originalDashboardCode = `<template>
+  <section class="dashboard">
+    <MetricPanel v-for="panel in panels" :key="panel.id" :panel="panel" />
+  </section>
+</template>`;
+
+const integratedDashboardCode = `<script setup lang="ts">
+import { LlmIntegration, useLlmScopeRegistry } from '@llm-ui/vue';
+
+const panelScopes = useLlmScopeRegistry();
+
+async function ask(question: string) {
+  const plan = await focusAssistant.plan(question, panelScopes.value);
+  await executeDashboardActions(plan.actions);
+}
+</script>
+
+<template>
+  <LlmIntegration
+    v-for="panel in panels"
+    :key="panel.id"
+    :name="panel.id"
+    :metadata="panel.metadata"
+  >
+    <MetricPanel :panel="panel" />
+  </LlmIntegration>
+  <FocusChat @submit="ask" />
 </template>`;
 
 const integratedFormCode = `<script setup lang="ts">
@@ -74,5 +104,15 @@ export const demos: DemoSpec[] = [
   todo('validation-helper', '校验助手', '等待接入真实表单校验状态、错误解释和字段聚焦。'),
   todo('snapshot-restore', '语义快照', '等待实现快照解析、用户确认和真实页面状态回放。'),
   todo('workflow', '本地工作流', '等待实现动作计划审核、持久化和重复执行。'),
-  todo('focus-view', 'Focus View', '等待实现图表 metadata 选择、高亮和临时视图组合。')
+  {
+    id: 'focus-view',
+    title: 'K8s Focus View',
+    status: '真实 API',
+    summary: '通过 panel wrapper metadata 让 LLM 高亮、打开并组合 Kubernetes 运维指标。',
+    component: FocusViewDemo,
+    codeBlocks: [
+      { key: 'original', tab: '原组件', code: originalDashboardCode },
+      { key: 'integrated', tab: '接入 LLM 后', code: integratedDashboardCode }
+    ]
+  }
 ];

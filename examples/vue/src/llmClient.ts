@@ -22,6 +22,16 @@ export type ScenarioPlan = {
   steps: ScenarioStep[];
 };
 
+export type FocusAction = {
+  type: 'highlight' | 'open' | 'compose' | 'clear';
+  panelIds: string[];
+};
+
+export type FocusPlan = {
+  message: string;
+  actions: FocusAction[];
+};
+
 function parseJsonContent(content: unknown): unknown {
   if (typeof content !== 'string' || !content.trim()) {
     throw new Error('LLM 没有返回文本内容。');
@@ -139,4 +149,44 @@ export async function createScenarioPlan(options: {
     };
   });
   return { summary: parsed.summary, steps };
+}
+
+export async function createFocusPlan(question: string, scopes: Array<{
+  id: string;
+  prompt: string;
+  metadata: unknown[];
+}>): Promise<FocusPlan> {
+  if (__LLM_CONFIG_ERROR__) throw new Error(`${__LLM_CONFIG_ERROR__}，请检查 examples/vue/.env。`);
+  const panelIds = scopes.map((scope) => scope.id);
+  const response = await fetch('/api/llm/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: __LLM_MODEL__,
+      temperature: 0,
+      messages: [
+        {
+          role: 'system',
+          content: `你是 Kubernetes 运维大屏助手。根据 panel scope metadata 选择相关面板并控制 Focus View。只返回 JSON：{"message":"简短结论","actions":[{"type":"highlight|open|compose|clear","panelIds":["panel-id"]}]}。highlight 用于高亮相关面板；open 仅打开最相关的一个面板；compose 将 2-6 个相关面板组合成子 dashboard；clear 清除当前 Focus View。只能使用上下文中存在的 panel id，不得编造。`
+        },
+        { role: 'user', content: `Panel scopes:\n${JSON.stringify(scopes)}\n\nRequest:\n${question}` }
+      ]
+    })
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`LLM 请求失败 (${response.status})：${detail.slice(0, 300) || response.statusText}`);
+  }
+  const payload = await response.json() as { choices?: Array<{ message?: { content?: unknown } }> };
+  const parsed = parseJsonContent(payload.choices?.[0]?.message?.content) as Partial<FocusPlan>;
+  if (typeof parsed.message !== 'string' || !Array.isArray(parsed.actions)) throw new Error('LLM 返回的 Focus View 计划结构无效。');
+  const allowedTypes = ['highlight', 'open', 'compose', 'clear'] as const;
+  const actions = parsed.actions.map((raw) => {
+    if (!raw || !allowedTypes.includes(raw.type as FocusAction['type'])) throw new Error(`LLM 返回了不允许的 Focus View 动作：${raw?.type ?? 'empty'}。`);
+    if (!Array.isArray(raw.panelIds)) throw new Error('LLM action 缺少 panelIds。');
+    const invalidIds = raw.panelIds.filter((id) => !panelIds.includes(id));
+    if (invalidIds.length) throw new Error(`LLM 引用了未注册的 panel：${invalidIds.join(', ')}。`);
+    return { type: raw.type as FocusAction['type'], panelIds: raw.panelIds };
+  });
+  return { message: parsed.message, actions };
 }

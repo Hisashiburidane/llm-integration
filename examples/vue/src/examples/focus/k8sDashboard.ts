@@ -86,4 +86,4 @@ export const panelGroups = groups.map((group) => ({
   panels: group.panels.map((panel) => ({ ...panel, category: group.category, categoryLabel: group.label, option: chartOption(panel) }))
 }));
 
-export const k8sPanels = panelGroups.flatMap((group) => group.panels);
+export const k8sPanels: K8sPanel[] = panelGroups.flatMap((group) => group.panels);
