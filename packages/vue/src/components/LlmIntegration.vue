@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, provide, watchEffect } from 'vue';
+import { computed, onBeforeUnmount, onMounted, provide, watch } from 'vue';
 import { llmScopeKey, registerLlmScope, updateLlmScope, type MetadataNode } from '../runtime/scope';
 
 const props = withDefaults(defineProps<{
@@ -22,15 +22,30 @@ const scope = computed(() => ({
 provide(llmScopeKey, scope);
 
 let unregister: (() => void) | undefined;
-watchEffect(() => {
-  if (!props.registerGlobal) {
-    unregister?.();
-    unregister = undefined;
-    return;
-  }
-  if (!unregister) unregister = registerLlmScope(scope.value);
-  else updateLlmScope(scope.value);
+onMounted(() => {
+  if (props.registerGlobal) unregister = registerLlmScope(scope.value);
 });
+watch(
+  [
+    () => props.registerGlobal,
+    () => props.name,
+    () => props.prompt,
+    () => JSON.stringify(props.metadata)
+  ],
+  ([registerGlobal]) => {
+    if (!unregister) {
+      if (registerGlobal) unregister = registerLlmScope(scope.value);
+      return;
+    }
+    if (!registerGlobal) {
+      unregister();
+      unregister = undefined;
+      return;
+    }
+    updateLlmScope(scope.value);
+  },
+  { flush: 'post' }
+);
 onBeforeUnmount(() => unregister?.());
 
 defineExpose({

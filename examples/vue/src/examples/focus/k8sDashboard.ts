@@ -1,4 +1,4 @@
-import type { EChartsOption } from 'echarts';
+import type { EChartsCoreOption } from 'echarts/core';
 
 export type PanelCategory = 'cluster' | 'workloads' | 'nodes' | 'pods' | 'network' | 'storage' | 'security';
 
@@ -12,30 +12,30 @@ export type K8sPanel = {
   summary: string;
   tags: string[];
   priority: 'normal' | 'warning' | 'critical';
-  option: EChartsOption;
-};
-
-type PanelSeed = Omit<K8sPanel, 'category' | 'categoryLabel' | 'option'> & {
   values: number[];
   kind?: 'line' | 'bar';
+  option: EChartsCoreOption;
 };
+
+type PanelSeed = Omit<K8sPanel, 'category' | 'categoryLabel' | 'option'>;
 
 const times = ['09:00', '09:10', '09:20', '09:30', '09:40', '09:50', '10:00'];
 
-function chartOption(seed: PanelSeed): EChartsOption {
-  const color = seed.priority === 'critical' ? '#e6533c' : seed.priority === 'warning' ? '#e3a428' : '#2da67b';
+function chartOption(seed: PanelSeed): EChartsCoreOption {
+  const color = seed.priority === 'critical' ? '#e02f44' : seed.priority === 'warning' ? '#ff9830' : '#5794f2';
   return {
-    animationDuration: 520,
+    animation: false,
     color: [color],
-    grid: { left: 42, right: 16, top: 18, bottom: 30 },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: times, boundaryGap: seed.kind === 'bar', axisLabel: { color: '#718079' } },
-    yAxis: { type: 'value', axisLabel: { color: '#718079', formatter: `{value}${seed.unit}` }, splitLine: { lineStyle: { color: '#e8eeeb' } } },
+    grid: { left: 38, right: 10, top: 38, bottom: 25 },
+    tooltip: { trigger: 'axis', backgroundColor: '#ffffff', borderColor: '#d8d9da', textStyle: { color: '#24292e' } },
+    xAxis: { type: 'category', data: times, boundaryGap: seed.kind === 'bar', axisLine: { lineStyle: { color: '#d8d9da' } }, axisTick: { show: false }, axisLabel: { color: '#6e6e6e', fontSize: 8 } },
+    yAxis: { type: 'value', axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#6e6e6e', fontSize: 8, formatter: `{value}${seed.unit}` }, splitLine: { lineStyle: { color: '#e8e8e8' } } },
     series: [{
       type: seed.kind ?? 'line',
       data: seed.values,
       smooth: true,
       symbol: 'none',
+      lineStyle: { width: 2 },
       areaStyle: seed.kind === 'bar' ? undefined : { opacity: 0.1 },
       barMaxWidth: 22
     }]
