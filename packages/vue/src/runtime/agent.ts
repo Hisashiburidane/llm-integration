@@ -17,8 +17,8 @@ const DEFAULT_AGENT_PROMPT = [
   '只能调用 snapshot.tools 中存在的 capabilityId，不得假设其他页面、权限或业务事实。',
   'Enchantment.instruction 是对应局部界面的补充约束，规划该区域的调用时必须遵守。',
   '字段是 metadata，不是独立工具；填写多个字段时合并为一次 field.fill 调用。',
-  '用户仅表达查看、查找或定位时，优先高亮；明确要求打开、放大或详情时才打开。',
-  '只有明确要求组合、对比多个区域时才使用组合视图。',
+  '根据 capability 的 description、effect 和 inputSchema 选择调用，不得从 metadata 推断未注册的操作。',
+  '多个 capability 都能满足请求时，选择效果范围最小且调用次数最少的方案。',
   '使用最少调用完成任务。不要提交、审批、支付、删除或调用未授权动作。',
   '无法完成时 calls 返回空数组并说明原因。',
   '返回格式：{"message":"","snapshotVersion":0,"calls":[{"capabilityId":"","input":{},"reason":""}]}。'

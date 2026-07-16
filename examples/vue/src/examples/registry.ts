@@ -6,6 +6,7 @@ import FocusViewDemo from './FocusViewDemo.vue';
 import expressFormCode from './text-to-form/ExpressForm.vue?raw';
 import aiExpressFormCodeRaw from './text-to-form/AiExpressForm.vue?raw';
 import focusViewDemoCodeRaw from './FocusViewDemo.vue?raw';
+import focusViewCapabilitiesCodeRaw from './focus/focus-view-capabilities.ts?raw';
 
 export type CodeBlock = {
   key: string;
@@ -194,11 +195,12 @@ export const demos: DemoSpec[] = [
     id: 'focus-view',
     title: 'K8s Focus View',
     status: '真实 API',
-    summary: '页面只负责渲染图表和响应 page focus state。全局助手读取 panel metadata 后，直接执行高亮、打开和组合视图。',
+    summary: 'Enchant 负责采集 panel metadata；Dashboard 在应用层注册高亮、详情和组合 capability，并拥有对应视图状态。',
     component: FocusViewDemo,
     codeBlocks: [
       { key: 'original', tab: '原组件', code: originalFocusViewCode, language: 'xml' },
       { key: 'component', tab: '接入组件', code: focusViewCode, language: 'xml', compareTo: 'original' },
+      { key: 'capabilities', tab: '页面能力', code: focusViewCapabilitiesCodeRaw, language: 'typescript' },
       { key: 'assistant', tab: '全局助手', code: assistantUsageCode('focus-view'), language: 'xml' }
     ]
   }

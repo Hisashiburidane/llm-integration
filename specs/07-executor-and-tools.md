@@ -2,9 +2,9 @@
 
 ## Principle
 
-Fields and components are not tools. They are context. Tools should remain generic and stable.
+Fields and components are not tools. They are context. Core defines a stable tool protocol, but executable tools only come from an active Core、Adapter or Application capability provider.
 
-Recommended tool set:
+Possible capability set:
 
 ```ts
 get_active_ui_context()
@@ -15,6 +15,8 @@ invoke_action(scopeId, actionId, args)
 navigate(target)
 run_executor_steps(steps)
 ```
+
+The list is not a mandatory Core tool catalog. `navigate` requires a router Adapter; business actions require an Application provider. Metadata alone must not generate any item in this list.
 
 ## Executor Step Model
 

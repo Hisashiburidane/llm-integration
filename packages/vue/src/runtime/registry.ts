@@ -64,6 +64,8 @@ function toTool(capability: EnchantCapability, enchantment: Enchantment): Enchan
     id: capability.id,
     capabilityId: capability.id,
     enchantmentId: enchantment.id,
+    owner: capability.owner,
+    provider: capability.provider,
     page: enchantment.page,
     name: capability.name,
     label: capability.label,

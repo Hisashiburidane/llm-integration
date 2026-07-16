@@ -4,15 +4,12 @@ import type {
   EnchantMetadataNode,
   EnchantTextMetadata
 } from './enchantment';
-import type { EnchantVisualController } from './visual';
 
 type FieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 export interface DomScanOptions {
   enchantmentId: string;
   scopeId: string;
-  page?: string;
-  visual: EnchantVisualController;
 }
 
 export interface DomScanResult {
@@ -25,17 +22,30 @@ function slugify(value: string) {
 }
 
 function fieldLabel(element: Element) {
-  const formItem = element.closest('.ant-form-item');
-  const formLabel = formItem?.querySelector('.ant-form-item-label label')?.textContent?.trim();
-  const explicitLabel = element.id
-    ? element.ownerDocument.querySelector(`label[for="${CSS.escape(element.id)}"]`)?.textContent?.trim()
-    : '';
-  return formLabel
-    || explicitLabel
+  const control = element as FieldElement;
+  const linkedLabel = control.labels?.[0]?.textContent?.trim();
+  const labelledBy = element.getAttribute('aria-labelledby')
+    ?.split(/\s+/)
+    .map((id) => element.ownerDocument.getElementById(id)?.textContent?.trim())
+    .filter(Boolean)
+    .join(' ');
+  return linkedLabel
+    || labelledBy
     || element.getAttribute('aria-label')?.trim()
+    || nearbyLabel(element)
     || element.getAttribute('placeholder')?.trim()
     || element.getAttribute('name')?.trim()
     || '未命名字段';
+}
+
+function nearbyLabel(element: Element) {
+  let container = element.parentElement;
+  for (let depth = 0; container && depth < 4; depth += 1, container = container.parentElement) {
+    const labels = container.querySelectorAll('label');
+    const controls = container.querySelectorAll('input:not([type="hidden"]), textarea, select');
+    if (labels.length === 1 && controls.length === 1) return labels[0].textContent?.trim();
+  }
+  return '';
 }
 
 function semanticType(element: FieldElement) {
@@ -116,61 +126,21 @@ export function scanDom(root: HTMLElement, options: DomScanOptions): DomScanResu
   const capabilities: EnchantCapability[] = [{
     id: `${options.enchantmentId}:read`,
     enchantmentId: options.enchantmentId,
+    owner: 'adapter',
+    provider: 'dom',
     name: 'scope.read',
     label: `读取 ${options.scopeId}`,
     description: '读取当前区域的结构化 metadata。',
     effect: 'read',
     execute: (_input, context) => context.enchantment.metadata
-  }, {
-    id: `${options.enchantmentId}:highlight`,
-    enchantmentId: options.enchantmentId,
-    name: 'scope.highlight',
-    label: `高亮 ${options.scopeId}`,
-    description: '在当前页面高亮这个区域。',
-    effect: 'visual',
-    execute: () => {
-      options.visual.highlight(options.page ?? 'current-page', options.scopeId);
-      return { status: 'success' as const, summary: `已高亮 ${options.scopeId}。` };
-    }
-  }, {
-    id: `${options.enchantmentId}:open`,
-    enchantmentId: options.enchantmentId,
-    name: 'scope.open',
-    label: `打开 ${options.scopeId}`,
-    description: '打开这个区域的只读详情视图。仅在用户明确要求打开、详情或放大时使用。',
-    effect: 'visual',
-    execute: () => {
-      options.visual.open(options.page ?? 'current-page', options.scopeId);
-      return { status: 'success' as const, summary: `已打开 ${options.scopeId}。` };
-    }
-  }, {
-    id: `${options.enchantmentId}:compose`,
-    enchantmentId: options.enchantmentId,
-    name: 'scope.compose',
-    label: `组合 ${options.scopeId}`,
-    description: '把这个区域加入组合视图。仅在用户明确要求组合或对比多个区域时使用。',
-    effect: 'visual',
-    execute: () => {
-      options.visual.compose(options.page ?? 'current-page', options.scopeId);
-      return { status: 'success' as const, summary: `已将 ${options.scopeId} 加入组合视图。` };
-    }
-  }, {
-    id: `${options.enchantmentId}:clear-visual`,
-    enchantmentId: options.enchantmentId,
-    name: 'scope.clearVisual',
-    label: `清除 ${options.page ?? '当前页面'} 的视觉状态`,
-    description: '清除当前页面由 Aura 产生的高亮、详情和组合视图状态。',
-    effect: 'visual',
-    execute: () => {
-      options.visual.clear(options.page ?? 'current-page');
-      return { status: 'success' as const, summary: '已清除当前页面的视觉状态。' };
-    }
   }];
 
   if (fields.length) {
     capabilities.push({
       id: `${options.enchantmentId}:focus-field`,
       enchantmentId: options.enchantmentId,
+      owner: 'adapter',
+      provider: 'dom',
       name: 'field.focus',
       label: `聚焦 ${options.scopeId} 的字段`,
       description: '根据 fieldId 聚焦当前区域内的一个字段。',
@@ -186,6 +156,8 @@ export function scanDom(root: HTMLElement, options: DomScanOptions): DomScanResu
     }, {
       id: `${options.enchantmentId}:fill-fields`,
       enchantmentId: options.enchantmentId,
+      owner: 'adapter',
+      provider: 'dom',
       name: 'field.fill',
       label: `填写 ${options.scopeId}`,
       description: '按字段 metadata id 批量填写当前区域；只形成草稿，不提交表单。',
@@ -252,5 +224,7 @@ function ownedText(root: HTMLElement) {
 }
 
 function formLabelConfidence(element: Element) {
-  return element.closest('.ant-form-item') || element.getAttribute('aria-label') ? 0.82 : 0.62;
+  const control = element as FieldElement;
+  if (control.labels?.length || element.getAttribute('aria-labelledby') || element.getAttribute('aria-label')) return 0.9;
+  return nearbyLabel(element) ? 0.76 : 0.62;
 }

@@ -16,7 +16,7 @@ import {
 } from 'vue';
 import { scanDom } from '../runtime/dom-adapter';
 import type {
-  EnchantCapability,
+  EnchantCapabilityDefinition,
   EnchantExposure,
   EnchantMetadataNode,
   EnchantRegistration,
@@ -53,7 +53,7 @@ const props = defineProps({
     default: () => []
   },
   capabilities: {
-    type: Array as PropType<EnchantCapability[]>,
+    type: Array as PropType<EnchantCapabilityDefinition[]>,
     default: () => []
   },
   exposure: {
@@ -138,7 +138,7 @@ function mergeMetadata(scanned: EnchantMetadataNode[], explicit: EnchantMetadata
 function capture() {
   if (!rootEl.value || !mounted.value) throw new Error(`Enchant ${enchantmentId} 尚未挂载。`);
   const scopeId = props.name || initialScopeId;
-  const scanned = scanDom(rootEl.value, { enchantmentId, scopeId, page: props.page, visual: forge.visual });
+  const scanned = scanDom(rootEl.value, { enchantmentId, scopeId });
   const metadata = mergeMetadata(scanned.metadata, normalizeMetadata(props.metadata, scopeId));
   const capabilities = [
     ...scanned.capabilities,

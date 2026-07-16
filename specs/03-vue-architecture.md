@@ -194,6 +194,6 @@ onUnmounted    -> unregister
 - DOM scanner
 - Ant Design Vue form adapter
 - field fill executor
-- visual executor
-- action executor
+- DOM visual adapter（聚焦、滚动、高亮）
+- application capability executor
 - debug hooks

@@ -28,7 +28,6 @@ import type {
 import type { LlmClientOptions } from './llm-client';
 import { evaluateEnchantPolicy, resolveEnchantPolicy, type EnchantPolicy } from './policy';
 import { createEnchantRegistry, type EnchantRegistry, type EnchantSnapshotOptions } from './registry';
-import { createEnchantVisualController, type EnchantVisualController } from './visual';
 
 export interface EnchantSnapshotConfig {
   autoCapture: boolean;
@@ -78,7 +77,6 @@ export type EnchantForge = Plugin & {
   readonly registry: EnchantRegistry;
   readonly policy: EnchantPolicy;
   readonly agent: EnchantAgent;
-  readonly visual: EnchantVisualController;
   readonly events: readonly EnchantTraceEvent[];
   readonly snapshots: readonly EnchantSnapshot[];
   readonly observationEnabled: Readonly<Ref<boolean>>;
@@ -151,7 +149,6 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const registry = createEnchantRegistry();
   const policy = resolveEnchantPolicy(options.policy);
   const agent = options.agent ?? createDefaultEnchantAgent(options.llm);
-  const visual = createEnchantVisualController();
   const events = shallowReactive<EnchantTraceEvent[]>([]);
   const retainedSnapshots = shallowReactive<EnchantSnapshot[]>([]);
   const observationEnabled = ref(Boolean(options.snapshots?.autoCapture));
@@ -355,7 +352,6 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     registry,
     policy,
     agent,
-    visual,
     get events() {
       return readonly(events) as unknown as readonly EnchantTraceEvent[];
     },

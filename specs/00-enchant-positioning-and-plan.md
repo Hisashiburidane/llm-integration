@@ -457,7 +457,7 @@ executor router 根据 capability 来源选择实现。应用可以覆盖 execut
 
 表单写入需要逐步覆盖类型转换、Vue `v-model`、change/blur 联动、字段校验和写入后确认。默认不触发表单提交。复杂性应由 runtime 或 adapter 吸收，不能转嫁到每个示例页面。
 
-高亮、聚焦、滚动、打开 panel 和组合 dashboard 属于 `visual` effect，应使用统一 capability，不在 Focus View 示例中维护独立模型协议。
+effect 只描述影响级别，不决定功能归属。DOM 高亮、聚焦和滚动可以由通用 Adapter 实现；打开 panel 和组合 dashboard 修改应用拥有的视图状态，必须由 Focus View 注册应用级 capability。两者复用统一 capability 协议、policy 和 trace，不复用业务 executor。
 
 ## 11. Tool、Skill 与 MCP 导出
 

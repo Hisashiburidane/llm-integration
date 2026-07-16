@@ -24,7 +24,7 @@ export interface LlmMetadataTreeNode {
   children?: LlmMetadataTreeNode[];
 }
 
-export type LlmPageToolAction = 'readScope' | 'focusField' | 'setFieldValue' | 'highlightScope' | 'openScope' | 'composeScope' | 'clearPageFocus';
+export type LlmPageToolAction = 'readScope' | 'focusField' | 'setFieldValue' | 'executeCapability';
 
 export interface LlmPageTool {
   id: string;
@@ -70,10 +70,8 @@ function toLegacyScope(enchantment: Enchantment): LlmScopeSnapshot {
 function actionFor(tool: EnchantTool): LlmPageToolAction {
   if (tool.name === 'field.focus') return 'focusField';
   if (tool.name === 'field.fill') return 'setFieldValue';
-  if (tool.name === 'scope.highlight') return 'highlightScope';
-  if (tool.name === 'scope.open') return 'openScope';
-  if (tool.name === 'scope.compose') return 'composeScope';
-  return 'readScope';
+  if (tool.name === 'scope.read') return 'readScope';
+  return 'executeCapability';
 }
 
 function toLegacyTool(tool: EnchantTool, scopes: Enchantment[]): LlmPageTool {
@@ -177,17 +175,6 @@ export function buildMetadataTree(scopes: LlmScopeSnapshot[], pageId = 'current-
       children: scope.metadata.map((node) => ({ id: node.id, label: node.label, type: 'metadata' }))
     }))
   };
-}
-
-export function buildToolsFromScopes(scopes: LlmScopeSnapshot[], pageId = 'current-page'): LlmPageTool[] {
-  return scopes.map((scope) => ({
-    id: `${scope.id}:read`,
-    page: scope.page ?? pageId,
-    scopeId: scope.id,
-    action: 'readScope',
-    label: `读取 ${scope.id}`,
-    description: '读取当前区域 metadata。'
-  }));
 }
 
 export function executePageTool(tool: LlmPageTool, value = '') {

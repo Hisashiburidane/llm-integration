@@ -29,13 +29,14 @@ export { createEnchantRegistry } from './runtime/registry';
 export type { EnchantRegistry, EnchantSnapshotOptions } from './runtime/registry';
 export { defaultEnchantPolicy, evaluateEnchantPolicy, resolveEnchantPolicy } from './runtime/policy';
 export type { EnchantPolicy, EnchantPolicyDecision } from './runtime/policy';
-export type { EnchantVisualController, EnchantVisualPageState } from './runtime/visual';
 export { defaultAuraProgressMessages, formatAuraProgress } from './runtime/presentation';
 export type { AuraActivityStep, AuraProgressContext, AuraProgressMessage, AuraProgressMessages } from './runtime/presentation';
 export type {
   CapabilityEffect,
   EnchantActionMetadata,
   EnchantCapability,
+  EnchantCapabilityDefinition,
+  EnchantCapabilityOwner,
   EnchantCapabilityResult,
   EnchantCaptureResult,
   EnchantChartMetadata,
@@ -69,7 +70,6 @@ export type {
 } from './runtime/enchantment';
 export {
   buildMetadataTree,
-  buildToolsFromScopes,
   clearScopeFieldHandles,
   executePageTool,
   getLlmScopeSnapshots,
@@ -79,7 +79,6 @@ export {
   useLlmScopeRegistry
 } from './runtime/scope';
 export type { LlmMetadataTreeNode, LlmPageTool, LlmScopeSnapshot, MetadataNode } from './runtime/scope';
-export { clearComposedPageScopes, clearPageFocus, closePageScope, composePageScope, highlightPageScope, openPageScope, usePageFocus } from './runtime/page-focus';
 export { createLlmClient, parseLlmJson } from './runtime/llm-client';
 export type { LlmClientOptions, LlmMessage, LlmResponse, LlmRunJsonOptions, LlmRunOptions } from './runtime/llm-client';
 export { clearLlmDebugEvents, pushLlmDebugEvent, useLlmDebugEvents } from './runtime/debug';

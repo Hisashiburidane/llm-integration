@@ -148,6 +148,20 @@ Desired direction:
 
 The runtime should build a bridge between unstructured input and structured UI state.
 
+### 9.1 Feature ownership
+
+All capability and executor changes must follow
+specs/11-feature-ownership-and-boundaries.md.
+
+- Core owns mechanisms.
+- Adapters own integration with stable technical contracts.
+- Applications own business meaning, state, and effects.
+- Examples do not define framework contracts.
+- Metadata may be inferred; executable effects require an explicit owner and provider.
+
+Do not move an example action into packages/vue only to make the example require
+less code. If a feature cannot identify its owner, it must not be added to Core.
+
 ## 10. Safety and Execution Principles
 
 This repository explores automation, but examples should default to safe boundaries.

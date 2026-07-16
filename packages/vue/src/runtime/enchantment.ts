@@ -1,6 +1,7 @@
 export type EnchantExposure = 'aura' | 'local' | 'private';
 
 export type CapabilityEffect = 'read' | 'visual' | 'draft' | 'commit';
+export type EnchantCapabilityOwner = 'core' | 'adapter' | 'application';
 
 export type MetadataSource = 'registered' | 'directive' | 'adapter' | 'dom';
 
@@ -141,6 +142,8 @@ export interface EnchantExecutionContext {
 export interface EnchantCapability<TResult = unknown> {
   id: string;
   enchantmentId: string;
+  owner: EnchantCapabilityOwner;
+  provider: string;
   name: string;
   label: string;
   description: string;
@@ -149,6 +152,9 @@ export interface EnchantCapability<TResult = unknown> {
   inputSchema?: JsonSchema;
   execute(input: unknown, context: EnchantExecutionContext): TResult | Promise<TResult>;
 }
+
+export type EnchantCapabilityDefinition<TResult = unknown> =
+  Omit<EnchantCapability<TResult>, 'enchantmentId'> & { enchantmentId?: string };
 
 export interface EnchantCaptureResult {
   enchantment: Enchantment;
@@ -169,6 +175,8 @@ export interface EnchantTool {
   id: string;
   capabilityId: string;
   enchantmentId: string;
+  owner: EnchantCapabilityOwner;
+  provider: string;
   page?: string;
   name: string;
   label: string;
