@@ -1,95 +1,89 @@
-﻿# 10. Micro App Integration
+# 10. 微应用集成
 
-## Goal
+## 1. 目标
 
-Support future integration with micro app systems such as qiankun without requiring first-stage implementation.
+为 qiankun 等微应用架构保留集成路径，但不纳入第一阶段实现。
 
-## Principle
+## 2. 原则
 
-Execution should happen where the component instance lives.
+executor 在组件实例所属应用中运行。主应用可以通过 Aura 协调任务，但不直接持有子应用组件实例，也不默认操作子应用 DOM。
 
-Main app may coordinate, but sub app should own its local registry and executor.
-
-## Architecture
+## 3. 架构
 
 ```text
 Main App
-  LlmProvider
-  GlobalAssistant
-  GlobalRegistry
-  BridgeClient
+  EnchantForge
+  Aura
+  Global scope summary
+  Bridge client
 
 Sub App
-  LlmProvider isolated
-  LocalRegistry
-  LlmIntegration scopes
-  LocalExecutor
-  BridgeServer
+  Isolated EnchantForge
+  Enchant components
+  Enchantment models
+  Local registry
+  Local executor
+  Bridge server
 ```
 
-## Message Flow
+子应用通常不创建独立 Aura，只向主应用发布经过过滤的摘要。需要完全隔离时，子应用可以运行自己的 Aura，并禁止主应用聚合。
 
-### Expose Metadata
+## 4. 消息流
+
+### 4.1 发布摘要
 
 ```text
 sub app -> main app
 {
-  type: 'llm:metadata:update',
+  type: 'enchantforge:metadata:update',
   appId,
-  scopes: sanitizedGlobalScopes
+  version,
+  enchantments: exposedSummaries
 }
 ```
 
-### Invoke Action
+### 4.2 调用能力
 
 ```text
 main app -> sub app
 {
-  type: 'llm:action:invoke',
+  type: 'enchantforge:capability:invoke',
   appId,
   scopeId,
-  actionId,
-  args,
+  capabilityId,
+  input,
+  snapshotVersion,
   requestId
 }
 ```
 
-### Action Result
+### 4.3 返回结果
 
 ```text
 sub app -> main app
 {
-  type: 'llm:action:result',
+  type: 'enchantforge:capability:result',
   requestId,
   ok,
   result,
-  warnings
+  warnings,
+  trace
 }
 ```
 
-## Visibility
+## 5. 权限边界
 
-Sub app controls what it exposes:
+- 子应用中的 Enchant 决定其 Enchantment 是否可以发布；
+- local/private metadata 不离开子应用；
+- 敏感字段在跨边界前删除或脱敏；
+- 子应用收到调用后重新执行本地 policy；
+- 主应用的计划不能覆盖子应用 policy；
+- snapshot version 不一致时拒绝执行或要求重新规划。
 
-- global scopes may be published to main app
-- local/private scopes stay inside sub app
-- sensitive values should be omitted or masked before crossing boundary
+## 6. 为什么由子应用执行
 
-## Why Sub App Executes
+子应用拥有 Vue 组件实例、表单 API、本地状态、权限、校验和路由细节。将执行保留在子应用中，可以维持版本隔离并避免主应用依赖内部 DOM。
 
-The sub app owns:
+## 7. 第一阶段边界
 
-- Vue component instances
-- form APIs
-- local state
-- permissions
-- validation
-- routing internals
-
-Therefore main app should not directly manipulate sub app DOM except as a last-resort fallback.
-
-## POC Status
-
-First implementation should not include full micro app bridge.
-
-Website can include architecture diagram and explain future support.
+第一阶段只保留 bridge 接口和消息模型，不实现完整通信层。网站可以展示架构方向，但不能把微应用支持列为当前已交付能力。

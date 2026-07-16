@@ -1,127 +1,141 @@
-# 06. Assistant UX
+# 06. Aura 交互
 
-## Assistant Types
+## 1. 定义
 
-### GlobalAssistant
+Aura 是当前有效 Enchantment 聚合后形成的全局智能交互层。Enchantment 由页面中的 Enchant 组件生成。Aura 不是“帮助开发者附魔的助手”，也不是一个通用聊天窗口。
 
-Persistent floating assistant registered under `LlmProvider`.
+Aura 的可用上下文来自：
 
-Use cases:
+- 当前挂载且允许全局暴露的 Enchantment；
+- Forge 提供的页面、路由和应用状态；
+- policy 允许读取的 metadata 和 capability；
+- 当前任务需要的 knowledge；
+- 本次会话和 execution trace。
 
-- receive ASR/AI pipeline events
-- suggest actions globally
-- coordinate global-visible scopes
-- restore semantic snapshots
-- run saved workflows
+## 2. 展示形态
 
-### LocalAssistant
+第一阶段默认使用 orb：
 
-Assistant inside or near an `LlmIntegration` scope.
-
-Use cases:
-
-- fill current form
-- explain local validation errors
-- summarize local component state
-- execute local-only actions
-
-## Visual Direction
-
-The assistant should feel helpful but not like a generic chat window.
-
-Recommended direction:
-
-- floating bubble
-- compact message panel
-- draggable
-- contextual prompt chips
-- subtle animation
-- optional modern cartoon/helper mascot for validation and onboarding examples
-
-The classic office helper/reference can be used as an inspiration, not copied literally.
-
-## Interaction Patterns
-
-### Suggestion Bubble
-
-Triggered by external or behavioral signal:
-
-```text
-我识别到用户正在描述维修问题。是否创建维修工单？
-[是，创建草稿] [不用]
+```vue
+<Aura appearance="orb" />
 ```
 
-### Form Fill Panel
+接入自定义 agent 时，`agent` 是标准属性，`caster` 是等价别名：
 
-User pastes text. Assistant shows extracted mapping before or during fill:
-
-```text
-收件人 -> 张三
-手机号 -> 12233322112
-地址 -> 广东揭阳...
-物品 -> 手机 / 数码产品
+```vue
+<Aura :caster="agent" appearance="orb" />
 ```
 
-Uncertain fields should be highlighted.
+两者同时存在时使用 agent。Aura 内部只保存一个归一化后的 agent 引用，caster 不改变 agent protocol。
 
-### Validation Help
+orb 负责：
 
-Triggered by validation failure:
+- 以悬浮入口常驻；
+- 支持拖动和位置记忆；
+- 显示未读、运行中和需要确认等状态；
+- 展开输入和消息面板；
+- 收起后不遮挡主要业务区域。
+
+orb 是 Aura 的 presentation。未来增加 dock、drawer 或 inline 时，metadata、planner 和 executor 不发生变化。
+
+## 3. 交互来源
+
+Aura 可以由以下事件触发：
+
+- 用户输入自然语言；
+- ASR 或其他 AI pipeline 传入文本；
+- 应用显式发送业务事件；
+- 连续校验失败；
+- 长时间反复滚动但未完成操作；
+- capability 或页面状态发生需要提示的变化。
+
+行为识别必须由应用或独立规则提供信号。Aura 不在第一阶段内置通用用户行为推断系统。
+
+## 4. 核心交互
+
+### 4.1 主动建议
 
 ```text
-我发现 3 个字段导致提交失败：手机号格式不正确、地址缺少门牌号、物品类型未选择。
+检测到当前通话正在描述漏水问题。
+是否根据已识别信息创建维修工单草稿？
+
+[创建草稿] [忽略]
 ```
 
-Actions:
+### 4.2 文本填表
 
-- highlight fields
-- focus first error
-- suggest fix
+```text
+收件人      张三
+手机号      12233322112
+省市区      广东省 / 揭阳市 / 榕城区
+详细地址    XX街道23号楼902
+物品        手机
+```
 
-### Visible Execution
+字段映射和页面写入应直接可见；不确定字段需要高亮并等待确认。默认停止在草稿状态。
 
-For workflows and snapshots, execution should be visible step by step:
+### 4.3 校验解释
+
+```text
+当前有 3 个字段未通过校验：
+手机号格式不正确
+详细地址缺少门牌号
+物品类型未选择
+```
+
+可执行动作包括高亮全部错误、定位第一个错误和根据用户输入修正字段。
+
+### 4.4 可视化执行
 
 ```text
 1. 打开维修工单页面
-2. 填写联系人
-3. 填写地址
-4. 高亮待确认字段
+2. 填写联系人和联系电话
+3. 设置故障地址
+4. 生成故障描述草稿
+5. 等待用户确认
 ```
 
-This creates the desired autonomous UI feeling without performing unsafe submission.
+步骤展示来自统一 execution trace，不能由示例页面维护另一套动画计划。
 
-## Prompt Chips
+## 5. 快捷建议
 
-Prompt chips should be generated from current scope and scenario, not static only.
+快捷建议根据当前 snapshot 和 capability 动态生成，不维护覆盖全部页面的固定列表。
 
-Examples:
+示例：
 
-- 填写当前表单
-- 解释提交失败原因
-- 创建维修工单草稿
-- 恢复分享视图
-- 保存为快捷命令
+- 填写当前表单；
+- 解释提交失败原因；
+- 高亮内存相关图表；
+- 创建维修工单草稿；
+- 恢复分享视图。
 
-## Confirmations
+## 6. 确认边界
 
-Default behavior:
+| effect | 默认交互 |
+| --- | --- |
+| `read` | 可直接执行 |
+| `visual` | 可直接执行并展示结果 |
+| `draft` | 可执行，但必须形成可检查的中间状态 |
+| `commit` | 默认禁用；启用后仍由 policy 决定是否确认 |
 
-- Fill draft: no confirmation needed, but visible.
-- Save local workflow: confirmation needed.
-- Export: confirmation needed.
-- Submit/delete/payment/approval: disabled unless explicitly registered and policy allows.
+Prompt 中的“不要提交”用于约束模型计划，executor policy 才是实际权限边界。
 
-## Assistant State
+## 7. 状态反馈
 
-Assistant should show:
+Aura 至少展示：
 
-- current scope name
-- whether it is using local or global context
-- current execution step when running workflow
-- uncertainty warnings
-- action results
+- 当前使用的页面和 Enchantment 范围；
+- 是否仅使用局部上下文；
+- 当前计划和执行步骤；
+- 等待用户确认的参数；
+- 不确定字段和失败原因；
+- 最终 action result。
 
-## Non-goal
+调试信息不在默认面板展开。metadata tree、tools、原始模型请求和完整 trace 进入独立 debug drawer。
 
-The assistant should not be positioned as a generic Q&A chatbot. It should be a UI interaction layer.
+## 8. 非目标
+
+- 不把 Aura 设计成通用问答聊天窗口；
+- 不暗示 Aura 可以读取未注册页面或绕过 policy；
+- 不把 orb 形态扩展成独立的吉祥物系统；
+- 不通过复杂动效掩盖不可审计的执行过程。

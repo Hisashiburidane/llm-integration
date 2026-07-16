@@ -9,9 +9,9 @@ Progressive scanning lowers adoption cost. A page should become partially AI-cap
 ### Level 1: Wrapper DOM Scan
 
 ```vue
-<LlmIntegration title="寄快递">
+<Enchant name="寄快递">
   <ExistingForm />
-</LlmIntegration>
+</Enchant>
 ```
 
 Scanner extracts:
@@ -30,7 +30,7 @@ Scanner extracts:
 ### Level 2: Directive Hints
 
 ```vue
-<a-input v-llm-field="{ type: 'phone', aliases: ['手机号', '电话'] }" />
+<a-input v-enchant-field="{ type: 'phone', aliases: ['手机号', '电话'] }" />
 ```
 
 Hints improve mapping accuracy without replacing existing form logic.
@@ -127,7 +127,7 @@ Implementation options:
 Developers must be able to exclude regions:
 
 ```vue
-<div v-llm-ignore>
+<div v-enchant-ignore>
   sensitive content
 </div>
 ```
