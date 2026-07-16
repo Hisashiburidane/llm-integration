@@ -1,48 +1,117 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import hljs from 'highlight.js/lib/core';
-import javascript from 'highlight.js/lib/languages/javascript';
-import typescript from 'highlight.js/lib/languages/typescript';
-import xml from 'highlight.js/lib/languages/xml';
-import json from 'highlight.js/lib/languages/json';
+import { computed, ref } from 'vue';
+import { VueMonacoDiffEditor, VueMonacoEditor } from '@guolao/vue-monaco-editor';
 import type { CodeBlock } from './registry';
-
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('typescript', typescript);
-hljs.registerLanguage('xml', xml);
-hljs.registerLanguage('json', json);
 
 const props = defineProps<{
   blocks: CodeBlock[];
 }>();
 
-const highlightedBlocks = computed(() => props.blocks.map((block) => ({
-  ...block,
-  highlighted: hljs.highlight(block.code, {
-    language: block.language ?? (block.code.trimStart().startsWith('<') ? 'xml' : 'typescript')
-  }).value
-})));
+const displayMode = ref<Record<string, 'code' | 'diff'>>({});
+
+const editorOptions = {
+  readOnly: true,
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  automaticLayout: true,
+  wordWrap: 'off' as const,
+  renderWhitespace: 'selection' as const,
+  lineNumbersMinChars: 3,
+  padding: { top: 16, bottom: 16 },
+  fontSize: 12,
+  fontFamily: 'IBM Plex Mono, SFMono-Regular, Consolas, monospace'
+};
+
+const diffOptions = {
+  readOnly: true,
+  renderSideBySide: false,
+  originalEditable: false,
+  minimap: { enabled: false },
+  scrollBeyondLastLine: false,
+  automaticLayout: true,
+  wordWrap: 'off' as const,
+  lineNumbersMinChars: 3,
+  padding: { top: 16, bottom: 16 }
+};
+
+const blockMap = computed(() => new Map(props.blocks.map((block) => [block.key, block])));
+
+function languageOf(block: CodeBlock) {
+  return block.language ?? (block.code.trimStart().startsWith('<') ? 'xml' : 'typescript');
+}
+
+function editorHeight(code: string, lineHeight = 22, min = 220, max = 860) {
+  const lines = code.split('\n').length;
+  return `${Math.min(max, Math.max(min, lines * lineHeight + 48))}px`;
+}
+
+function compareBlock(block: CodeBlock) {
+  return block.compareTo ? blockMap.value.get(block.compareTo) : undefined;
+}
+
+function modeFor(block: CodeBlock) {
+  return displayMode.value[block.key] ?? 'code';
+}
+
+function handleModeChange(blockKey: string, value: string | number) {
+  displayMode.value = { ...displayMode.value, [blockKey]: value as 'code' | 'diff' };
+}
 </script>
 
 <template>
   <a-card title="代码" size="small" class="demo-card code-examples-card">
     <a-tabs>
-      <a-tab-pane v-for="block in highlightedBlocks" :key="block.key" :tab="block.tab">
-        <pre><code class="hljs" v-html="block.highlighted"></code></pre>
+      <a-tab-pane v-for="block in blocks" :key="block.key" :tab="block.tab">
+        <div v-if="compareBlock(block)" class="code-toolbar">
+          <a-segmented
+            :value="modeFor(block)"
+            :options="[
+              { label: '源码', value: 'code' },
+              { label: 'Diff', value: 'diff' }
+            ]"
+            @change="handleModeChange(block.key, $event)"
+          />
+        </div>
+
+        <VueMonacoEditor
+          v-if="!compareBlock(block) || modeFor(block) === 'code'"
+          :value="block.code"
+          :language="languageOf(block)"
+          theme="vs"
+          :options="editorOptions"
+          :height="editorHeight(block.code)"
+        />
+
+        <VueMonacoDiffEditor
+          v-else
+          :original="compareBlock(block)?.code ?? ''"
+          :modified="block.code"
+          :language="languageOf(block)"
+          theme="vs"
+          :options="diffOptions"
+          :height="editorHeight(block.code + '\n' + (compareBlock(block)?.code ?? ''), 18, 320, 920)"
+        />
       </a-tab-pane>
     </a-tabs>
   </a-card>
 </template>
 
 <style scoped>
-pre { position: relative; margin: 0; border: 1px solid #d8d9da; border-radius: 4px; background: #f7f8fa; }
-pre::before { position: absolute; top: 11px; right: 13px; color: #9a9ca5; content: 'CODE'; font: 700 9px/1 monospace; letter-spacing: .12em; }
-.hljs { display: block; padding: 20px; overflow-x: auto; color: #24292e; background: transparent; font: 12px/1.7 "IBM Plex Mono", "SFMono-Regular", Consolas, monospace; }
-:deep(.hljs-comment), :deep(.hljs-quote) { color: #6a737d; font-style: italic; }
-:deep(.hljs-keyword), :deep(.hljs-selector-tag), :deep(.hljs-subst) { color: #d73a49; }
-:deep(.hljs-string), :deep(.hljs-doctag), :deep(.hljs-regexp) { color: #032f62; }
-:deep(.hljs-title), :deep(.hljs-section), :deep(.hljs-selector-id) { color: #6f42c1; font-weight: 600; }
-:deep(.hljs-type), :deep(.hljs-class .hljs-title), :deep(.hljs-tag), :deep(.hljs-name), :deep(.hljs-attribute) { color: #22863a; }
-:deep(.hljs-number), :deep(.hljs-literal), :deep(.hljs-variable), :deep(.hljs-template-variable) { color: #005cc5; }
-:deep(.hljs-built_in), :deep(.hljs-builtin-name), :deep(.hljs-meta) { color: #e36209; }
+.code-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+:deep(.monaco-editor),
+:deep(.monaco-diff-editor),
+:deep(.monaco-editor .margin),
+:deep(.monaco-diff-editor .margin) {
+  background: #f7f8fa !important;
+}
+:deep(.monaco-editor),
+:deep(.monaco-diff-editor) {
+  border: 1px solid #d8d9da;
+  border-radius: 4px;
+  overflow: hidden;
+}
 </style>

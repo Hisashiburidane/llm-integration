@@ -121,7 +121,7 @@ onAgentCall(request, response)
 onSnapshot(snapshot)
 ```
 
-trace 记录模型看到的 snapshot 版本、生成的计划、policy 决策、executor 结果和状态变化。敏感值按相同 value policy 脱敏。
+trace 记录模型看到的 snapshot id/version 摘要、生成的计划、policy 决策、executor 结果和状态变化。默认不保留完整 snapshot；只有显式 retention 配置或 debug 插件可以保存经过相同 value policy 脱敏的 snapshot。
 
 ## 10. DOM fallback
 

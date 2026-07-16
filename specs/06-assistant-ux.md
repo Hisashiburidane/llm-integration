@@ -38,6 +38,8 @@ orb 负责：
 
 orb 是 Aura 的 presentation。未来增加 dock、drawer 或 inline 时，metadata、planner 和 executor 不发生变化。
 
+默认 orb 是圆形水晶球入口，不显示横向产品名称。位置使用独立 anchor 持久化；聊天面板从 anchor 向左上方展开，关闭后 orb 必须回到原 anchor。用户可以通过 `orb` component 或 `#orb` slot 替换视觉实现，拖动、定位和点击行为仍由 Aura 管理。
+
 ## 3. 交互来源
 
 Aura 可以由以下事件触发：
@@ -95,7 +97,9 @@ Aura 可以由以下事件触发：
 5. 等待用户确认
 ```
 
-步骤展示来自统一 execution trace，不能由示例页面维护另一套动画计划。
+步骤展示来自统一 execution progress event，不能由示例页面维护另一套动画计划，也不伪造模型思维链。基础阶段为 capture、planning、authorizing、executing、completed/failed；capability 可以通过 execution context 上报真实子步骤。
+
+进度文案由 runtime phase 映射，不由 LLM 临时生成。Aura 提供 `progressMessages` 配置和 `#progress` slot，允许应用替换为领域或主题文案。最终助手消息必须使用 executor 结果兜底，不能渲染空消息。
 
 ## 5. 快捷建议
 

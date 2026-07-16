@@ -1,5 +1,5 @@
 {
-  "name": "@llm-ui/vue-examples",
+  "name": "@enchantforge/vue-examples",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",
-    "@llm-ui/vue": "workspace:*",
+    "@guolao/vue-monaco-editor": "^1.6.0",
+    "@enchantforge/vue": "workspace:*",
     "ant-design-vue": "^4.2.6",
     "ant-design-x-vue": "^1.6.0",
     "echarts": "^6.1.0",
     "highlight.js": "^11.11.1",
+    "monaco-editor": "^0.55.1",
     "vue": "^3.5.13",
     "vue-echarts": "^8.0.1"
   },

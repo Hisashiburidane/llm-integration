@@ -106,7 +106,7 @@ element.dispatchEvent(new Event('blur', { bubbles: true }));
 
 ## Refresh Strategy
 
-Metadata must update when:
+默认策略是 invocation-time capture。以下变化不会在默认配置下立即扫描 DOM，而是在下一次 agent 调用或显式 capture 时反映：
 
 - scope mounts/unmounts
 - form fields appear/disappear
@@ -115,12 +115,14 @@ Metadata must update when:
 - tab changes
 - disabled state changes
 
-Implementation options:
+主动观察只在 `snapshots.autoCapture` 或 Enchant debug 插件启用时开启。实现选项：
 
 - Vue lifecycle hooks
 - MutationObserver within scope root
 - debounced refresh
 - explicit `scope.refresh()`
+
+父 Enchant 扫描时必须跳过嵌套的 `[data-enchant]` 边界。每个边界只拥有自己的 DOM，避免同一字段被页面、表单和字段级 wrapper 重复采集。
 
 ## Ignore Rules
 

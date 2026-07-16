@@ -1,15 +1,15 @@
 {
-  "name": "@llm-ui/vue",
+  "name": "@enchantforge/vue",
   "version": "0.1.0",
   "type": "module",
   "files": ["dist"],
-  "main": "./dist/llm-ui-vue.js",
-  "module": "./dist/llm-ui-vue.js",
+  "main": "./dist/enchantforge-vue.js",
+  "module": "./dist/enchantforge-vue.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/llm-ui-vue.js"
+      "import": "./dist/enchantforge-vue.js"
     }
   },
   "scripts": {

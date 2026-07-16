@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { examplesUrl } from '../urls';
 
-const installCode = `import { LlmIntegration } from '@llm-ui/vue'
+const installCode = `import { Enchant } from '@enchantforge/vue'
 
-<LlmIntegration name="shipping-form">
+<Enchant name="shipping-form">
   <ExpressForm />
-</LlmIntegration>`;
+</Enchant>`;
 
 const directiveCode = `<a-input
-  v-llm-field="{
+  v-enchant-field="{
     type: 'phone',
     aliases: ['phone', 'mobile', 'contact phone']
   }"
@@ -31,18 +31,18 @@ const principles = [
 ];
 
 const levels = [
-  { name: 'scan', title: 'Wrapper scan', api: '<LlmIntegration>', notes: ['scope boundary', 'DOM labels', 'inputs', 'buttons', 'regions'] },
-  { name: 'hint', title: 'Directive hints', api: 'v-llm-field / v-llm-action', notes: ['semantic type', 'aliases', 'examples', 'risk'] },
+  { name: 'scan', title: 'Wrapper scan', api: '<Enchant>', notes: ['scope boundary', 'DOM labels', 'inputs', 'buttons', 'regions'] },
+  { name: 'hint', title: 'Directive hints', api: 'v-enchant-field / v-enchant-action', notes: ['semantic type', 'aliases', 'examples', 'risk'] },
   { name: 'register', title: 'Registered APIs', api: 'registerField / registerAction', notes: ['controlled state', 'validation', 'form API', 'stable execution'] },
   { name: 'reuse', title: 'Executor reuse', api: 'workflow / snapshot', notes: ['saved steps', 'visible replay', 'localStorage POC', 'future backend'] }
 ];
 
 const architecture = [
-  ['LlmProvider', 'client, policy, registry, assistant runtime'],
-  ['LlmIntegration', 'scope lifecycle, scan, local metadata tree'],
+  ['EnchantForge', 'client, policy, registry, agent runtime'],
+  ['Enchant', 'lifecycle, scan, local Enchantment'],
   ['Directives', 'field/action hints without replacing components'],
   ['Executor', 'fill, focus, highlight, invoke, replay'],
-  ['Assistant', 'global or local UI entry for the same runtime']
+  ['Aura', 'application-level interaction over active Enchantments']
 ];
 
 </script>

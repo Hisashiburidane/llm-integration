@@ -41,8 +41,8 @@ Forge 负责：
 
 - 创建与 Vue app 绑定的 registry；
 - 提供模型客户端、policy、adapter 和 exporter；
-- 聚合当前挂载的 Enchantment；
-- 生成 metadata snapshot 和 capability index；
+- 聚合当前挂载的 Enchant registration；
+- 按需 capture Enchantment、metadata snapshot 和 capability index；
 - 协调 Aura 请求和 executor；
 - 发布 trace、snapshot 和审计事件。
 
@@ -64,10 +64,10 @@ Forge 是公共产品概念；底层实现仍可使用 runtime、registry、stor
 - 自动识别字段、动作、区域和状态；
 - 接收 prompt/spell、metadata 和 knowledge 补充；
 - 随 Vue 生命周期注册、刷新和注销；
-- 生成并持续更新 Enchantment 数据模型；
+- 注册惰性 capture source，默认不持续扫描 DOM 或维护完整 Enchantment 副本；
 - 根据 exposure 和 policy 决定是否加入 Aura。
 
-`Enchantment` 是 Enchant 生成的数据模型，不是 Vue 组件。它包含实例标识、metadata tree、capability、exposure、实时状态和来源。Enchant 对外隐藏 scope、registry 和 tool schema；内部可以把每个 Enchant 实例映射为 runtime scope，并由该 scope 持有一个 Enchantment。
+`Enchantment` 是一次 capture 生成的数据模型，不是 Vue 组件，也不是 registry 中持续维护的 store。registry 保存 registration、生命周期状态和 capture 函数；agent 调用时才解析当前 DOM、响应式 state 和 capability。
 
 `prompt` 是标准属性，`spell` 是等价别名。两者同时存在时使用 prompt；runtime 只保存归一化后的 instruction，不在 Enchantment 中保留两份配置。
 
@@ -97,11 +97,11 @@ type Exposure = 'aura' | 'local' | 'private'
 职责：
 
 - 接收自然语言和外部 AI/ASR 事件；
-- 读取当前 snapshot，而不是预加载全部页面详情；
+- 常驻时只读取轻量 registry digest，执行前按需生成当前 snapshot；
 - 根据 capability 生成结构化计划；
 - 调用 policy 和 executor；
 - 展示计划确认、执行进度和结果；
-- 在路由和组件生命周期变化后使用新 snapshot。
+- 在路由和组件生命周期变化后，下次执行自动 capture 新 snapshot。
 
 `appearance="orb"` 是第一阶段默认的可拖动悬浮入口。Aura 的语义能力不依赖 orb；后续可以增加 dock 或 inline 形态。
 
@@ -168,14 +168,13 @@ useEnchantState()
 ## 8. 生命周期
 
 ```text
-onMounted      -> scan and register
-onUpdated      -> schedule metadata refresh
-onActivated    -> mark active and refresh
+onMounted      -> register capture source
+onActivated    -> mark active
 onDeactivated  -> mark inactive
 onUnmounted    -> unregister
 ```
 
-动态 DOM 扫描需要 debounce，但 registry 事件必须可观测。模型调用使用带版本号的 snapshot；执行旧计划前需要确认目标仍属于当前 registry。
+默认不在 `onUpdated` 中扫描 DOM。模型调用、显式 capture、自动 snapshot 配置或 debug 插件才触发扫描。自动观察开启时，DOM 和 state 变化只产生 invalidate 信号，并经过 debounce 后 capture。模型调用使用带版本号的临时 snapshot；执行前需要确认目标仍属于当前 registry。
 
 ## 9. Metadata 提取顺序
 

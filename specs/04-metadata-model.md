@@ -15,12 +15,13 @@ interface Enchantment {
   kind: 'page' | 'form' | 'table' | 'chart' | 'panel' | 'dialog' | 'custom'
   exposure: 'aura' | 'local' | 'private'
   instruction?: string
-  state: {
+  status: {
     alive: boolean
     active: boolean
     visible: boolean
     enabled: boolean
   }
+  state?: unknown
   route?: string
   tags?: string[]
   metadata: EnchantMetadataNode[]
@@ -187,15 +188,14 @@ redaction 在 snapshot 和 exporter 之前执行，不能只依赖 Prompt 要求
 
 ## 11. 局部模型与应用 registry
 
-每个 Enchant 实例拥有一个 Enchantment。只有 exposure 为 `aura` 且通过 policy 的 Enchantment 才发布到应用 registry。
+每个 Enchant 实例向 registry 发布一个 `EnchantRegistration`。Enchantment 仅在 capture 时生成。只有 exposure 为 `aura` 且通过 policy 的 capture 结果才进入 Aura 使用的临时 snapshot。
 
 registry 维护：
 
-- Enchantment 父子关系；
-- metadata tree；
-- metadata node 扁平索引；
+- registration 父子关系；
+- capture 函数和轻量生命周期 status；
 - capability index；
 - snapshot version；
 - lifecycle 和 policy 状态。
 
-Aura 使用经过过滤的 snapshot，不直接遍历 DOM。local/private Enchantment 不会因 Aura 挂载而自动提升暴露范围。
+registry 默认不保存 metadata tree 或完整 snapshot。Aura 常驻时读取 registry digest；执行时使用经过过滤的临时 snapshot，不直接遍历 DOM。local/private registration 不会因 Aura 挂载而自动提升暴露范围。

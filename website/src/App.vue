@@ -8,7 +8,7 @@ import { examplesUrl } from './urls';
     <header class="nav">
       <a class="brand" href="#top" aria-label="home">
         <span class="brand-glyph">λ</span>
-        <span>llm-ui/vue</span>
+        <span>EnchantForge</span>
       </a>
       <nav>
         <a href="#top">Home</a>

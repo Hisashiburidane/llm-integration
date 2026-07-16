@@ -8,7 +8,7 @@ const portalUrl = import.meta.env.VITE_PORTAL_URL
 <template>
   <main class="site">
     <header class="nav">
-      <a class="brand" :href="portalUrl"><span class="brand-glyph">lambda</span><span>llm-ui/vue</span></a>
+      <a class="brand" :href="portalUrl"><span class="brand-glyph">lambda</span><span>EnchantForge</span></a>
       <nav><a :href="portalUrl">Portal</a><strong>Examples</strong></nav>
     </header>
     <ExamplesView />

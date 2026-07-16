@@ -18,6 +18,7 @@ EnchantForge 对模型能力采取保守假设：模型可以解释、规划和�
 7. [Executor 与 Tools](./07-executor-and-tools.md)
 8. [Workflow 与语义快照](./08-workflow-and-snapshot.md)
 9. [安全与 Policy](./09-safety-and-policy.md)
+10. [运行时 Capture、Snapshot 与 Debug](./10-runtime-capture-and-debug.md)
 10. [微应用集成](./10-micro-app-integration.md)
 
 ## 非目标

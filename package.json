@@ -3,13 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "pnpm build:lib && pnpm --parallel --filter @llm-ui/website --filter @llm-ui/vue-examples dev",
-    "dev:examples": "pnpm build:lib && pnpm --filter @llm-ui/vue-examples dev",
+    "dev": "pnpm build:lib && pnpm --parallel --filter @enchantforge/website --filter @enchantforge/vue-examples dev",
+    "dev:examples": "pnpm build:lib && pnpm --filter @enchantforge/vue-examples dev",
     "dev:react-example": "pnpm --filter llm-integration-dashboard-demo dev",
     "build": "pnpm -r build",
-    "build:lib": "pnpm --filter @llm-ui/vue build",
+    "build:lib": "pnpm --filter @enchantforge/vue build",
     "build:examples": "pnpm --filter './examples/**' build",
-    "build:website": "pnpm --filter @llm-ui/website build"
+    "build:website": "pnpm --filter @enchantforge/website build"
   },
   "packageManager": "pnpm@9.15.0"
 }

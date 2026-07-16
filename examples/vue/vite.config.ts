@@ -1,8 +1,10 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, new URL('.', import.meta.url).pathname, 'LLM_');
+  const envDir = fileURLToPath(new URL('.', import.meta.url));
+  const env = loadEnv(mode, envDir, 'LLM_');
   const baseUrl = env.LLM_BASE_URL?.trim();
   const model = env.LLM_MODEL?.trim();
   let target = 'http://127.0.0.1:9';
@@ -22,6 +24,11 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/examples/',
     plugins: [vue()],
+    resolve: {
+      alias: {
+        '@enchantforge/vue': fileURLToPath(new URL('../../packages/vue/src/index.ts', import.meta.url))
+      }
+    },
     define: {
       __LLM_MODEL__: JSON.stringify(model ?? ''),
       __LLM_CONFIG_ERROR__: JSON.stringify(configError)

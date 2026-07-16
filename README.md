@@ -2,6 +2,8 @@
 
 Progressive AI interaction experiments organized as a pnpm workspace.
 
+See `AGENTS.md` for project-level instructions for coding agents.
+
 ## Projects
 
 - `packages/vue`: publishable Vue integration library (`@llm-ui/vue`)

@@ -7,7 +7,7 @@ export default defineConfig({
     lib: {
       entry: 'src/index.ts',
       formats: ['es'],
-      fileName: 'llm-ui-vue'
+      fileName: 'enchantforge-vue'
     },
     rollupOptions: {
       external: ['vue']

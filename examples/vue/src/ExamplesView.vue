@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue';
+import { Aura } from '@enchantforge/vue';
+import ExampleDebugPanel from './examples/ExampleDebugPanel.vue';
+import CodeTabs from './examples/CodeTabs.vue';
 import { demos } from './examples/registry';
 
 const requestedId = window.location.hash.slice(1);
 const activeId = ref(demos.some((demo) => demo.id === requestedId) ? requestedId : demos[0].id);
 const active = computed(() => demos.find((demo) => demo.id === activeId.value) ?? demos[0]);
+const debugOpen = ref(false);
 
 function selectDemo(id: string) {
   activeId.value = id;
@@ -45,9 +49,19 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash));
         <template #tags>
           <a-tag :color="active.status === 'TODO' ? 'orange' : 'green'">{{ active.status }}</a-tag>
         </template>
+        <template #extra>
+          <a-button type="default" size="small" @click="debugOpen = true">调试信息</a-button>
+        </template>
       </a-page-header>
 
       <component :is="active.component" :demo="active" />
+      <CodeTabs :blocks="active.codeBlocks" />
     </article>
+
+    <a-drawer :open="debugOpen" title="运行时调试信息" width="min(720px, 92vw)" @close="debugOpen = false">
+      <ExampleDebugPanel :page-id="active.id" />
+    </a-drawer>
+
+    <Aura :page="active.id" />
   </section>
 </template>

@@ -3,7 +3,17 @@ import TextToFormDemo from './TextToFormDemo.vue';
 import TodoDemo from './TodoDemo.vue';
 import FocusViewDemo from './FocusViewDemo.vue';
 
-export type CodeBlock = { key: string; tab: string; code: string; language?: 'typescript' | 'javascript' | 'xml' | 'json' };
+import expressFormCode from './text-to-form/ExpressForm.vue?raw';
+import aiExpressFormCodeRaw from './text-to-form/AiExpressForm.vue?raw';
+import focusViewDemoCodeRaw from './FocusViewDemo.vue?raw';
+
+export type CodeBlock = {
+  key: string;
+  tab: string;
+  code: string;
+  language?: 'typescript' | 'javascript' | 'xml' | 'json';
+  compareTo?: string;
+};
 
 export type DemoSpec = {
   id: string;
@@ -14,69 +24,142 @@ export type DemoSpec = {
   codeBlocks: CodeBlock[];
 };
 
-const originalFormCode = `<script setup lang="ts">
-const form = reactive({
-  receiverName: '',
-  receiverPhone: '',
-  receiverAddress: ''
+function stripVueStyleBlock(code: string) {
+  return code.replace(/\n<style[\s\S]*?<\/style>\s*$/i, '').trimEnd();
+}
+
+function assistantUsageCode(page: string) {
+  return `<script setup lang="ts">
+import { Aura } from '@enchantforge/vue';
+</script>
+
+<template>
+  <Aura page="${page}" />
+</template>`;
+}
+
+const forgeSetupCode = `import { createApp } from 'vue';
+import Antd from 'ant-design-vue';
+import { createEnchantDebug, createEnchantForge } from '@enchantforge/vue';
+import App from './App.vue';
+
+const forge = createEnchantForge({
+  llm: {
+    model: __LLM_MODEL__,
+    configError: __LLM_CONFIG_ERROR__
+      ? \`\${__LLM_CONFIG_ERROR__}，请检查 examples/vue/.env。\`
+      : ''
+  }
 });
+
+forge.use(createEnchantDebug());
+
+createApp(App).use(Antd).use(forge).mount('#app');`;
+
+const aiExpressFormCode = stripVueStyleBlock(aiExpressFormCodeRaw);
+const focusViewCode = stripVueStyleBlock(focusViewDemoCodeRaw);
+
+const originalTextToFormPageCode = `<script setup lang="ts">
+import ExpressForm from './ExpressForm.vue';
+import { shippingFormState } from './shippingFormStore';
 </script>
 
 <template>
-  <ExpressForm v-model="form" />
+  <a-card title="快递表单" size="small" class="demo-card">
+    <ExpressForm v-model="shippingFormState" />
+  </a-card>
 </template>`;
 
-const originalDashboardCode = `<template>
-  <section class="dashboard">
-    <MetricPanel v-for="panel in panels" :key="panel.id" :panel="panel" />
-  </section>
-</template>`;
+const originalFocusViewCode = `<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { k8sPanels, panelGroups, type K8sPanel } from './focus/k8sDashboard';
+import EChart from './focus/EChart.vue';
 
-const integratedDashboardCode = `<script setup lang="ts">
-import { LlmIntegration, useLlmScopeRegistry } from '@llm-ui/vue';
+const highlightedIds = ref<string[]>([]);
+const activePanelId = ref('');
+const composedPanelIds = ref<string[]>([]);
 
-const panelScopes = useLlmScopeRegistry();
+const activePanel = computed(() => k8sPanels.find((panel) => panel.id === activePanelId.value));
+const composedPanels = computed(() =>
+  composedPanelIds.value
+    .map((id) => k8sPanels.find((panel) => panel.id === id))
+    .filter((panel): panel is K8sPanel => Boolean(panel))
+);
 
-async function ask(question: string) {
-  const plan = await focusAssistant.plan(question, panelScopes.value);
-  await executeDashboardActions(plan.actions);
+function latestValue(panel: K8sPanel) {
+  return panel.values[panel.values.length - 1];
+}
+
+function openPanel(panelId: string) {
+  activePanelId.value = panelId;
+}
+
+function closeDetail() {
+  activePanelId.value = '';
+}
+
+function clearComposed() {
+  composedPanelIds.value = [];
 }
 </script>
 
 <template>
-  <LlmIntegration
-    v-for="panel in panels"
-    :key="panel.id"
-    :name="panel.id"
-    :metadata="panel.metadata"
-  >
-    <MetricPanel :panel="panel" />
-  </LlmIntegration>
-  <FocusChat @submit="ask" />
-</template>`;
+  <div class="focus-shell">
+    <section class="k8s-board">
+      <header class="board-header">
+        <div>
+          <p class="board-kicker">PROD / CN-EAST-1</p>
+          <h2>Kubernetes Operations Center</h2>
+        </div>
+        <div class="board-status">
+          <span><i class="healthy-dot"></i> 47 / 48 nodes ready</span>
+          <span>{{ k8sPanels.length }} panels</span>
+        </div>
+      </header>
 
-const integratedFormCode = `<script setup lang="ts">
-import {
-  LlmIntegration,
-  createFillSteps,
-  replayFillSteps
-} from '@llm-ui/vue';
+      <section v-for="group in panelGroups" :key="group.category" class="metric-group">
+        <div class="group-heading">
+          <h3>{{ group.label }}</h3>
+          <span>{{ group.panels.length }} panels</span>
+        </div>
+        <div class="panel-grid">
+          <article
+            v-for="panel in group.panels"
+            :key="panel.id"
+            class="metric-panel"
+            :class="[
+              'priority-' + panel.priority,
+              { highlighted: highlightedIds.includes(panel.id), dimmed: highlightedIds.length && !highlightedIds.includes(panel.id) }
+            ]"
+            @dblclick="openPanel(panel.id)"
+          >
+            <header>
+              <div><span>{{ panel.title }}</span><code>{{ panel.metric }}</code></div>
+              <a-tag :color="panel.priority === 'critical' ? 'red' : panel.priority === 'warning' ? 'orange' : 'green'">{{ panel.priority }}</a-tag>
+            </header>
+            <div class="panel-value"><strong>{{ latestValue(panel) }}</strong><span>{{ panel.unit }}</span></div>
+            <EChart class="panel-chart" :option="panel.option" />
+            <p>{{ panel.summary }}</p>
+          </article>
+        </div>
+      </section>
+    </section>
 
-async function fillFromText(text: string) {
-  const result = await extractShippingForm(text);
-  await replayFillSteps({
-    steps: createFillSteps(result.values, result.uncertainFields),
-    form,
-    onActiveField,
-    onUncertainField
-  });
-}
-</script>
+    <a-modal :open="Boolean(activePanel)" :title="activePanel?.title" width="860px" :footer="null" @cancel="closeDetail">
+      <EChart v-if="activePanel" class="detail-chart" :option="activePanel.option" />
+      <a-alert v-if="activePanel" type="info" show-icon :message="activePanel.summary" />
+    </a-modal>
 
-<template>
-  <LlmIntegration name="shipping-form" :metadata="shippingFieldMeta">
-    <ExpressForm v-model="form" />
-  </LlmIntegration>
+    <a-drawer :open="composedPanels.length > 0" title="Focus Sub-dashboard" width="76vw" @close="clearComposed">
+      <div class="composed-grid">
+        <article v-for="panel in composedPanels" :key="panel.id" class="composed-panel">
+          <h3>{{ panel.title }}</h3>
+          <EChart class="composed-chart" :option="panel.option" />
+          <p>{{ panel.summary }}</p>
+        </article>
+      </div>
+    </a-drawer>
+  </div>
 </template>`;
 
 const todo = (id: string, title: string, summary: string): DemoSpec => ({
@@ -91,13 +174,16 @@ const todo = (id: string, title: string, summary: string): DemoSpec => ({
 export const demos: DemoSpec[] = [
   {
     id: 'text-to-form',
-    title: 'LLM 文本填表',
+    title: '自动填表',
     status: '真实 API',
-    summary: '调用真实 OpenAI-compatible API 提取字段，并在原表单中可见地回放填写过程。',
+    summary: 'Enchant 自动扫描现有表单并发布字段 metadata 与受限填写 capability；Aura 使用当前页面 snapshot 完成字段映射和草稿写入。',
     component: TextToFormDemo,
     codeBlocks: [
-      { key: 'original', tab: '原组件', code: originalFormCode },
-      { key: 'integrated', tab: '接入 LLM 后', code: integratedFormCode }
+      { key: 'form', tab: '表单组件', code: expressFormCode, language: 'xml' },
+      { key: 'page-before', tab: '页面接入前', code: originalTextToFormPageCode, language: 'xml' },
+      { key: 'wrapper', tab: '接入层组件', code: aiExpressFormCode, language: 'xml' },
+      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form'), language: 'xml' }
     ]
   },
   todo('asr-ticket', 'ASR 转工单', '等待接入真实 ASR 输入、工单表单和受限 executor。'),
@@ -108,11 +194,12 @@ export const demos: DemoSpec[] = [
     id: 'focus-view',
     title: 'K8s Focus View',
     status: '真实 API',
-    summary: '通过 panel wrapper metadata 让 LLM 高亮、打开并组合 Kubernetes 运维指标。',
+    summary: '页面只负责渲染图表和响应 page focus state。全局助手读取 panel metadata 后，直接执行高亮、打开和组合视图。',
     component: FocusViewDemo,
     codeBlocks: [
-      { key: 'original', tab: '原组件', code: originalDashboardCode },
-      { key: 'integrated', tab: '接入 LLM 后', code: integratedDashboardCode }
+      { key: 'original', tab: '原组件', code: originalFocusViewCode, language: 'xml' },
+      { key: 'component', tab: '接入组件', code: focusViewCode, language: 'xml', compareTo: 'original' },
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('focus-view'), language: 'xml' }
     ]
   }
 ];

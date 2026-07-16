@@ -1,0 +1,439 @@
+import {
+  computed,
+  inject,
+  readonly,
+  ref,
+  shallowReactive,
+  type App,
+  type ComputedRef,
+  type InjectionKey,
+  type Plugin,
+  type Ref
+} from 'vue';
+import { createDefaultEnchantAgent, type EnchantAgent } from './agent';
+import type {
+  EnchantCapabilityResult,
+  EnchantExecutionResult,
+  Enchantment,
+  EnchantMetadataNode,
+  EnchantPlan,
+  EnchantPlanCall,
+  EnchantProgressEvent,
+  EnchantRegistration,
+  EnchantRegistryDigest,
+  EnchantRunResult,
+  EnchantSnapshot,
+  EnchantTraceEvent
+} from './enchantment';
+import type { LlmClientOptions } from './llm-client';
+import { evaluateEnchantPolicy, resolveEnchantPolicy, type EnchantPolicy } from './policy';
+import { createEnchantRegistry, type EnchantRegistry, type EnchantSnapshotOptions } from './registry';
+import { createEnchantVisualController, type EnchantVisualController } from './visual';
+
+export interface EnchantSnapshotConfig {
+  autoCapture: boolean;
+  retention: number;
+  throttle: number;
+}
+
+export interface EnchantRunOptions {
+  input: string;
+  page?: string;
+  enchantmentId?: string;
+  prompt?: string;
+  agent?: EnchantAgent;
+  signal?: AbortSignal;
+  onProgress?: (event: EnchantProgressEvent) => void;
+}
+
+export interface EnchantExecuteOptions {
+  snapshot: EnchantSnapshot;
+  runId?: string;
+  confirmed?: boolean;
+  signal?: AbortSignal;
+  onProgress?: (event: EnchantProgressEvent) => void;
+}
+
+export interface EnchantForgeOptions {
+  llm?: LlmClientOptions;
+  agent?: EnchantAgent;
+  policy?: Partial<EnchantPolicy>;
+  snapshots?: Partial<EnchantSnapshotConfig>;
+  traceLimit?: number;
+  onTrace?: (event: EnchantTraceEvent) => void;
+}
+
+export interface EnchantForgePlugin {
+  name: string;
+  setup(forge: EnchantForge): void | (() => void);
+}
+
+export interface EnchantContext {
+  id: string;
+  enchantment: Ref<Enchantment | undefined>;
+  refresh(): EnchantSnapshot;
+}
+
+export type EnchantForge = Plugin & {
+  readonly registry: EnchantRegistry;
+  readonly policy: EnchantPolicy;
+  readonly agent: EnchantAgent;
+  readonly visual: EnchantVisualController;
+  readonly events: readonly EnchantTraceEvent[];
+  readonly snapshots: readonly EnchantSnapshot[];
+  readonly observationEnabled: Readonly<Ref<boolean>>;
+  digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
+  capture(options?: EnchantSnapshotOptions): EnchantSnapshot;
+  snapshot(options?: EnchantSnapshotOptions): EnchantSnapshot;
+  run(options: EnchantRunOptions | string): Promise<EnchantRunResult>;
+  execute(call: EnchantPlanCall, options: EnchantExecuteOptions): Promise<EnchantExecutionResult>;
+  configureSnapshots(config: Partial<EnchantSnapshotConfig>): void;
+  use(plugin: EnchantForgePlugin): EnchantForge;
+  trace(event: Omit<EnchantTraceEvent, 'id' | 'timestamp'>): EnchantTraceEvent;
+  clearTrace(sourcePrefix?: string): void;
+  clearSnapshots(): void;
+};
+
+export const enchantForgeKey: InjectionKey<EnchantForge> = Symbol('enchant-forge');
+export const enchantContextKey: InjectionKey<EnchantContext> = Symbol('enchant-context');
+
+let latestInstalledForge: EnchantForge | undefined;
+
+function validateInput(schema: Record<string, unknown> | undefined, input: unknown) {
+  if (!schema || schema.type !== 'object') return;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Capability input 必须是对象。');
+  const required = Array.isArray(schema.required) ? schema.required : [];
+  for (const key of required) {
+    if (typeof key === 'string' && !(key in input)) throw new Error(`Capability input 缺少 ${key}。`);
+  }
+}
+
+function maskValue(value: unknown) {
+  const text = value == null ? '' : String(value);
+  if (text.length <= 2) return '*'.repeat(text.length);
+  return `${text.slice(0, 1)}${'*'.repeat(Math.min(8, text.length - 2))}${text.slice(-1)}`;
+}
+
+function redactMetadata(nodes: EnchantMetadataNode[], policy: EnchantPolicy): EnchantMetadataNode[] {
+  return nodes.map((node) => {
+    if ((node.kind === 'region' || node.kind === 'panel' || node.kind === 'dialog') && 'children' in node) {
+      return { ...node, children: redactMetadata(node.children, policy) };
+    }
+    if (node.kind !== 'field') return { ...node };
+    const field = node as Extract<EnchantMetadataNode, { kind: 'field' }>;
+    const rule = policy.valuePolicy[field.id]
+      ?? (field.semanticType ? policy.valuePolicy[field.semanticType] : undefined)
+      ?? 'expose';
+    if (rule === 'omit') return { ...field, value: undefined };
+    if (rule === 'mask') return { ...field, value: maskValue(field.value) };
+    return { ...field };
+  });
+}
+
+function isCapabilityResult(value: unknown): value is EnchantCapabilityResult {
+  if (!value || typeof value !== 'object') return false;
+  return ['success', 'partial', 'failed'].includes(String((value as EnchantCapabilityResult).status));
+}
+
+function createFinalMessage(plan: EnchantPlan, results: EnchantExecutionResult[]) {
+  const failures = results.filter((result) => !result.ok);
+  if (failures.length) {
+    const detail = failures.map((result) => result.error).filter(Boolean).join('\n');
+    return [plan.message.trim(), detail].filter(Boolean).join('\n') || '操作未完成。';
+  }
+  const summaries = results.map((result) => result.summary?.trim()).filter(Boolean);
+  return plan.message.trim()
+    || summaries.join('\n')
+    || (results.length ? `已完成 ${results.length} 项操作。` : '当前页面没有可执行的匹配操作。');
+}
+
+export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantForge {
+  const registry = createEnchantRegistry();
+  const policy = resolveEnchantPolicy(options.policy);
+  const agent = options.agent ?? createDefaultEnchantAgent(options.llm);
+  const visual = createEnchantVisualController();
+  const events = shallowReactive<EnchantTraceEvent[]>([]);
+  const retainedSnapshots = shallowReactive<EnchantSnapshot[]>([]);
+  const observationEnabled = ref(Boolean(options.snapshots?.autoCapture));
+  const snapshotConfig: EnchantSnapshotConfig = {
+    autoCapture: options.snapshots?.autoCapture ?? false,
+    retention: Math.max(0, options.snapshots?.retention ?? 0),
+    throttle: Math.max(0, options.snapshots?.throttle ?? 120)
+  };
+  const traceLimit = Math.max(20, options.traceLimit ?? 200);
+  const pluginCleanups: Array<() => void> = [];
+  let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
+  let installedApp: App | undefined;
+
+  function trace(event: Omit<EnchantTraceEvent, 'id' | 'timestamp'>) {
+    const complete: EnchantTraceEvent = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: new Date().toISOString(),
+      ...event
+    };
+    events.unshift(complete);
+    if (events.length > traceLimit) events.splice(traceLimit);
+    options.onTrace?.(complete);
+    return complete;
+  }
+
+  function retainSnapshot(snapshot: EnchantSnapshot) {
+    if (snapshotConfig.retention <= 0) return;
+    retainedSnapshots.unshift(snapshot);
+    if (retainedSnapshots.length > snapshotConfig.retention) retainedSnapshots.splice(snapshotConfig.retention);
+  }
+
+  function capture(snapshotOptions: EnchantSnapshotOptions = {}) {
+    const raw = registry.capture(snapshotOptions);
+    const enchantments = raw.enchantments.map((enchantment) => ({
+      ...enchantment,
+      metadata: redactMetadata(enchantment.metadata, policy)
+    }));
+    const allowedIds = new Set(raw.tools.filter((tool) => {
+      const capability = registry.getCapability(tool.capabilityId);
+      const enchantment = raw.enchantments.find((item) => item.id === tool.enchantmentId);
+      return Boolean(capability && enchantment && evaluateEnchantPolicy(policy, capability, enchantment).allowed);
+    }).map((tool) => tool.capabilityId));
+    const value: EnchantSnapshot = {
+      ...raw,
+      enchantments,
+      tools: raw.tools.filter((tool) => allowedIds.has(tool.capabilityId))
+    };
+    if (snapshotOptions.retain ?? snapshotConfig.retention > 0) retainSnapshot(value);
+    trace({
+      source: value.pageId,
+      kind: 'snapshot',
+      title: 'Snapshot captured',
+      detail: { id: value.id, version: value.version, enchantments: value.enchantments.length, tools: value.tools.length }
+    });
+    return value;
+  }
+
+  function emitProgress(
+    runId: string,
+    phase: EnchantProgressEvent['phase'],
+    listener?: (event: EnchantProgressEvent) => void,
+    detail: Partial<Omit<EnchantProgressEvent, 'id' | 'runId' | 'phase' | 'timestamp'>> = {}
+  ) {
+    const event: EnchantProgressEvent = {
+      id: `${runId}:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`,
+      runId,
+      phase,
+      timestamp: new Date().toISOString(),
+      ...detail
+    };
+    listener?.(event);
+    trace({ source: detail.capabilityId ?? runId, kind: 'progress', title: phase, detail: event });
+  }
+
+  async function execute(call: EnchantPlanCall, executeOptions: EnchantExecuteOptions): Promise<EnchantExecutionResult> {
+    const runId = executeOptions.runId ?? `execute-${Date.now()}`;
+    const capability = registry.getCapability(call.capabilityId);
+    const snapshotEnchantment = capability
+      ? executeOptions.snapshot.enchantments.find((item) => item.id === capability.enchantmentId)
+      : undefined;
+    const registration = capability ? registry.getRegistration(capability.enchantmentId) : undefined;
+    const enchantment = snapshotEnchantment && registration
+      ? { ...snapshotEnchantment, status: registration.getStatus() }
+      : undefined;
+    const exposed = executeOptions.snapshot.tools.some((tool) => tool.capabilityId === call.capabilityId);
+
+    if (!capability || !enchantment || !exposed) {
+      const error = 'Capability 不属于本次 snapshot 或已失效。';
+      trace({ source: call.capabilityId, kind: 'error', title: 'Capability rejected', detail: error });
+      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error };
+    }
+
+    emitProgress(runId, 'authorizing', executeOptions.onProgress, {
+      capabilityId: capability.id,
+      capabilityLabel: capability.label
+    });
+    const decision = evaluateEnchantPolicy(policy, capability, enchantment);
+    trace({ source: call.capabilityId, kind: 'policy', title: decision.allowed ? 'Policy allowed' : 'Policy blocked', detail: decision });
+    if (!decision.allowed) return { capabilityId: call.capabilityId, ok: false, status: 'failed', error: decision.reason };
+    if (decision.requiresConfirmation && !executeOptions.confirmed) {
+      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error: '该操作需要用户确认。' };
+    }
+
+    try {
+      validateInput(capability.inputSchema, call.input ?? {});
+      emitProgress(runId, 'executing', executeOptions.onProgress, {
+        capabilityId: capability.id,
+        capabilityLabel: capability.label
+      });
+      trace({ source: call.capabilityId, kind: 'action', title: capability.label, detail: call.input });
+      const value = await capability.execute(call.input ?? {}, {
+        enchantment,
+        snapshotVersion: executeOptions.snapshot.version,
+        signal: executeOptions.signal,
+        reportProgress(detail) {
+          emitProgress(runId, 'executing', executeOptions.onProgress, {
+            capabilityId: capability.id,
+            capabilityLabel: capability.label,
+            current: detail.current,
+            total: detail.total,
+            detail: detail.label
+          });
+        }
+      });
+      const normalized = isCapabilityResult(value) ? value : undefined;
+      const warning = registry.version.value !== executeOptions.snapshot.version
+        ? '执行期间页面 registry 已变化；结果基于调用时仍有效的 capability。'
+        : undefined;
+      const result: EnchantExecutionResult = {
+        capabilityId: call.capabilityId,
+        ok: normalized?.status !== 'failed',
+        status: normalized?.status ?? 'success',
+        summary: normalized?.summary,
+        value: normalized?.data ?? value,
+        warning: normalized?.warnings?.join('\n') || warning
+      };
+      trace({ source: call.capabilityId, kind: 'result', title: 'Capability completed', detail: result });
+      return result;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Capability 执行失败。';
+      trace({ source: call.capabilityId, kind: 'error', title: 'Capability failed', detail: message });
+      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error: message };
+    }
+  }
+
+  async function run(value: EnchantRunOptions | string): Promise<EnchantRunResult> {
+    const request = typeof value === 'string' ? { input: value } : value;
+    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    try {
+      emitProgress(runId, 'capturing', request.onProgress);
+      const current = capture({
+        page: request.page,
+        enchantmentIds: request.enchantmentId ? [request.enchantmentId] : undefined,
+        includeLocal: Boolean(request.enchantmentId)
+      });
+      trace({ source: current.pageId, kind: 'request', title: 'Agent request', detail: { input: request.input, snapshotId: current.id } });
+      emitProgress(runId, 'planning', request.onProgress);
+      const plan = await (request.agent ?? agent).plan({
+        input: request.input,
+        snapshot: current,
+        instruction: request.prompt,
+        signal: request.signal
+      });
+      trace({ source: current.pageId, kind: 'plan', title: 'Agent plan', detail: plan });
+
+      const results: EnchantExecutionResult[] = [];
+      for (const call of plan.calls) {
+        results.push(await execute(call, {
+          snapshot: current,
+          runId,
+          signal: request.signal,
+          onProgress: request.onProgress
+        }));
+      }
+      const message = createFinalMessage(plan, results);
+      emitProgress(runId, 'completed', request.onProgress, { detail: message });
+      return { runId, message, plan, results };
+    } catch (error) {
+      emitProgress(runId, 'failed', request.onProgress, {
+        detail: error instanceof Error ? error.message : '执行失败。'
+      });
+      throw error;
+    }
+  }
+
+  function scheduleAutoCapture() {
+    if (!snapshotConfig.autoCapture) return;
+    if (autoCaptureTimer) clearTimeout(autoCaptureTimer);
+    autoCaptureTimer = setTimeout(() => capture({ retain: true }), snapshotConfig.throttle);
+  }
+
+  registry.subscribe(scheduleAutoCapture);
+
+  const forge: EnchantForge = {
+    install(app: App) {
+      if (installedApp && installedApp !== app) throw new Error('同一个 EnchantForge 实例不能安装到多个 Vue app。');
+      installedApp = app;
+      latestInstalledForge = forge;
+      app.provide(enchantForgeKey, forge);
+    },
+    registry,
+    policy,
+    agent,
+    visual,
+    get events() {
+      return readonly(events) as unknown as readonly EnchantTraceEvent[];
+    },
+    get snapshots() {
+      return readonly(retainedSnapshots) as unknown as readonly EnchantSnapshot[];
+    },
+    observationEnabled: readonly(observationEnabled),
+    digest: (digestOptions = {}) => registry.digest(digestOptions),
+    capture,
+    snapshot: capture,
+    run,
+    execute,
+    configureSnapshots(config) {
+      if (config.autoCapture !== undefined) snapshotConfig.autoCapture = config.autoCapture;
+      if (config.retention !== undefined) snapshotConfig.retention = Math.max(0, config.retention);
+      if (config.throttle !== undefined) snapshotConfig.throttle = Math.max(0, config.throttle);
+      observationEnabled.value = snapshotConfig.autoCapture;
+      if (retainedSnapshots.length > snapshotConfig.retention) retainedSnapshots.splice(snapshotConfig.retention);
+      if (snapshotConfig.autoCapture) scheduleAutoCapture();
+    },
+    use(plugin) {
+      const cleanup = plugin.setup(forge);
+      if (cleanup) pluginCleanups.push(cleanup);
+      return forge;
+    },
+    trace,
+    clearTrace(sourcePrefix?: string) {
+      if (!sourcePrefix) {
+        events.splice(0, events.length);
+        return;
+      }
+      for (let index = events.length - 1; index >= 0; index -= 1) {
+        if (events[index]?.source.startsWith(sourcePrefix)) events.splice(index, 1);
+      }
+    },
+    clearSnapshots: () => retainedSnapshots.splice(0, retainedSnapshots.length)
+  };
+
+  return forge;
+}
+
+export function useEnchantForge(): EnchantForge;
+export function useEnchantForge(required: true): EnchantForge;
+export function useEnchantForge(required: false): EnchantForge | undefined;
+export function useEnchantForge(required = true): EnchantForge | undefined {
+  const forge = inject(enchantForgeKey, undefined);
+  if (!forge && required) throw new Error('未安装 EnchantForge。请在 createApp 后调用 app.use(createEnchantForge(...))。');
+  return forge;
+}
+
+export function useEnchant() {
+  const forge = useEnchantForge();
+  const context = inject(enchantContextKey, undefined);
+  if (!context) throw new Error('useEnchant() 必须在 <Enchant> 内调用。');
+
+  return {
+    enchantment: computed(() => context.enchantment.value),
+    capture: context.refresh,
+    refresh: context.refresh,
+    run: (value: string | Omit<EnchantRunOptions, 'enchantmentId'>) => forge.run({
+      ...(typeof value === 'string' ? { input: value } : value),
+      enchantmentId: context.id
+    })
+  };
+}
+
+export function useEnchantPage(page?: Ref<string | undefined> | ComputedRef<string | undefined>) {
+  const forge = useEnchantForge();
+  return computed(() => {
+    forge.registry.version.value;
+    return forge.capture({ page: page?.value, retain: true });
+  });
+}
+
+export function useEnchantRegistry() {
+  return useEnchantForge().registry;
+}
+
+export function getLatestEnchantForge() {
+  return latestInstalledForge;
+}
