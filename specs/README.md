@@ -21,6 +21,7 @@ EnchantForge 对模型能力采取保守假设：模型可以解释、规划和�
 10. [运行时 Capture、Snapshot 与 Debug](./10-runtime-capture-and-debug.md)
 10. [微应用集成](./10-micro-app-integration.md)
 11. [功能归属与框架边界](./11-feature-ownership-and-boundaries.md)
+12. [CopilotKit 功能重合与差异分析](./12-copilotkit-gap-analysis.md)
 
 ## 非目标
 
