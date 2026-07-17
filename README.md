@@ -1,12 +1,15 @@
-# llm-integration
+# EnchantForge
 
 Progressive AI interaction experiments organized as a pnpm workspace.
 
 See `AGENTS.md` for project-level instructions for coding agents.
 
+- [项目简介](./docs/project-brief.md)
+- [产品与架构规格](./specs/README.md)
+
 ## Projects
 
-- `packages/vue`: publishable Vue integration library (`@llm-ui/vue`)
+- `packages/vue`: publishable Vue integration library (`@enchantforge/vue`)
 - `examples/vue`: interactive Vue examples consuming the workspace library
 - `examples/react-dashboard`: standalone React dashboard example
 - `website`: project introduction portal
