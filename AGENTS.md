@@ -191,6 +191,14 @@ Use `pnpm` for workspace commands.
 - when a visible example becomes too long, move complexity downward into reusable runtime APIs
 - when naming anything user-visible, choose direct and unsurprising names
 
+### Windows patch path
+
+- In this managed Windows workspace, `apply_patch` may fail before parsing because the sandbox cannot create split writable roots.
+- After that specific sandbox error, do not retry `apply_patch`.
+- Use a UTF-8 unified diff piped to `git apply --whitespace=nowarn -` from the repository root; request escalation immediately when the sandbox requires it.
+- Verify the result with `git diff --check` and a scoped diff.
+- Do not fall back to PowerShell string replacement or `Set-Content` for source edits.
+
 ## 13. What to Optimize For
 
 When in doubt, optimize for this order:
