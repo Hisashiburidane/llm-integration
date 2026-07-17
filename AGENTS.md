@@ -54,20 +54,19 @@ Simple scenarios must stay simple. Complex scenarios may expose more control, bu
 Good direction:
 
 ```vue
-<LlmIntegration prompt="帮我把这段文本填进表单，但不要提交">
-  <ExpressForm />
-</LlmIntegration>
+<Enchant prompt="帮我把这段文本填进表单，但不要提交">
+  <EnchantExpressForm />
+</Enchant>
 ```
 
 Also acceptable:
 
 ```ts
-const agent = createFormAgent({
-  prompt: '帮我把文本填进当前表单，但不要提交'
-});
-
-await agent.run(input);
+const form = defineModel<Record<string, unknown>>({ required: true });
+useEnchantForm(form);
 ```
+
+The DOM compatibility example must opt in explicitly with `scan="auto"`; do not present it as the default behavior.
 
 Bad direction:
 - forcing example users to understand scopes, registries, execution plans, or metadata trees before they can run a basic demo
@@ -138,10 +137,11 @@ Do not keep important runtime logic trapped in example files if it is broadly re
 
 ## 9. Metadata and Runtime Principles
 
-The framework should prefer automatic local scanning first, then explicit registration as an escape hatch.
+The framework should prefer explicit Vue contributions and stable adapters. DOM scanning is an opt-in compatibility path, not the default discovery mechanism.
 
 Desired direction:
-- wrapper can scan local metadata with minimal intrusion
+- wrapper aggregates explicitly contributed metadata and capabilities without reading DOM by default
+- applications can opt into marked or full local DOM scanning when the compatibility tradeoff is acceptable
 - page-level or app-level assistant can aggregate active scopes when needed
 - internal page components may opt out of global registration
 - framework should support both local use and global assistant use

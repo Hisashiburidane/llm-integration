@@ -11,8 +11,10 @@ import {
   type Ref
 } from 'vue';
 import { createDefaultEnchantAgent, type EnchantAgent } from './agent';
+import { vEnchant, vEnchantIgnore } from './dom-directives';
 import type {
   EnchantCapabilityResult,
+  EnchantContribution,
   EnchantExecutionResult,
   Enchantment,
   EnchantMetadataNode,
@@ -71,6 +73,7 @@ export interface EnchantContext {
   id: string;
   enchantment: Ref<Enchantment | undefined>;
   refresh(): EnchantSnapshot;
+  registerContribution(contribution: EnchantContribution): () => void;
 }
 
 export type EnchantForge = Plugin & {
@@ -348,6 +351,8 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       installedApp = app;
       latestInstalledForge = forge;
       app.provide(enchantForgeKey, forge);
+      app.directive('enchant', vEnchant);
+      app.directive('enchant-ignore', vEnchantIgnore);
     },
     registry,
     policy,

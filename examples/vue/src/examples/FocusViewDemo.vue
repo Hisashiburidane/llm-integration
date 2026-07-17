@@ -78,6 +78,17 @@ function clearComposed() {
               :key="panel.id"
               :name="panel.id"
               page="focus-view"
+              kind="chart"
+              :metadata="[{
+                id: panel.id,
+                kind: 'chart',
+                label: panel.title,
+                title: panel.title,
+                metric: panel.metric,
+                summary: panel.summary,
+                priority: panel.priority,
+                tags: [panel.category]
+              }]"
             >
               <article
                 class="metric-panel"

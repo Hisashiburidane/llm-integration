@@ -31,7 +31,7 @@ EnchantForge 对模型能力采取保守假设：模型可以解释、规划和�
 
 ## 核心原则
 
-1. wrapper 扫描已有组件和 DOM；
-2. UI adapter 补充框架组件语义和可靠执行能力；
-3. directive、composable 和显式注册处理复杂业务语义；
+1. wrapper 建立边界并聚合显式 metadata 与 capability；
+2. composable 和 UI adapter 提供稳定的组件语义与执行能力；
+3. DOM scanner 作为明确启用的兼容层，支持低成本试验和遗留页面；
 4. 局部 AI 功能、全局 Aura 和外部集成复用同一套 metadata、capability 与 executor。

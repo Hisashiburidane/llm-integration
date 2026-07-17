@@ -23,7 +23,7 @@ EnchantForge 的公共概念限定为以下五项：
 | 概念 | 含义 |
 | --- | --- |
 | Forge | 应用级 EnchantForge 实例，保存配置并协调 metadata、模型和执行能力 |
-| Enchant | 包裹现有 Vue UI 的组件，执行扫描、增强和生命周期注册 |
+| Enchant | 包裹现有 Vue UI 的组件，建立边界、聚合 contribution 并管理生命周期 |
 | Enchantment | Enchant 生成并注册的数据模型，保存 metadata、capability、状态和来源 |
 | Aura | 当前有效 Enchantment 聚合后形成的全局智能交互层 |
 | orb | Aura 的默认悬浮展示形态，不是独立的运行时概念 |
@@ -104,11 +104,11 @@ Vue 业务系统中已经存在表单字段、标签、校验规则、按钮、�
 - Prompt、工具定义、执行逻辑与页面实现耦合；
 - 模型和协议升级时需要逐页修改。
 
-EnchantForge 应从 wrapper 和 UI adapter 自动提取 metadata 和通用 action，仅在自动提取不足时要求显式注册业务语义或领域操作。
+EnchantForge 应优先复用组件主动提供的 metadata、通用 composable 和 UI adapter，避免每个页面重复编写模型协议。DOM 自动提取只作为应用明确启用的兼容路径。
 
 ### 3.3 结构化接入比视觉自动化更适合内部系统
 
-视觉 Agent 具有跨应用通用性，但在已有前端结构的系统中会额外引入定位不稳定、上下文开销、实例歧义、审计困难和组件内部状态不可见等问题。EnchantForge 优先使用 Vue、DOM、UI 框架和应用状态已经提供的结构；视觉能力只作为缺少结构化信息时的补充。
+视觉 Agent 具有跨应用通用性，但在已有前端结构的系统中会额外引入定位不稳定、上下文开销、实例歧义、审计困难和组件内部状态不可见等问题。EnchantForge 优先使用 Vue contribution、UI adapter 和应用状态已经提供的结构；DOM scanner 与视觉能力都属于缺少稳定结构化信息时的显式 fallback。
 
 ### 3.4 产品价值的验证指标
 
@@ -126,7 +126,7 @@ EnchantForge 应从 wrapper 和 UI adapter 自动提取 metadata 和通用 actio
 
 | 层级 | 使用方式 | 适用场景 | 需要理解的概念 |
 | --- | --- | --- | --- |
-| 基础接入 | wrapper 自动扫描 | 文本填表、页面说明、区域高亮 | `Enchant`、`prompt` |
+| 基础接入 | wrapper + 组件 contribution | 文本填表、页面说明、区域高亮 | `Enchant`、`prompt`、高层 composable |
 | 应用接入 | Forge + Aura | 多路由系统、统一模型配置、全局交互 | `createEnchantForge()`、policy、Aura |
 | 深度扩展 | adapter、显式 capability、领域 executor | 复杂组件和关键流程 | metadata schema、executor、exporter |
 
@@ -139,7 +139,7 @@ import { Enchant } from '@enchantforge/vue'
 
 <template>
   <Enchant prompt="把用户提供的信息填入表单，不要提交">
-    <ExpressForm />
+    <EnchantExpressForm />
   </Enchant>
 </template>
 ```
@@ -154,14 +154,14 @@ EnchantForge 内部不能直接使用某一家模型厂商的 tool calling schem
 
 registry 不能只在进入路由时生成静态快照。组件 mount/unmount、动态表单、弹窗、字段状态、路由、标签页、权限、策略和微应用状态变化都必须更新 metadata 或 capability。模型规划时使用某一版本的 snapshot；执行前必须确认目标仍存在且允许调用。
 
-### 4.4 自动提取优先，显式声明兜底
+### 4.4 稳定结构优先，DOM 扫描显式启用
 
 元数据来源按以下顺序合并，后者可以补充或覆盖前者：
 
-1. Vue 和 DOM 自动扫描；
+1. wrapper props、composable 和应用显式 contribution；
 2. UI 框架 adapter；
-3. wrapper props、directive 或 composable；
-4. 应用显式注册的 metadata、action 或领域 executor。
+3. 标记区域的 DOM scanner；
+4. 明确启用的全局部 DOM fallback。
 
 ### 4.5 规划与执行分离
 
@@ -229,7 +229,7 @@ adapter 数量较少时可先作为 `@enchantforge/vue` 内部模块，API 稳�
 | 能力 | 公共名称 | 说明 |
 | --- | --- | --- |
 | 应用工厂 | `createEnchantForge()` | 创建可安装到 Vue app 的 Forge 实例 |
-| wrapper | `Enchant` | 扫描现有 UI，并生成 Enchantment |
+| wrapper | `Enchant` | 建立局部边界，聚合 contribution，并生成 Enchantment |
 | 数据模型 | `Enchantment` | 描述一次局部 UI 增强的实时 metadata 和 capability |
 | 全局智能层 | `Aura` | 聚合有效 Enchantment，并提供默认交互界面 |
 | runtime | `useEnchant()` | 获取当前 app runtime |
@@ -285,6 +285,7 @@ plugin 负责：
 | `name` | 开发者可读名称，不承担全局唯一性 | 自动生成 |
 | `prompt` | 局部语义或任务约束的标准属性 | 空 |
 | `spell` | `prompt` 的主题化别名 | 空 |
+| `scan` | `none`、`marked`、`auto` 或细粒度扫描配置 | `none` |
 | `global` | 是否向应用级 Aura 暴露 | `true` |
 | `access` | `none`、`read`、`write` 或策略引用 | `write` |
 | `metadata` | 显式补充自动 metadata | 空 |
@@ -372,9 +373,9 @@ interface EnchantCapability<TInput = unknown, TResult = unknown> {
 
 ## 8. Metadata 提取
 
-### 8.1 自动扫描
+### 8.1 DOM scanner（显式启用）
 
-基础 scanner 识别原生输入控件、按钮、label、name、placeholder、ARIA 属性、邻近文本、disabled、readonly、required、validation message、可见区域和层级关系。
+`scan="marked"` 只读取 directive 登记的节点或区域；`scan="auto"` 扫描当前 Enchant 拥有的整个局部 DOM 边界。两者默认均不启用。基础 scanner 只依赖浏览器公开 API，并将结果标记为低于显式 contribution 和稳定 adapter 的置信来源。
 
 仅修改 DOM property 或派发原生事件不一定能更新 Vue 组件状态，因此“发现元素”和“可靠执行”必须分开建模。
 
@@ -565,11 +566,11 @@ qiankun 等环境中不建议主应用直接访问子应用 DOM 或共享 regist
 
 ### Phase 1：核心闭环
 
-目标：证明 wrapper-first 的最短接入路径成立。
+目标：证明 wrapper-first 边界、组件 contribution 和可选 DOM fallback 可以共用同一运行时。
 
 交付：`@enchantforge/vue`、`Enchant`、`Enchantment` 数据模型、原生表单扫描、app-owned registry、基础 DOM executor、OpenAI-compatible client、`Aura` 的 orb 形态、Text to Form、Focus View 和调试抽屉。
 
-验收：普通 Vue 表单通过 wrapper 和一句 Prompt 完成填充；页面不手写字段 tools；mount/unmount 后 registry 无残留；示例不包含独立模型协议和计划解析；默认 capability 不能提交表单。
+验收：普通 Vue 表单通过高层 composable 或 UI adapter 提供能力；懒惰接入示例可以显式使用 `scan="auto"`；mount/unmount 后 registry 无残留；示例不包含独立模型协议和计划解析；默认 capability 不能提交表单。
 
 ### Phase 2：应用级运行时
 
@@ -610,13 +611,13 @@ qiankun 等环境中不建议主应用直接访问子应用 DOM 或共享 regist
 
 ## 20. 可行性论证
 
-EnchantForge 第一阶段不解决通用 GUI 理解，而是将问题限制为：运行环境是 Vue；页面结构可通过组件、DOM 和 adapter 获取；操作对象是当前挂载且由 policy 暴露的 capability；模型输出结构化计划；executor 只执行已注册能力；首批场景限于 `read`、`visual` 和 `draft`。
+EnchantForge 第一阶段不解决通用 GUI 理解，而是将问题限制为：运行环境是 Vue；页面结构优先由 component contribution 和 adapter 提供，必要时由应用显式启用 DOM scanner；操作对象是当前挂载且由 policy 暴露的 capability；模型输出结构化计划；executor 只执行已注册能力；首批场景限于 `read`、`visual` 和 `draft`。
 
 Vue 生命周期、依赖注入、响应式 store、JSON Schema、OpenAI-compatible API、UI adapter 和 OpenTelemetry 均有成熟工程基础。主要不确定性是自动 metadata 质量、adapter 覆盖率和模型规划稳定性，而不是底层技术可实现性。
 
 POC 需要验证三个假设：
 
-1. 常见 Vue 页面能否通过 wrapper 自动获得足够可用的 metadata；
+1. 常见 Vue 组件能否通过高层 composable 或 UI adapter 以很小改动提供足够可用的 metadata；
 2. 通用 capability 能否覆盖填表、高亮、打开和导航等高频交互；
 3. 复杂性能否下沉到 runtime，使业务接入代码长期保持短小。
 

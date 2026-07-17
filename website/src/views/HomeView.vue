@@ -1,46 +1,61 @@
 <script setup lang="ts">
 import { examplesUrl } from '../urls';
 
-const installCode = `import { Enchant } from '@enchantforge/vue'
+const installCode = `<!-- Page.vue -->
+<script setup>
+import { Enchant } from '@enchantforge/vue'
+import EnchantExpressForm from './EnchantExpressForm.vue'
+${'</scr' + 'ipt>'}
 
-<Enchant name="shipping-form">
-  <ExpressForm />
+<template>
+  <Enchant name="shipping-form">
+    <EnchantExpressForm />
+  </Enchant>
+</template>
+
+<!-- EnchantExpressForm.vue -->
+<script setup>
+import { useEnchantForm } from '@enchantforge/vue'
+import ExpressForm from './ExpressForm.vue'
+
+const form = defineModel({ required: true })
+useEnchantForm(form)
+${'</scr' + 'ipt>'}
+
+<template>
+  <ExpressForm v-model="form" />
+</template>`;
+
+const directiveCode = `<Enchant scan="marked">
+  <a-input v-enchant v-model:value="form.phone" />
 </Enchant>`;
 
-const directiveCode = `<a-input
-  v-enchant-field="{
-    type: 'phone',
-    aliases: ['phone', 'mobile', 'contact phone']
-  }"
-/>`;
-
-const registerCode = `registerField({
-  id: 'receiverPhone',
-  label: 'Receiver phone',
-  value,
-  setValue,
-  validate,
+const registerCode = `useEnchantAction({
+  name: 'form.reset',
+  description: 'Reset the current form',
+  effect: 'draft',
+  execute: resetForm
 })`;
 
 const principles = [
-  ['Start from the existing UI', 'A scope can be created around an existing Vue subtree. The runtime scans what is already rendered.'],
-  ['Metadata before vision', 'The component tree and DOM semantics are the primary context. Screenshot recognition is a fallback, not the base path.'],
+  ['Explicit by default', 'A boundary aggregates component metadata and capabilities without reading its DOM.'],
+  ['Stable contracts first', 'Vue contributions and component adapters take precedence over browser-level inference.'],
   ['Generic tools, local context', 'Tools stay small. Fields, actions, and regions are passed as scoped metadata.'],
   ['Visible execution', 'The executor changes UI state step by step. Users can inspect the result before submit.'],
-  ['Progressive hardening', 'DOM scan is the entry point. Directives and registered APIs are used when correctness matters.']
+  ['DOM is optional', 'Marked and full DOM scans are compatibility modes enabled by application code.']
 ];
 
 const levels = [
-  { name: 'scan', title: 'Wrapper scan', api: '<Enchant>', notes: ['scope boundary', 'DOM labels', 'inputs', 'buttons', 'regions'] },
-  { name: 'hint', title: 'Directive hints', api: 'v-enchant-field / v-enchant-action', notes: ['semantic type', 'aliases', 'examples', 'risk'] },
-  { name: 'register', title: 'Registered APIs', api: 'registerField / registerAction', notes: ['controlled state', 'validation', 'form API', 'stable execution'] },
+  { name: 'contribute', title: 'Vue contribution', api: 'useEnchantForm / useEnchantAction', notes: ['controlled state', 'typed functions', 'component lifecycle', 'no DOM scan'] },
+  { name: 'adapt', title: 'Component adapter', api: 'adapter plugins', notes: ['public component APIs', 'validation', 'stable execution', 'shared integration'] },
+  { name: 'fallback', title: 'DOM compatibility', api: 'scan="marked" / scan="auto"', notes: ['explicit opt-in', 'legacy pages', 'lower confidence', 'browser events'] },
   { name: 'reuse', title: 'Executor reuse', api: 'workflow / snapshot', notes: ['saved steps', 'visible replay', 'localStorage POC', 'future backend'] }
 ];
 
 const architecture = [
   ['EnchantForge', 'client, policy, registry, agent runtime'],
-  ['Enchant', 'lifecycle, scan, local Enchantment'],
-  ['Directives', 'field/action hints without replacing components'],
+  ['Enchant', 'lifecycle, contribution boundary, local Enchantment'],
+  ['Adapters', 'stable component metadata and executors'],
   ['Executor', 'fill, focus, highlight, invoke, replay'],
   ['Aura', 'application-level interaction over active Enchantments']
 ];
@@ -53,7 +68,7 @@ const architecture = [
       <p class="kicker">Progressive AI interaction for Vue</p>
       <h1>Make Vue interfaces readable and executable by AI.</h1>
       <p class="lead">
-        Add a scope boundary. Collect metadata from the rendered UI. Use directives or registered APIs only where the default scan is not enough.
+        Add a scope boundary. Components contribute metadata and constrained functions. DOM access remains an explicit compatibility option.
       </p>
       <div class="actions">
         <a class="button primary" href="#start">Start with one wrapper</a>
@@ -63,7 +78,7 @@ const architecture = [
     <aside class="terminal" aria-label="quick start code">
       <div class="terminal-bar">
         <span></span><span></span><span></span>
-        <strong>minimal.vue</strong>
+        <strong>form-integration.vue</strong>
       </div>
       <pre><code>{{ installCode }}</code></pre>
     </aside>
@@ -74,13 +89,13 @@ const architecture = [
       <p class="kicker">Minimum surface</p>
       <h2>One wrapper creates one AI scope.</h2>
       <p>
-        The first integration point is a Vue subtree. The runtime scans labels, inputs, buttons, regions, validation text, and basic ARIA attributes inside that subtree.
+        The first integration point is a Vue subtree. By default, the boundary only aggregates metadata and capabilities explicitly contributed by its descendants and installed adapters.
       </p>
     </div>
     <div class="note-list">
       <div>
-        <strong>No page-specific tools required at entry.</strong>
-        <span>Fields and actions are discovered as metadata first.</span>
+        <strong>No DOM traversal by default.</strong>
+        <span>Rendered markup is not treated as a stable component contract.</span>
       </div>
       <div>
         <strong>No global exposure by default.</strong>
@@ -95,7 +110,7 @@ const architecture = [
 
   <section id="model" class="section">
     <p class="kicker">Progressive model</p>
-    <h2>Scan first. Register when it matters.</h2>
+    <h2>Contribute first. Scan only by choice.</h2>
     <div class="levels">
       <article v-for="level in levels" :key="level.name" class="level">
         <code>{{ level.name }}</code>
@@ -110,10 +125,10 @@ const architecture = [
 
   <section class="section code-pair">
     <div>
-      <p class="kicker">Hint</p>
-      <h2>Use directives when labels are not enough.</h2>
+      <p class="kicker">Marked fallback</p>
+      <h2>Restrict DOM access to declared regions.</h2>
       <p>
-        Directives add semantics without replacing the existing component or form implementation.
+        Marked scanning keeps the compatibility surface local and visible in source code.
       </p>
     </div>
     <pre><code>{{ directiveCode }}</code></pre>

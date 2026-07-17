@@ -89,8 +89,13 @@ export function createEnchantRegistry(): EnchantRegistry {
     listeners.forEach((listener) => listener());
   }
 
-  function replaceCapabilities(enchantmentId: string, next: EnchantCapability[]) {
+  function clearCapabilities(enchantmentId: string) {
     capabilityOwners.get(enchantmentId)?.forEach((id) => capabilities.delete(id));
+    capabilityOwners.delete(enchantmentId);
+  }
+
+  function replaceCapabilities(enchantmentId: string, next: EnchantCapability[]) {
+    clearCapabilities(enchantmentId);
     const ids = new Set<string>();
     next.forEach((capability) => {
       if (capability.enchantmentId !== enchantmentId) throw new Error('Capability owner 与 Enchantment 不一致。');
@@ -102,6 +107,7 @@ export function createEnchantRegistry(): EnchantRegistry {
 
   function register(registration: EnchantRegistration) {
     const token = Symbol(registration.id);
+    clearCapabilities(registration.id);
     registrationTokens.set(registration.id, token);
     registrations.set(registration.id, registration);
     touch();
@@ -115,15 +121,20 @@ export function createEnchantRegistry(): EnchantRegistry {
       register(registration);
       return;
     }
+    clearCapabilities(registration.id);
     registrations.set(registration.id, registration);
+    touch();
+  }
+
+  function invalidate(enchantmentId: string) {
+    clearCapabilities(enchantmentId);
     touch();
   }
 
   function unregister(enchantmentId: string) {
     if (!registrations.delete(enchantmentId)) return;
     registrationTokens.delete(enchantmentId);
-    capabilityOwners.get(enchantmentId)?.forEach((id) => capabilities.delete(id));
-    capabilityOwners.delete(enchantmentId);
+    clearCapabilities(enchantmentId);
     touch();
   }
 
@@ -183,7 +194,7 @@ export function createEnchantRegistry(): EnchantRegistry {
     version: readonly(version),
     register,
     update,
-    invalidate: () => touch(),
+    invalidate,
     unregister,
     getRegistration: (id) => registrations.get(id),
     getCapability: (id) => capabilities.get(id),

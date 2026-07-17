@@ -1,10 +1,13 @@
 import type { Component } from 'vue';
 import TextToFormDemo from './TextToFormDemo.vue';
+import DomTextToFormDemo from './DomTextToFormDemo.vue';
 import TodoDemo from './TodoDemo.vue';
 import FocusViewDemo from './FocusViewDemo.vue';
 
 import expressFormCode from './text-to-form/ExpressForm.vue?raw';
-import aiExpressFormCodeRaw from './text-to-form/AiExpressForm.vue?raw';
+import enchantExpressFormCodeRaw from './text-to-form/EnchantExpressForm.vue?raw';
+import apiExpressFormCodeRaw from './text-to-form/ApiExpressForm.vue?raw';
+import domScanExpressFormCodeRaw from './text-to-form/DomScanExpressForm.vue?raw';
 import focusViewDemoCodeRaw from './FocusViewDemo.vue?raw';
 import focusViewCapabilitiesCodeRaw from './focus/focus-view-capabilities.ts?raw';
 
@@ -57,7 +60,9 @@ forge.use(createEnchantDebug());
 
 createApp(App).use(Antd).use(forge).mount('#app');`;
 
-const aiExpressFormCode = stripVueStyleBlock(aiExpressFormCodeRaw);
+const enchantExpressFormCode = stripVueStyleBlock(enchantExpressFormCodeRaw);
+const apiExpressFormCode = stripVueStyleBlock(apiExpressFormCodeRaw);
+const domScanExpressFormCode = stripVueStyleBlock(domScanExpressFormCodeRaw);
 const focusViewCode = stripVueStyleBlock(focusViewDemoCodeRaw);
 
 const originalTextToFormPageCode = `<script setup lang="ts">
@@ -175,16 +180,30 @@ const todo = (id: string, title: string, summary: string): DemoSpec => ({
 export const demos: DemoSpec[] = [
   {
     id: 'text-to-form',
-    title: '自动填表',
+    title: '快递填表：组件 API',
     status: '真实 API',
-    summary: 'Enchant 自动扫描现有表单并发布字段 metadata 与受限填写 capability；Aura 使用当前页面 snapshot 完成字段映射和草稿写入。',
+    summary: '推荐接入方式。表单通过 useEnchantForm 提供字段 metadata 和响应式写入 capability，不读取 DOM。',
     component: TextToFormDemo,
+    codeBlocks: [
+      { key: 'form', tab: '原表单组件', code: expressFormCode, language: 'xml' },
+      { key: 'enhanced-form', tab: '接入后的表单', code: enchantExpressFormCode, language: 'xml', compareTo: 'form' },
+      { key: 'wrapper', tab: 'Enchant 边界', code: apiExpressFormCode, language: 'xml' },
+      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form'), language: 'xml' }
+    ]
+  },
+  {
+    id: 'text-to-form-dom',
+    title: '快递填表：DOM 扫描',
+    status: '真实 API',
+    summary: '最低改造成本的兼容模式。显式配置 scan="auto" 后扫描局部 DOM，并通过浏览器 input/change/blur 事件写入表单。',
+    component: DomTextToFormDemo,
     codeBlocks: [
       { key: 'form', tab: '表单组件', code: expressFormCode, language: 'xml' },
       { key: 'page-before', tab: '页面接入前', code: originalTextToFormPageCode, language: 'xml' },
-      { key: 'wrapper', tab: '接入层组件', code: aiExpressFormCode, language: 'xml' },
+      { key: 'wrapper', tab: 'DOM 扫描接入', code: domScanExpressFormCode, language: 'xml' },
       { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
-      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form'), language: 'xml' }
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form-dom'), language: 'xml' }
     ]
   },
   todo('asr-ticket', 'ASR 转工单', '等待接入真实 ASR 输入、工单表单和受限 executor。'),

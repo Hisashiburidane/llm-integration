@@ -161,6 +161,14 @@ export interface EnchantCaptureResult {
   capabilities: EnchantCapability[];
 }
 
+export interface EnchantContribution {
+  id: string;
+  capture(): {
+    metadata?: EnchantMetadataNode[];
+    capabilities?: EnchantCapabilityDefinition[];
+  };
+}
+
 export interface EnchantRegistration {
   id: string;
   name?: string;

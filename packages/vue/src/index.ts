@@ -4,6 +4,15 @@ export { default as LlmIntegration } from './components/enchant.vue';
 export { default as LlmAssistantBubble } from './components/aura.vue';
 export { createDefaultEnchantAgent } from './runtime/agent';
 export type { EnchantAgent, EnchantAgentRequest } from './runtime/agent';
+export { useEnchantAction, useEnchantForm } from './runtime/actions';
+export type {
+  EnchantActionOptions,
+  EnchantActionRegistration,
+  EnchantFormFillInput,
+  EnchantFormOptions
+} from './runtime/actions';
+export { vEnchant, vEnchantIgnore } from './runtime/dom-directives';
+export type { EnchantScan, EnchantScanConfig, EnchantScanMode } from './runtime/dom-adapter';
 export { createEnchantDebug } from './runtime/debug-plugin';
 export type { EnchantDebugOptions } from './runtime/debug-plugin';
 export {
@@ -40,6 +49,7 @@ export type {
   EnchantCapabilityResult,
   EnchantCaptureResult,
   EnchantChartMetadata,
+  EnchantContribution,
   EnchantExecutionContext,
   EnchantExecutionResult,
   EnchantExposure,

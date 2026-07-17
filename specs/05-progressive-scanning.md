@@ -4,36 +4,72 @@
 
 Progressive scanning lowers adoption cost. A page should become partially AI-capable by wrapping existing UI, then become more reliable as developers add hints or explicit registrations.
 
-## Levels
+## 扫描模式
 
-### Level 1: Wrapper DOM Scan
+`Enchant` 默认不读取 slot 内的 DOM。默认 capture 只聚合 wrapper props、子组件 contribution、UI adapter 和显式 capabilities。DOM 结构不稳定、浏览器 API 成本和组件库渲染差异不得成为 Core 默认行为的一部分。
+
+~~~vue
+<!-- 默认：不读取 DOM -->
+<Enchant>
+  <ControlledForm />
+</Enchant>
+
+<!-- 只扫描 v-enchant 标记的控件或区域 -->
+<Enchant scan="marked">
+  <LargePage />
+</Enchant>
+
+<!-- 明确接受 DOM fallback 时扫描整个局部边界 -->
+<Enchant scan="auto">
+  <LegacyForm />
+</Enchant>
+~~~
+
+`scan="none"` 与不传 `scan` 等价。只有 `scan="marked"`、`scan="auto"` 或对应对象配置会启用 DOM Adapter。
+
+Vue examples 中的快递表单保留两个独立实现：
+
+- `快递填表：组件 API` 使用 `useEnchantForm()`，代表推荐路径；
+- `快递填表：DOM 扫描` 使用 `scan="auto"`，代表最低改造成本的兼容路径。
+
+两个示例共用相同的表单字段和用户任务，调试信息应能分别显示 `registered` 与 `dom` metadata source。
+
+扫描还可以按 metadata 类型关闭：
+
+~~~vue
+<Enchant :scan="{ mode: 'marked', fields: true, text: false }">
+  <LargeForm />
+</Enchant>
+~~~
+
+`text: false` 用于只需要表单字段或显式 capability 的页面，避免遍历无关文本节点。
+
+## 接入层级
+
+### Level 1: Explicit Vue Contribution
 
 ```vue
 <Enchant name="寄快递">
-  <ExistingForm />
+  <ControlledForm />
 </Enchant>
 ```
 
-Scanner extracts:
+`ControlledForm` 可以通过 `useEnchantForm()`、`useEnchantAction()` 或 UI adapter 向最近的边界提供 metadata 和 capability。默认路径不要求业务开发者理解 DOM selector、事件模拟或组件库内部渲染结构。
 
-- labels
-- placeholders
-- input types
-- textarea values
-- select options
-- button text
-- disabled/required state
-- validation text near fields
-- aria-label / aria-describedby
-- name / id
-
-### Level 2: Directive Hints
+### Level 2: Marked Scan
 
 ```vue
-<a-input v-enchant-field="{ type: 'phone', aliases: ['手机号', '电话'] }" />
+<Enchant scan="marked">
+  <a-input v-enchant v-model:value="form.phone" />
+  <section v-enchant>
+    <AddressFields />
+  </section>
+</Enchant>
 ```
 
-Hints improve mapping accuracy without replacing existing form logic.
+`v-enchant` 可以标记单个原生控件，也可以标记一个待扫描区域。Forge 插件安装时会注册该 directive；也可以从 `@enchantforge/vue` 单独导入 `vEnchant`。
+
+directive 会在 `mounted/unmounted` 时把元素句柄登记到最近的 `Enchant` 边界。`marked` capture 直接读取已登记集合，字段分析和文本遍历只发生在这些区域，成本与标记区域数量相关。
 
 ### Level 3: Adapter Integration
 
@@ -46,21 +82,60 @@ Ant Design Vue adapter should infer form metadata from common structure:
 - `a-date-picker`
 - validation status/help text
 
-If runtime component internals are not accessible, adapter may still use DOM conventions.
+Adapter 只能依赖组件库公开且稳定的 API。DOM convention 不能伪装成组件 adapter。
 
-### Level 4: Explicit Registration
+### Level 4: Full DOM Fallback
+
+```vue
+<Enchant scan="auto" name="寄快递">
+  <ExistingForm />
+</Enchant>
+```
+
+该模式用于 POC、遗留页面和明确接受兼容性约束的低风险场景。当前 scanner 提取：
+
+- labels
+- placeholders
+- input types
+- textarea values
+- select options
+- disabled、readonly、required 和 visible 状态
+- aria-label / aria-labelledby
+- name / id
+- 当前边界拥有的文本摘要
+
+### Explicit Function Registration
 
 ```ts
-registerField({
-  id: 'receiverPhone',
-  label: '手机号',
-  value,
-  setValue,
-  validate,
+useEnchantAction({
+  name: 'form.reset',
+  description: '清空当前表单',
+  effect: 'draft',
+  execute() {
+    resetForm();
+  }
 });
 ```
 
-Use for controlled components, critical forms, and production stability.
+表单模型可以使用更短的高层 API：
+
+```ts
+const model = defineModel<Record<string, unknown>>({ required: true });
+
+useEnchantForm(model);
+```
+
+`useEnchantForm()` 必须在 `<Enchant>` 的后代组件中调用。它注册应用所有的 `field.fill` capability，并直接写入 Vue 响应式对象。存在该 capability 时，同名 DOM `field.fill` fallback 不再导出；DOM scanner 仍可用于生成字段 label、required、options 等 metadata。
+
+显式 capability 的优先级高于同名 DOM capability：
+
+```text
+explicit application function
+  > official component adapter
+  > generic DOM fallback
+```
+
+框架不会读取 `defineExpose()` 并自动导出所有组件方法。方法名不能提供参数 schema、effect 和授权语义；可执行函数必须通过 `useEnchantAction()`、`useEnchantForm()` 或低层 `capabilities` prop 明确声明。
 
 ## Scanner Output
 
@@ -106,7 +181,7 @@ element.dispatchEvent(new Event('blur', { bubbles: true }));
 
 ## Refresh Strategy
 
-默认策略是 invocation-time capture。以下变化不会在默认配置下立即扫描 DOM，而是在下一次 agent 调用或显式 capture 时反映：
+启用 DOM scanner 后，默认策略仍是 invocation-time capture。以下变化不会立即扫描 DOM，而是在下一次 agent 调用或显式 capture 时反映：
 
 - scope mounts/unmounts
 - form fields appear/disappear
@@ -133,6 +208,8 @@ Developers must be able to exclude regions:
   sensitive content
 </div>
 ```
+
+Forge 插件安装时会全局注册 `v-enchant-ignore`。未安装 Forge 插件的局部用法可以直接使用 `data-enchant-ignore`，或单独导入 `vEnchantIgnore`。
 
 ## Confidence
 

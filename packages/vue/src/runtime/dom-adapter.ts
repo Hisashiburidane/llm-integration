@@ -4,12 +4,25 @@ import type {
   EnchantMetadataNode,
   EnchantTextMetadata
 } from './enchantment';
+import { getEnchantMarkedElements } from './dom-directives';
 
 type FieldElement = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+const fieldSelector = 'input:not([type="hidden"]), textarea, select';
+
+export type EnchantScanMode = 'auto' | 'marked' | 'none';
+
+export interface EnchantScanConfig {
+  mode?: EnchantScanMode;
+  fields?: boolean;
+  text?: boolean;
+}
+
+export type EnchantScan = EnchantScanMode | EnchantScanConfig;
 
 export interface DomScanOptions {
   enchantmentId: string;
   scopeId: string;
+  scan?: EnchantScan;
 }
 
 export interface DomScanResult {
@@ -75,10 +88,51 @@ function isReadonly(element: FieldElement) {
     : false;
 }
 
+function resolveScanConfig(scan: EnchantScan | undefined): Required<EnchantScanConfig> {
+  if (typeof scan === 'string') {
+    return {
+      mode: scan,
+      fields: scan !== 'none',
+      text: scan !== 'none'
+    };
+  }
+  const mode = scan?.mode ?? 'none';
+  return {
+    mode,
+    fields: scan?.fields ?? mode !== 'none',
+    text: scan?.text ?? mode !== 'none'
+  };
+}
+
+function belongsToRoot(element: Element, root: HTMLElement) {
+  return !element.closest('[data-enchant-ignore]')
+    && element.closest('[data-enchant]') === root;
+}
+
+function markedRoots(root: HTMLElement) {
+  const elements = getEnchantMarkedElements(root);
+  return elements
+    .filter((element) => belongsToRoot(element, root))
+    .filter((element, index, elements) => !elements.some((candidate, candidateIndex) => (
+      candidateIndex !== index && candidate.contains(element)
+    )));
+}
+
+function scanFields(root: HTMLElement, mode: EnchantScanMode) {
+  const elements = new Set<FieldElement>();
+  const roots = mode === 'marked' ? markedRoots(root) : [root];
+  roots.forEach((scanRoot) => {
+    if (scanRoot.matches(fieldSelector)) elements.add(scanRoot as FieldElement);
+    scanRoot.querySelectorAll<FieldElement>(fieldSelector).forEach((element) => elements.add(element));
+  });
+  return Array.from(elements).filter((element) => belongsToRoot(element, root));
+}
+
 export function scanDom(root: HTMLElement, options: DomScanOptions): DomScanResult {
-  const elements = Array.from(root.querySelectorAll<FieldElement>('input:not([type="hidden"]), textarea, select'))
-    .filter((element) => !element.closest('[data-enchant-ignore]'))
-    .filter((element) => element.closest('[data-enchant]') === root);
+  const scan = resolveScanConfig(options.scan);
+  if (scan.mode === 'none') return { metadata: [], capabilities: [] };
+
+  const elements = scan.fields ? scanFields(root, scan.mode) : [];
   const handles = new Map<string, FieldElement>();
   const usedIds = new Map<string, number>();
 
@@ -111,7 +165,7 @@ export function scanDom(root: HTMLElement, options: DomScanOptions): DomScanResu
     };
   });
 
-  const text = ownedText(root);
+  const text = scan.text ? ownedText(root, scan.mode) : '';
   const textMetadata: EnchantTextMetadata[] = text ? [{
     id: `${options.scopeId}-text`,
     scopeId: options.scopeId,
@@ -203,23 +257,26 @@ export function scanDom(root: HTMLElement, options: DomScanOptions): DomScanResu
   return { metadata: [...fields, ...textMetadata], capabilities };
 }
 
-function ownedText(root: HTMLElement) {
+function ownedText(root: HTMLElement, mode: EnchantScanMode) {
   const texts: string[] = [];
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let node = walker.nextNode();
-  while (node) {
-    const parent = node.parentElement;
-    if (
-      parent
-      && parent.closest('[data-enchant]') === root
-      && !parent.closest('[data-enchant-ignore]')
-      && !['SCRIPT', 'STYLE'].includes(parent.tagName)
-    ) {
-      const value = node.textContent?.replace(/\s+/g, ' ').trim();
-      if (value) texts.push(value);
+  const roots = mode === 'marked' ? markedRoots(root) : [root];
+  roots.forEach((scanRoot) => {
+    const walker = root.ownerDocument.createTreeWalker(scanRoot, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const parent = node.parentElement;
+      if (
+        parent
+        && parent.closest('[data-enchant]') === root
+        && !parent.closest('[data-enchant-ignore]')
+        && !['SCRIPT', 'STYLE'].includes(parent.tagName)
+      ) {
+        const value = node.textContent?.replace(/\s+/g, ' ').trim();
+        if (value) texts.push(value);
+      }
+      node = walker.nextNode();
     }
-    node = walker.nextNode();
-  }
+  });
   return texts.join(' ').slice(0, 1600);
 }
 

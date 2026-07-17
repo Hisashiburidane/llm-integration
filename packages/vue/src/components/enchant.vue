@@ -14,9 +14,10 @@ import {
   type PropType,
   type WatchStopHandle
 } from 'vue';
-import { scanDom } from '../runtime/dom-adapter';
+import { scanDom, type EnchantScan } from '../runtime/dom-adapter';
 import type {
   EnchantCapabilityDefinition,
+  EnchantContribution,
   EnchantExposure,
   EnchantMetadataNode,
   EnchantRegistration,
@@ -47,6 +48,10 @@ const props = defineProps({
   state: {
     type: null as unknown as PropType<unknown | (() => unknown)>,
     default: undefined
+  },
+  scan: {
+    type: [String, Object] as PropType<EnchantScan>,
+    default: 'none'
   },
   metadata: {
     type: Array as PropType<MetadataInput[]>,
@@ -93,6 +98,7 @@ const mounted = ref(false);
 const activated = ref(true);
 const captureVersion = ref(0);
 const enchantment = ref<Enchantment>();
+const contributions = new Map<string, { token: symbol; contribution: EnchantContribution }>();
 const initialScopeId = props.name || props.id || `component-${instance?.uid ?? Math.random().toString(36).slice(2, 8)}`;
 const enchantmentId = props.id || ['enchant', props.page || 'global', initialScopeId, instance?.uid ?? 'local'].join(':');
 let unregister: (() => void) | undefined;
@@ -138,11 +144,19 @@ function mergeMetadata(scanned: EnchantMetadataNode[], explicit: EnchantMetadata
 function capture() {
   if (!rootEl.value || !mounted.value) throw new Error(`Enchant ${enchantmentId} 尚未挂载。`);
   const scopeId = props.name || initialScopeId;
-  const scanned = scanDom(rootEl.value, { enchantmentId, scopeId });
-  const metadata = mergeMetadata(scanned.metadata, normalizeMetadata(props.metadata, scopeId));
+  const scanned = scanDom(rootEl.value, { enchantmentId, scopeId, scan: props.scan });
+  const capturedContributions = Array.from(contributions.values()).map(({ contribution }) => contribution.capture());
+  const contributedMetadata = capturedContributions.flatMap((contribution) => contribution.metadata ?? []);
+  const explicitMetadata = normalizeMetadata([...props.metadata, ...contributedMetadata], scopeId);
+  const metadata = mergeMetadata(scanned.metadata, explicitMetadata);
+  const explicitCapabilities = [
+    ...props.capabilities,
+    ...capturedContributions.flatMap((contribution) => contribution.capabilities ?? [])
+  ].map((capability) => ({ ...capability, enchantmentId }));
+  const explicitNames = new Set(explicitCapabilities.map((capability) => capability.name));
   const capabilities = [
-    ...scanned.capabilities,
-    ...props.capabilities.map((capability) => ({ ...capability, enchantmentId }))
+    ...scanned.capabilities.filter((capability) => !explicitNames.has(capability.name)),
+    ...explicitCapabilities
   ];
   captureVersion.value += 1;
   const next: Enchantment = {
@@ -193,6 +207,18 @@ function invalidate() {
   invalidateTimer = setTimeout(() => forge.registry.invalidate(enchantmentId), 24);
 }
 
+function registerContribution(contribution: EnchantContribution) {
+  const token = Symbol(contribution.id);
+  contributions.set(contribution.id, { token, contribution });
+  if (mounted.value) forge.registry.invalidate(enchantmentId);
+  return () => {
+    const current = contributions.get(contribution.id);
+    if (!current || current.token !== token) return;
+    contributions.delete(contribution.id);
+    if (mounted.value) forge.registry.invalidate(enchantmentId);
+  };
+}
+
 function configureObservation(enabled: boolean) {
   observer?.disconnect();
   observer = undefined;
@@ -207,7 +233,17 @@ function configureObservation(enabled: boolean) {
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['aria-disabled', 'aria-invalid', 'disabled', 'readonly', 'required', 'value', 'class']
+      attributeFilter: [
+        'aria-disabled',
+        'aria-invalid',
+        'disabled',
+        'readonly',
+        'required',
+        'value',
+        'class',
+        'data-enchant-node',
+        'data-enchant-ignore'
+      ]
     });
   }
   stopStateWatch = watch(resolveState, invalidate, { deep: true, flush: 'post' });
@@ -221,7 +257,8 @@ function refresh() {
 provide(enchantContextKey, {
   id: enchantmentId,
   enchantment,
-  refresh
+  refresh,
+  registerContribution
 });
 
 onMounted(() => {
@@ -252,6 +289,7 @@ watch(() => [
   props.active,
   props.visible,
   props.enabled,
+  JSON.stringify(props.scan),
   JSON.stringify(props.metadata),
   JSON.stringify(props.tags)
 ], publishRegistration, { flush: 'post' });

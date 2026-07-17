@@ -54,20 +54,20 @@ Forge 是公共产品概念；底层实现仍可使用 runtime、registry、stor
 
 ```vue
 <Enchant prompt="根据用户输入填写当前表单，不要提交">
-  <ShippingForm />
+  <EnchantShippingForm />
 </Enchant>
 ```
 
 职责：
 
-- 建立局部扫描边界；
-- 自动识别字段、动作、区域和状态；
+- 建立局部 contribution 和可选扫描边界；
+- 聚合字段、动作、区域和状态；
 - 接收 prompt/spell、metadata 和 knowledge 补充；
 - 随 Vue 生命周期注册、刷新和注销；
-- 注册惰性 capture source，默认不持续扫描 DOM 或维护完整 Enchantment 副本；
+- 注册惰性 capture source，默认不访问 DOM，也不维护完整 Enchantment 副本；
 - 根据 exposure 和 policy 决定是否加入 Aura。
 
-`Enchantment` 是一次 capture 生成的数据模型，不是 Vue 组件，也不是 registry 中持续维护的 store。registry 保存 registration、生命周期状态和 capture 函数；agent 调用时才解析当前 DOM、响应式 state 和 capability。
+`Enchantment` 是一次 capture 生成的数据模型，不是 Vue 组件，也不是 registry 中持续维护的 store。registry 保存 registration、生命周期状态和 capture 函数；agent 调用时解析当前 contribution、响应式 state 和 capability。只有 `scan` 被明确启用时才读取 DOM。
 
 `prompt` 是标准属性，`spell` 是等价别名。两者同时存在时使用 prompt；runtime 只保存归一化后的 instruction，不在 Enchantment 中保留两份配置。
 
@@ -132,35 +132,27 @@ await enchant.run({
 
 ## 7. Directive 与 Composable
 
-自动扫描不足时提供显式扩展：
+组件通过 directive 或 composable 显式提供信息：
 
 ```vue
-<a-input
-  v-enchant-field="{ type: 'phone', aliases: ['电话', '联系方式'] }"
-/>
-
-<a-button
-  v-enchant-action="{ name: 'saveDraft', effect: 'draft', execute: saveDraft }"
->
-  保存草稿
-</a-button>
+<Enchant scan="marked">
+  <a-input v-enchant v-model:value="form.phone" />
+</Enchant>
 ```
 
-首批 directive：
+当前 directive：
 
-- `v-enchant-field`
-- `v-enchant-action`
-- `v-enchant-region`
+- `v-enchant`
 - `v-enchant-ignore`
 
 高级 composable：
 
 ```ts
 useEnchant()
+useEnchantAction()
+useEnchantForm()
 useEnchantPage()
 useEnchantRegistry()
-useEnchantCapability()
-useEnchantState()
 ```
 
 除 `useEnchant()` 外，其余 composable 不进入首个示例。
@@ -174,16 +166,16 @@ onDeactivated  -> mark inactive
 onUnmounted    -> unregister
 ```
 
-默认不在 `onUpdated` 中扫描 DOM。模型调用、显式 capture、自动 snapshot 配置或 debug 插件才触发扫描。自动观察开启时，DOM 和 state 变化只产生 invalidate 信号，并经过 debounce 后 capture。模型调用使用带版本号的临时 snapshot；执行前需要确认目标仍属于当前 registry。
+默认不扫描或观察 DOM。配置 `scan="marked"` 或 `scan="auto"` 后，模型调用或显式 capture 才执行扫描；自动 snapshot 配置或 debug 插件可以进一步开启观察。自动观察开启时，DOM 和 state 变化只产生 invalidate 信号，并经过 debounce 后 capture。模型调用使用带版本号的临时 snapshot；执行前需要确认目标仍属于当前 registry。
 
 ## 9. Metadata 提取顺序
 
-1. DOM scanner 生成零配置基线；
-2. 已知 UI adapter 补充组件实例、状态和可靠 executor；
-3. Enchant props 和 directive 覆盖自动推断；
-4. domain capability 提供稳定业务动作。
+1. Enchant props、composable 和 domain capability 提供显式语义；
+2. 已知 UI adapter 提供组件状态和可靠 executor；
+3. marked scanner 读取明确标记的 DOM 区域；
+4. full DOM scanner 作为明确启用的低置信 fallback。
 
-该顺序同时满足低接入成本和生产级 escape hatch。显式配置可以覆盖自动结果，但不应成为普通页面获得基础能力的前置条件。
+该顺序使默认行为不依赖 DOM 结构。高层 composable 和 adapter 应吸收 schema 与生命周期样板代码，不能把“显式”退化成逐字段手写 tools。
 
 ## 10. 第一阶段组件
 

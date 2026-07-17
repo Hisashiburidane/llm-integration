@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import ApiExpressForm from './ApiExpressForm.vue';
+import DomScanExpressForm from './DomScanExpressForm.vue';
 import { shippingFormState } from './shippingFormStore';
 </script>
 
 <template>
   <a-card title="快递表单" size="small" class="demo-card">
-    <ApiExpressForm v-model="shippingFormState" />
+    <DomScanExpressForm v-model="shippingFormState" />
   </a-card>
 </template>

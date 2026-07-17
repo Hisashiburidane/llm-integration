@@ -15,7 +15,7 @@ Snapshot
   -> immutable collection used by one agent run or debug inspection
 ```
 
-registry 保存 registration，不保存持续更新的 metadata tree。默认 Enchant mount 只注册边界，DOM scanner 在调用时运行。
+registry 保存 registration，不保存持续更新的 metadata tree。默认 Enchant mount 只注册边界和显式 contribution；只有配置 `scan="marked"` 或 `scan="auto"` 时，DOM scanner 才会在调用时运行。
 
 ## 2. 响应式 State
 

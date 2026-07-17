@@ -56,6 +56,25 @@ Execution priority:
 2. adapter-specific form API
 3. DOM event simulation
 
+Vue 组件可以在最近的 `<Enchant>` 边界内直接注册函数：
+
+```ts
+useEnchantAction({
+  name: 'panel.refresh',
+  description: '刷新当前面板数据',
+  effect: 'read',
+  execute: refresh
+});
+```
+
+表单模型使用统一的 `field.fill` 契约：
+
+```ts
+useEnchantForm(form);
+```
+
+`useEnchantForm` 的 capability owner 是 `application`，因为响应式表单状态属于应用。框架只提供注册、schema 生成和调用机制，不拥有字段业务语义。
+
 ## LLM Output Shape
 
 For form filling, LLM should output structured mapping:
