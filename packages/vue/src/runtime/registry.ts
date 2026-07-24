@@ -39,6 +39,17 @@ function getEnchantmentLabel(enchantment: Enchantment) {
   return enchantment.id;
 }
 
+function toMetadataNode(node: Enchantment['metadata'][number]): EnchantMetadataTreeNode {
+  const treeNode: EnchantMetadataTreeNode = {
+    id: node.id,
+    label: node.label ?? ('text' in node ? node.text : node.id),
+    type: 'metadata',
+    kind: node.kind
+  };
+  if ('children' in node) treeNode.children = node.children.map(toMetadataNode);
+  return treeNode;
+}
+
 function toMetadataTree(enchantments: Enchantment[], pageId: string): EnchantMetadataTreeNode {
   return {
     id: pageId,
@@ -49,12 +60,7 @@ function toMetadataTree(enchantments: Enchantment[], pageId: string): EnchantMet
       label: getEnchantmentLabel(enchantment),
       type: 'enchantment',
       kind: enchantment.kind,
-      children: enchantment.metadata.map((node) => ({
-        id: node.id,
-        label: node.label ?? ('text' in node ? node.text : node.id),
-        type: 'metadata',
-        kind: node.kind
-      }))
+      children: enchantment.metadata.map(toMetadataNode)
     }))
   };
 }

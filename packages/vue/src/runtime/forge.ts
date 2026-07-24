@@ -117,6 +117,12 @@ export const enchantContextKey: InjectionKey<EnchantContext> = Symbol('enchant-c
 
 let latestInstalledForge: EnchantForge | undefined;
 
+function throwIfAborted(signal: AbortSignal | undefined) {
+  if (!signal?.aborted) return;
+  if (signal.reason instanceof Error) throw signal.reason;
+  throw new Error('操作已取消。');
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
@@ -306,6 +312,11 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
 
   async function execute(call: EnchantPlanCall, executeOptions: EnchantExecuteOptions): Promise<EnchantExecutionResult> {
     const runId = executeOptions.runId ?? `execute-${Date.now()}`;
+    if (executeOptions.signal?.aborted) {
+      const error = '操作已取消。';
+      trace({ source: call.capabilityId, kind: 'error', title: 'Capability cancelled', detail: error });
+      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error };
+    }
     if (registry.version.value !== executeOptions.snapshot.version) {
       const error = `Snapshot 已失效（${executeOptions.snapshot.version} -> ${registry.version.value}），拒绝执行。`;
       trace({ source: call.capabilityId, kind: 'error', title: 'Stale snapshot rejected', detail: error });
@@ -393,6 +404,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     const request = typeof value === 'string' ? { input: value } : value;
     const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     try {
+      throwIfAborted(request.signal);
       emitProgress(runId, 'capturing', request.onProgress);
       const current = capture({
         page: request.page,
@@ -407,10 +419,12 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         instruction: request.prompt,
         signal: request.signal
       });
+      throwIfAborted(request.signal);
       trace({ source: current.pageId, kind: 'plan', title: 'Agent plan', detail: plan });
 
       const results: EnchantExecutionResult[] = [];
       for (const call of plan.calls) {
+        throwIfAborted(request.signal);
         results.push(await execute(call, {
           snapshot: current,
           runId,
@@ -421,7 +435,12 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         }));
       }
       const message = createFinalMessage(plan, results);
-      emitProgress(runId, 'completed', request.onProgress, { detail: message });
+      emitProgress(
+        runId,
+        results.some((result) => !result.ok) ? 'failed' : 'completed',
+        request.onProgress,
+        { detail: message }
+      );
       return { runId, message, plan, results };
     } catch (error) {
       emitProgress(runId, 'failed', request.onProgress, {
