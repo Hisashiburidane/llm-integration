@@ -38,7 +38,7 @@ export type { EnchantSnapshotConfig } from './runtime/forge';
 export { createEnchantRegistry } from './runtime/registry';
 export type { EnchantRegistry, EnchantSnapshotOptions } from './runtime/registry';
 export { defaultEnchantPolicy, evaluateEnchantPolicy, resolveEnchantPolicy } from './runtime/policy';
-export type { EnchantPolicy, EnchantPolicyDecision } from './runtime/policy';
+export type { EnchantPolicy, EnchantPolicyDecision, EnchantPolicyMode } from './runtime/policy';
 export { defaultAuraProgressMessages, formatAuraProgress } from './runtime/presentation';
 export type { AuraActivityStep, AuraProgressContext, AuraProgressMessage, AuraProgressMessages } from './runtime/presentation';
 export type {
@@ -91,6 +91,7 @@ export {
 } from './runtime/scope';
 export type { LlmMetadataTreeNode, LlmPageTool, LlmScopeSnapshot, MetadataNode } from './runtime/scope';
 export { createLlmClient, parseLlmJson } from './runtime/llm-client';
-export type { LlmClientOptions, LlmMessage, LlmResponse, LlmRunJsonOptions, LlmRunOptions } from './runtime/llm-client';
+export type { LlmClient, LlmClientOptions, LlmMessage, LlmResponse, LlmRunJsonOptions, LlmRunOptions } from './runtime/llm-client';
+export type { EnchantNavigationInput, EnchantNavigationSource, EnchantNavigationState } from './runtime/navigation';
 export { clearLlmDebugEvents, pushLlmDebugEvent, useLlmDebugEvents } from './runtime/debug';
 export type { LlmDebugEvent } from './runtime/debug';

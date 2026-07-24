@@ -1,9 +1,13 @@
 import {
   computed,
   inject,
+  onScopeDispose,
+  reactive,
   readonly,
   ref,
+  shallowRef,
   shallowReactive,
+  watch,
   type App,
   type ComputedRef,
   type InjectionKey,
@@ -26,15 +30,17 @@ import type {
   EnchantRegistryDigest,
   EnchantRunResult,
   EnchantSnapshot,
+  EnchantTool,
   EnchantTraceEvent
 } from './enchantment';
-import type { LlmClientOptions } from './llm-client';
+import type { LlmClient, LlmClientOptions } from './llm-client';
 import {
   evaluateEnchantPolicy,
   resolveEnchantPolicy,
   type EnchantPolicy,
   type EnchantPolicyDecision
 } from './policy';
+import type { EnchantNavigationInput, EnchantNavigationSource, EnchantNavigationState } from './navigation';
 import { createEnchantRegistry, type EnchantRegistry, type EnchantSnapshotOptions } from './registry';
 
 export interface EnchantSnapshotConfig {
@@ -74,12 +80,18 @@ export interface EnchantExecuteOptions {
 
 export interface EnchantForgeOptions {
   llm?: LlmClientOptions;
+  llmClient?: LlmClient;
   agent?: EnchantAgent;
   policy?: Partial<EnchantPolicy>;
   snapshots?: Partial<EnchantSnapshotConfig>;
   maxPlanCalls?: number;
   traceLimit?: number;
   onTrace?: (event: EnchantTraceEvent) => void;
+}
+
+export interface EnchantCapabilityExporter<T = unknown> {
+  name: string;
+  export(snapshot: EnchantSnapshot, options?: EnchantSnapshotOptions): T;
 }
 
 export interface EnchantForgePlugin {
@@ -101,11 +113,22 @@ export type EnchantForge = Plugin & {
   readonly events: readonly EnchantTraceEvent[];
   readonly snapshots: readonly EnchantSnapshot[];
   readonly observationEnabled: Readonly<Ref<boolean>>;
+  readonly navigation: Readonly<EnchantNavigationState>;
+  readonly exporters: readonly string[];
   digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
   capture(options?: EnchantSnapshotOptions): EnchantSnapshot;
   snapshot(options?: EnchantSnapshotOptions): EnchantSnapshot;
   run(options: EnchantRunOptions | string): Promise<EnchantRunResult>;
   execute(call: EnchantPlanCall, options: EnchantExecuteOptions): Promise<EnchantExecutionResult>;
+  exportCapabilities<T = EnchantTool[]>(
+    exporter?: string | EnchantCapabilityExporter<T>,
+    options?: EnchantSnapshotOptions
+  ): T;
+  registerExporter<T>(exporter: EnchantCapabilityExporter<T>): () => void;
+  configurePolicy(config: Partial<EnchantPolicy>): void;
+  syncNavigation(input: EnchantNavigationInput): void;
+  bindNavigation(source: EnchantNavigationSource): () => void;
+  dispose(): void;
   configureSnapshots(config: Partial<EnchantSnapshotConfig>): void;
   use(plugin: EnchantForgePlugin): EnchantForge;
   trace(event: Omit<EnchantTraceEvent, 'id' | 'timestamp'>): EnchantTraceEvent;
@@ -235,11 +258,18 @@ function createFinalMessage(plan: EnchantPlan, results: EnchantExecutionResult[]
 
 export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantForge {
   const registry = createEnchantRegistry();
-  const policy = resolveEnchantPolicy(options.policy);
-  const agent = options.agent ?? createDefaultEnchantAgent(options.llm);
+  const policy = shallowReactive(resolveEnchantPolicy(options.policy)) as EnchantPolicy;
+  const agent = options.agent ?? createDefaultEnchantAgent(options.llm, options.llmClient);
   const events = shallowReactive<EnchantTraceEvent[]>([]);
   const retainedSnapshots = shallowReactive<EnchantSnapshot[]>([]);
   const observationEnabled = ref(Boolean(options.snapshots?.autoCapture));
+  const navigation = reactive<EnchantNavigationState>({
+    app: undefined,
+    page: undefined,
+    route: undefined,
+    tab: undefined,
+    tags: []
+  });
   const snapshotConfig: EnchantSnapshotConfig = {
     autoCapture: options.snapshots?.autoCapture ?? false,
     retention: Math.max(0, options.snapshots?.retention ?? 0),
@@ -250,6 +280,15 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const pluginCleanups: Array<() => void> = [];
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
   let installedApp: App | undefined;
+  let disposed = false;
+  const exporters = new Map<string, EnchantCapabilityExporter<unknown>>();
+
+  exporters.set('tools', {
+    name: 'tools',
+    export(snapshot) {
+      return snapshot.tools;
+    }
+  });
 
   function trace(event: Omit<EnchantTraceEvent, 'id' | 'timestamp'>) {
     const complete: EnchantTraceEvent = {
@@ -269,8 +308,20 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     if (retainedSnapshots.length > snapshotConfig.retention) retainedSnapshots.splice(snapshotConfig.retention);
   }
 
+  function resolveSnapshotOptions(snapshotOptions: EnchantSnapshotOptions = {}): EnchantSnapshotOptions {
+    return {
+      ...snapshotOptions,
+      app: snapshotOptions.app ?? navigation.app,
+      page: snapshotOptions.page ?? navigation.page,
+      route: snapshotOptions.route ?? navigation.route,
+      tab: snapshotOptions.tab ?? navigation.tab,
+      tags: snapshotOptions.tags ?? navigation.tags
+    };
+  }
+
   function capture(snapshotOptions: EnchantSnapshotOptions = {}) {
-    const raw = registry.capture(snapshotOptions);
+    const resolvedOptions = resolveSnapshotOptions(snapshotOptions);
+    const raw = registry.capture(resolvedOptions);
     const enchantments = raw.enchantments.map((enchantment) => ({
       ...enchantment,
       metadata: redactMetadata(enchantment.metadata, policy)
@@ -293,6 +344,60 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       detail: { id: value.id, version: value.version, enchantments: value.enchantments.length, tools: value.tools.length }
     });
     return value;
+  }
+
+  function configurePolicy(config: Partial<EnchantPolicy>) {
+    const next = resolveEnchantPolicy({ ...policy, ...config });
+    Object.assign(policy, next);
+    registry.touch();
+    trace({ source: 'policy', kind: 'policy', title: 'Policy updated', detail: { mode: policy.mode } });
+  }
+
+  function syncNavigation(input: EnchantNavigationInput) {
+    const next = {
+      app: input.app ?? navigation.app,
+      page: input.page ?? navigation.page,
+      route: input.route ?? navigation.route,
+      tab: input.tab ?? navigation.tab,
+      tags: input.tags ? [...input.tags] : navigation.tags
+    };
+    const changed = next.app !== navigation.app
+      || next.page !== navigation.page
+      || next.route !== navigation.route
+      || next.tab !== navigation.tab
+      || next.tags.length !== navigation.tags.length
+      || next.tags.some((tag, index) => tag !== navigation.tags[index]);
+    if (!changed) return;
+    Object.assign(navigation, next);
+    registry.touch();
+    trace({ source: 'navigation', kind: 'info', title: 'Navigation synchronized', detail: next });
+  }
+
+  function bindNavigation(source: EnchantNavigationSource) {
+    const read = typeof source === 'function' ? source : () => source.value;
+    const stop = watch(read, (value) => {
+      if (value) syncNavigation(value);
+    }, { immediate: true, deep: true });
+    return stop;
+  }
+
+  function exportCapabilities<T = EnchantTool[]>(
+    exporter: string | EnchantCapabilityExporter<T> = 'tools',
+    snapshotOptions: EnchantSnapshotOptions = {}
+  ): T {
+    const snapshot = capture(snapshotOptions);
+    const resolved = typeof exporter === 'string' ? exporters.get(exporter) : exporter;
+    if (!resolved) throw new Error(`未注册 capability exporter：${exporter}。`);
+    return resolved.export(snapshot, snapshotOptions) as T;
+  }
+
+  function registerExporter<T>(exporter: EnchantCapabilityExporter<T>) {
+    if (!exporter.name.trim()) throw new Error('Capability exporter 必须提供 name。');
+    if (exporters.has(exporter.name)) throw new Error(`Capability exporter 已存在：${exporter.name}。`);
+    exporters.set(exporter.name, exporter as EnchantCapabilityExporter<unknown>);
+    return () => {
+      if (exporters.get(exporter.name) === exporter) exporters.delete(exporter.name);
+    };
   }
 
   function emitProgress(
@@ -471,6 +576,19 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
 
   registry.subscribe(scheduleAutoCapture);
 
+  function digest(digestOptions: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'> = {}) {
+    return registry.digest(resolveSnapshotOptions(digestOptions));
+  }
+
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    if (autoCaptureTimer) clearTimeout(autoCaptureTimer);
+    while (pluginCleanups.length) pluginCleanups.pop()?.();
+    registry.clear();
+    if (latestInstalledForge === forge) latestInstalledForge = undefined;
+  }
+
   const forge: EnchantForge = {
     install(app: App) {
       if (installedApp && installedApp !== app) throw new Error('同一个 EnchantForge 实例不能安装到多个 Vue app。');
@@ -483,6 +601,10 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     registry,
     policy,
     agent,
+    navigation: readonly(navigation) as Readonly<EnchantNavigationState>,
+    get exporters() {
+      return Array.from(exporters.keys());
+    },
     get events() {
       return readonly(events) as unknown as readonly EnchantTraceEvent[];
     },
@@ -490,11 +612,17 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       return readonly(retainedSnapshots) as unknown as readonly EnchantSnapshot[];
     },
     observationEnabled: readonly(observationEnabled),
-    digest: (digestOptions = {}) => registry.digest(digestOptions),
+    digest,
     capture,
     snapshot: capture,
     run,
     execute,
+    exportCapabilities,
+    registerExporter,
+    configurePolicy,
+    syncNavigation,
+    bindNavigation,
+    dispose,
     configureSnapshots(config) {
       if (config.autoCapture !== undefined) snapshotConfig.autoCapture = config.autoCapture;
       if (config.retention !== undefined) snapshotConfig.retention = Math.max(0, config.retention);
@@ -551,10 +679,17 @@ export function useEnchant() {
 
 export function useEnchantPage(page?: Ref<string | undefined> | ComputedRef<string | undefined>) {
   const forge = useEnchantForge();
-  return computed(() => {
-    forge.registry.version.value;
-    return forge.capture({ page: page?.value, retain: true });
-  });
+  const activePage = page ?? computed(() => forge.navigation.page);
+  const snapshot = shallowRef(forge.capture({ page: activePage.value, retain: true }));
+  const stop = watch(
+    [() => forge.registry.version.value, activePage],
+    () => {
+      snapshot.value = forge.capture({ page: activePage.value, retain: true });
+    },
+    { flush: 'post' }
+  );
+  onScopeDispose(stop);
+  return readonly(snapshot);
 }
 
 export function useEnchantRegistry() {

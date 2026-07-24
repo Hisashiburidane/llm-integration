@@ -11,6 +11,10 @@ import type {
 
 export interface EnchantSnapshotOptions {
   page?: string;
+  route?: string;
+  tab?: string;
+  tags?: string[];
+  app?: string;
   enchantmentIds?: string[];
   includeLocal?: boolean;
   includeHidden?: boolean;
@@ -19,6 +23,7 @@ export interface EnchantSnapshotOptions {
 
 export interface EnchantRegistry {
   readonly version: Readonly<Ref<number>>;
+  touch(): void;
   register(registration: EnchantRegistration): () => void;
   update(registration: EnchantRegistration): void;
   invalidate(enchantmentId: string): void;
@@ -181,6 +186,10 @@ export function createEnchantRegistry(): EnchantRegistry {
       id: `${pageId}:${version.value}:${Date.now()}`,
       version: version.value,
       pageId,
+      app: options.app,
+      route: options.route,
+      tab: options.tab,
+      tags: options.tags ? [...options.tags] : undefined,
       createdAt: new Date().toISOString(),
       enchantments,
       metadataTree: toMetadataTree(enchantments, pageId),
@@ -198,6 +207,7 @@ export function createEnchantRegistry(): EnchantRegistry {
 
   return {
     version: readonly(version),
+    touch,
     register,
     update,
     invalidate,

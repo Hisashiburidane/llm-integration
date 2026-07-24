@@ -210,3 +210,88 @@ test('forge reports failed progress when a capability result fails', async () =>
   assert.equal(result.results[0].ok, false);
   assert.equal(progress.at(-1).phase, 'failed');
 });
+
+test('forge instances keep registry, navigation and policy state isolated', () => {
+  const first = createEnchantForge();
+  const second = createEnchantForge();
+  first.registry.register(createRegistration());
+
+  assert.equal(first.digest().activeEnchantments, 1);
+  assert.equal(second.digest().activeEnchantments, 0);
+
+  first.syncNavigation({ app: 'console', page: 'focus', route: '/focus', tab: 'nodes', tags: ['ops'] });
+  assert.deepEqual(first.navigation, {
+    app: 'console',
+    page: 'focus',
+    route: '/focus',
+    tab: 'nodes',
+    tags: ['ops']
+  });
+  assert.equal(second.navigation.page, undefined);
+  const snapshot = first.capture();
+  assert.equal(snapshot.pageId, 'focus');
+  assert.equal(snapshot.route, '/focus');
+  assert.equal(snapshot.tab, 'nodes');
+  assert.deepEqual(snapshot.tags, ['ops']);
+});
+
+test('forge policy modes can be changed without replacing the runtime', async () => {
+  const { forge, getExecutionCount } = createTestForge({ effect: 'draft' });
+  forge.configurePolicy({ mode: 'read-only' });
+  const readOnlySnapshot = forge.capture();
+  const readOnly = await forge.execute(
+    { capabilityId: 'capability:test', input: { value: 'valid' } },
+    { snapshot: readOnlySnapshot, confirmed: true }
+  );
+  assert.equal(readOnly.ok, false);
+  assert.match(readOnly.error, /不属于本次 snapshot/);
+
+  forge.configurePolicy({ mode: 'draft-only' });
+  const draftSnapshot = forge.capture();
+  const draft = await forge.execute(
+    { capabilityId: 'capability:test', input: { value: 'valid' } },
+    { snapshot: draftSnapshot, confirmed: true }
+  );
+  assert.equal(draft.ok, true);
+  assert.equal(getExecutionCount(), 1);
+});
+
+test('forge exports tools through built-in and custom capability exporters', () => {
+  const { forge } = createTestForge();
+  const custom = {
+    name: 'names',
+    export(snapshot) {
+      return snapshot.tools.map((tool) => tool.name);
+    }
+  };
+  const unregister = forge.registerExporter(custom);
+
+  assert.deepEqual(forge.exportCapabilities().map((tool) => tool.name), ['test.action']);
+  assert.deepEqual(forge.exportCapabilities('names'), ['test.action']);
+  unregister();
+  assert.throws(() => forge.exportCapabilities('names'), /未注册/);
+});
+
+test('default agent can use an injected LLM client', async () => {
+  let request;
+  const forge = createEnchantForge({
+    llmClient: {
+      async run() {
+        throw new Error('not used');
+      },
+      async runJson(value) {
+        request = value;
+        return {
+          message: 'custom client',
+          snapshotVersion: value.context.version,
+          calls: []
+        };
+      }
+    }
+  });
+  forge.registry.register(createRegistration());
+  const result = await forge.run({ input: 'inspect' });
+
+  assert.equal(result.message, 'custom client');
+  assert.equal(request.input, 'inspect');
+});

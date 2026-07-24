@@ -55,8 +55,7 @@ function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
   };
 }
 
-export function createDefaultEnchantAgent(options: LlmClientOptions = {}): EnchantAgent {
-  const client = createLlmClient(options);
+export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client = createLlmClient(options)): EnchantAgent {
   return {
     async plan(request) {
       const plan = await client.runJson<unknown>({

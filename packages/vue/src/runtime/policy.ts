@@ -1,6 +1,9 @@
 import type { CapabilityEffect, EnchantCapability, Enchantment } from './enchantment';
 
+export type EnchantPolicyMode = 'read-only' | 'draft-only' | 'disabled';
+
 export interface EnchantPolicy {
+  mode: EnchantPolicyMode;
   defaultExposure: 'aura' | 'local' | 'private';
   allowDomWrite: boolean;
   allowedEffects: CapabilityEffect[];
@@ -16,6 +19,7 @@ export interface EnchantPolicyDecision {
 }
 
 export const defaultEnchantPolicy: EnchantPolicy = {
+  mode: 'draft-only',
   defaultExposure: 'aura',
   allowDomWrite: true,
   allowedEffects: ['read', 'visual', 'draft'],
@@ -51,6 +55,18 @@ export function evaluateEnchantPolicy(
     || !enchantment.status.enabled
   ) {
     return { allowed: false, requiresConfirmation: false, reason: '目标 Enchantment 当前不可执行。' };
+  }
+
+  if (policy.mode === 'disabled') {
+    return { allowed: false, requiresConfirmation: false, reason: 'Forge 当前处于 disabled 模式。' };
+  }
+
+  if (policy.mode === 'read-only' && !['read', 'visual'].includes(capability.effect)) {
+    return { allowed: false, requiresConfirmation: false, reason: 'read-only 模式只允许读取和视觉操作。' };
+  }
+
+  if (policy.mode === 'draft-only' && capability.effect === 'commit') {
+    return { allowed: false, requiresConfirmation: false, reason: 'draft-only 模式禁止提交类操作。' };
   }
 
   if (policy.blockedCapabilities.includes(capability.id)) {

@@ -39,6 +39,7 @@ const props = defineProps({
   id: String,
   name: String,
   page: String,
+  route: String,
   kind: {
     type: String as PropType<Enchantment['kind']>,
     default: undefined
@@ -163,6 +164,7 @@ function capture() {
     id: enchantmentId,
     name: props.name,
     page: props.page,
+    route: props.route,
     kind: props.kind ?? (metadata.some((node) => node.kind === 'field') ? 'form' : 'panel'),
     exposure: currentExposure(),
     instruction: props.prompt || props.spell || undefined,
@@ -189,6 +191,8 @@ function registration(): EnchantRegistration {
     id: enchantmentId,
     name: props.name,
     page: props.page,
+    route: props.route,
+    tags: [...props.tags],
     exposure: currentExposure(),
     parentEnchantmentId: parentContext?.id,
     getStatus: currentStatus,
@@ -281,6 +285,7 @@ watch(forge.observationEnabled, configureObservation);
 watch(() => [
   props.name,
   props.page,
+  props.route,
   props.kind,
   props.prompt,
   props.spell,

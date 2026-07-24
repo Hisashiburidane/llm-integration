@@ -173,6 +173,8 @@ export interface EnchantRegistration {
   id: string;
   name?: string;
   page?: string;
+  route?: string;
+  tags?: string[];
   exposure: EnchantExposure;
   parentEnchantmentId?: string;
   getStatus(): EnchantmentStatus;
@@ -206,6 +208,10 @@ export interface EnchantSnapshot {
   id: string;
   version: number;
   pageId: string;
+  app?: string;
+  route?: string;
+  tab?: string;
+  tags?: string[];
   createdAt: string;
   enchantments: Enchantment[];
   metadataTree: EnchantMetadataTreeNode;

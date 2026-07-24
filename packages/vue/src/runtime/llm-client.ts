@@ -36,6 +36,11 @@ export interface LlmResponse {
   payload: unknown;
 }
 
+export interface LlmClient {
+  run(request: LlmRunOptions): Promise<LlmResponse>;
+  runJson<T = unknown>(request: LlmRunJsonOptions): Promise<T>;
+}
+
 export function parseLlmJson(content: unknown): unknown {
   if (typeof content !== 'string' || !content.trim()) {
     throw new Error('LLM 没有返回文本内容。');
@@ -63,7 +68,7 @@ function buildMessages(options: LlmRunOptions, jsonOnly = false): LlmMessage[] {
   ];
 }
 
-export function createLlmClient(options: LlmClientOptions = {}) {
+export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
   const endpoint = options.endpoint ?? '/api/llm/chat/completions';
   const fetcher = options.fetcher ?? globalThis.fetch?.bind(globalThis);
 
