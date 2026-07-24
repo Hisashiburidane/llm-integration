@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from 'vue';
-import { Aura } from '@enchantforge/vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { Aura, useEnchantForge } from '@enchantforge/vue';
 import ExampleDebugPanel from './examples/ExampleDebugPanel.vue';
 import CodeTabs from './examples/CodeTabs.vue';
 import { demos } from './examples/registry';
@@ -9,6 +9,15 @@ const requestedId = window.location.hash.slice(1);
 const activeId = ref(demos.some((demo) => demo.id === requestedId) ? requestedId : demos[0].id);
 const active = computed(() => demos.find((demo) => demo.id === activeId.value) ?? demos[0]);
 const debugOpen = ref(false);
+const forge = useEnchantForge();
+
+watch(activeId, (page) => {
+  forge.syncNavigation({
+    page,
+    route: `#${page}`,
+    tags: [active.value.status]
+  });
+}, { immediate: true });
 
 function selectDemo(id: string) {
   activeId.value = id;
@@ -62,6 +71,6 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash));
       <ExampleDebugPanel :page-id="active.id" />
     </a-drawer>
 
-    <Aura :page="active.id" />
+    <Aura />
   </section>
 </template>

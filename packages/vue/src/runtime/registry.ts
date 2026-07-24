@@ -31,7 +31,7 @@ export interface EnchantRegistry {
   getRegistration(enchantmentId: string): EnchantRegistration | undefined;
   getCapability(capabilityId: string): EnchantCapability | undefined;
   list(options?: EnchantSnapshotOptions): EnchantRegistration[];
-  digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
+  digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'route' | 'tab' | 'tags' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
   capture(options?: EnchantSnapshotOptions): EnchantSnapshot;
   subscribe(listener: () => void): () => void;
   clear(): void;
@@ -154,6 +154,7 @@ export function createEnchantRegistry(): EnchantRegistry {
     return Array.from(registrations.values()).filter((registration) => {
       if (requestedIds && !requestedIds.has(registration.id)) return false;
       if (options.page && registration.page && registration.page !== options.page) return false;
+      if (options.route && registration.route && registration.route !== options.route) return false;
       if (registration.exposure === 'private') return false;
       if (!options.includeLocal && registration.exposure !== 'aura') return false;
       const status = registration.getStatus();
@@ -162,7 +163,7 @@ export function createEnchantRegistry(): EnchantRegistry {
     });
   }
 
-  function digest(options: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'> = {}) {
+  function digest(options: Pick<EnchantSnapshotOptions, 'page' | 'route' | 'tab' | 'tags' | 'includeLocal' | 'includeHidden'> = {}) {
     const current = list(options);
     const currentIds = new Set(current.map((registration) => registration.id));
     return {

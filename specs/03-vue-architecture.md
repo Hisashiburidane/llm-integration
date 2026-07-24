@@ -107,6 +107,44 @@ type Exposure = 'aura' | 'local' | 'private'
 
 Aura 只感知已挂载、允许暴露且通过 policy 的 Enchantment，不应被描述为无边界的全局智能。
 
+### 5.1 应用状态同步
+
+Forge 不依赖 Vue Router，但为路由、标签页和微应用提供统一的当前上下文入口。应用在路由或标签页变化时同步状态，下一次 capture 会使用新的页面过滤条件和 snapshot version：
+
+```ts
+forge.syncNavigation({
+  page: route.name?.toString(),
+  route: route.fullPath,
+  tab: activeTab,
+  tags: ['operations']
+})
+```
+
+也可以用 `forge.bindNavigation(refOrGetter)` 绑定应用自己的响应式路由状态。Forge 不执行导航，也不把业务路由器放进 Core；应用拥有的导航 capability 可以和当前页面的 capability 一起通过普通 `Enchant` 注册。
+
+### 5.2 Policy、Exporter 与自定义 Client
+
+Policy 是应用级可变运行状态，切换后会递增 registry version，旧 snapshot 会被拒绝：
+
+```ts
+forge.configurePolicy({ mode: 'read-only' })
+forge.configurePolicy({ mode: 'draft-only' })
+forge.configurePolicy({ mode: 'disabled' })
+```
+
+`forge.exportCapabilities()` 默认返回当前 snapshot 的 Core tool model；应用可以注册自己的 exporter，将同一 snapshot 转换为内部 Agent 或其他协议：
+
+```ts
+forge.registerExporter({
+  name: 'internal-agent',
+  export(snapshot) {
+    return convertTools(snapshot.tools)
+  }
+})
+```
+
+默认 agent 使用 OpenAI-compatible client。需要接入内部模型平台时，传入实现 `LlmClient` 的 `llmClient`，不需要重写 registry、policy 或 executor。
+
 Aura 可以通过标准属性 `agent` 接入应用自定义 agent，也可以使用主题化别名 `caster`：
 
 ```vue

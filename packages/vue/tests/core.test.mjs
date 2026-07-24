@@ -295,3 +295,52 @@ test('default agent can use an injected LLM client', async () => {
   assert.equal(result.message, 'custom client');
   assert.equal(request.input, 'inspect');
 });
+
+test('registry filters route-scoped registrations for the active snapshot', () => {
+  const registry = createEnchantRegistry();
+  const createRouteRegistration = (id, route) => ({
+    id,
+    page: 'console',
+    route,
+    exposure: 'aura',
+    getStatus: () => status(),
+    capture: () => ({
+      enchantment: {
+        id,
+        page: 'console',
+        route,
+        kind: 'panel',
+        exposure: 'aura',
+        status: status(),
+        metadata: [],
+        capabilities: [],
+        source: { scopeId: id },
+        version: 1
+      },
+      capabilities: []
+    })
+  });
+  registry.register(createRouteRegistration('route:a', '/a'));
+  registry.register(createRouteRegistration('route:b', '/b'));
+
+  const snapshot = registry.capture({ page: 'console', route: '/a' });
+  assert.deepEqual(snapshot.enchantments.map((item) => item.id), ['route:a']);
+});
+
+test('forge dispose runs plugin cleanup and clears its app-owned registry', () => {
+  const forge = createEnchantForge();
+  let cleaned = false;
+  forge.use({
+    name: 'test-cleanup',
+    setup() {
+      return () => {
+        cleaned = true;
+      };
+    }
+  });
+  forge.registry.register(createRegistration());
+  forge.dispose();
+
+  assert.equal(cleaned, true);
+  assert.equal(forge.digest().activeEnchantments, 0);
+});

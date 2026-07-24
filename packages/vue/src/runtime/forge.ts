@@ -115,7 +115,7 @@ export type EnchantForge = Plugin & {
   readonly observationEnabled: Readonly<Ref<boolean>>;
   readonly navigation: Readonly<EnchantNavigationState>;
   readonly exporters: readonly string[];
-  digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
+  digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'route' | 'tab' | 'tags' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
   capture(options?: EnchantSnapshotOptions): EnchantSnapshot;
   snapshot(options?: EnchantSnapshotOptions): EnchantSnapshot;
   run(options: EnchantRunOptions | string): Promise<EnchantRunResult>;
@@ -258,7 +258,8 @@ function createFinalMessage(plan: EnchantPlan, results: EnchantExecutionResult[]
 
 export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantForge {
   const registry = createEnchantRegistry();
-  const policy = shallowReactive(resolveEnchantPolicy(options.policy)) as EnchantPolicy;
+  const policyState = shallowReactive(resolveEnchantPolicy(options.policy));
+  const policy = readonly(policyState) as unknown as EnchantPolicy;
   const agent = options.agent ?? createDefaultEnchantAgent(options.llm, options.llmClient);
   const events = shallowReactive<EnchantTraceEvent[]>([]);
   const retainedSnapshots = shallowReactive<EnchantSnapshot[]>([]);
@@ -348,18 +349,19 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
 
   function configurePolicy(config: Partial<EnchantPolicy>) {
     const next = resolveEnchantPolicy({ ...policy, ...config });
-    Object.assign(policy, next);
+    Object.assign(policyState, next);
     registry.touch();
     trace({ source: 'policy', kind: 'policy', title: 'Policy updated', detail: { mode: policy.mode } });
   }
 
   function syncNavigation(input: EnchantNavigationInput) {
+    const has = (key: keyof EnchantNavigationInput) => Object.prototype.hasOwnProperty.call(input, key);
     const next = {
-      app: input.app ?? navigation.app,
-      page: input.page ?? navigation.page,
-      route: input.route ?? navigation.route,
-      tab: input.tab ?? navigation.tab,
-      tags: input.tags ? [...input.tags] : navigation.tags
+      app: has('app') ? input.app : navigation.app,
+      page: has('page') ? input.page : navigation.page,
+      route: has('route') ? input.route : navigation.route,
+      tab: has('tab') ? input.tab : navigation.tab,
+      tags: has('tags') ? [...(input.tags ?? [])] : navigation.tags
     };
     const changed = next.app !== navigation.app
       || next.page !== navigation.page
@@ -376,7 +378,13 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   function bindNavigation(source: EnchantNavigationSource) {
     const read = typeof source === 'function' ? source : () => source.value;
     const stop = watch(read, (value) => {
-      if (value) syncNavigation(value);
+      syncNavigation(value ?? {
+        app: undefined,
+        page: undefined,
+        route: undefined,
+        tab: undefined,
+        tags: []
+      });
     }, { immediate: true, deep: true });
     return stop;
   }
@@ -574,9 +582,9 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     autoCaptureTimer = setTimeout(() => capture({ retain: true }), snapshotConfig.throttle);
   }
 
-  registry.subscribe(scheduleAutoCapture);
+  const stopRegistrySubscription = registry.subscribe(scheduleAutoCapture);
 
-  function digest(digestOptions: Pick<EnchantSnapshotOptions, 'page' | 'includeLocal' | 'includeHidden'> = {}) {
+  function digest(digestOptions: Pick<EnchantSnapshotOptions, 'page' | 'route' | 'tab' | 'tags' | 'includeLocal' | 'includeHidden'> = {}) {
     return registry.digest(resolveSnapshotOptions(digestOptions));
   }
 
@@ -584,6 +592,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     if (disposed) return;
     disposed = true;
     if (autoCaptureTimer) clearTimeout(autoCaptureTimer);
+    stopRegistrySubscription();
     while (pluginCleanups.length) pluginCleanups.pop()?.();
     registry.clear();
     if (latestInstalledForge === forge) latestInstalledForge = undefined;
