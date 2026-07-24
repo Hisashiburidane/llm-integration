@@ -362,7 +362,11 @@ test('debug plugin enables the lightweight in-page debug surface by default', ()
 
 test('core entry stays independent from optional UI component bundles', () => {
   const coreEntry = readFileSync(new URL('../dist/core.js', import.meta.url), 'utf8');
+  const packageManifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
   assert.doesNotMatch(coreEntry, /ant-design/);
   assert.doesNotMatch(coreEntry, /ant-design-x/);
+  assert.equal(packageManifest.dependencies['ant-design-x-vue'], '^1.6.0');
+  assert.equal(packageManifest.dependencies['ant-design-vue'], undefined);
+  assert.equal(packageManifest.dependencies['@ant-design/icons-vue'], undefined);
 });

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { MessageOutlined } from '@ant-design/icons-vue';
-import { Badge, Collapse, CollapsePanel, Modal } from 'ant-design-vue';
 import { Bubble, Sender, ThoughtChain, type ThoughtChainProps } from 'ant-design-x-vue';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, type Component } from 'vue';
 import { createDefaultEnchantAgent, type EnchantAgent } from '../runtime/agent';
@@ -187,10 +185,14 @@ function latestActivityStep(activity: ActivityItem) {
   return activity.steps[activity.steps.length - 1];
 }
 
-function activityBadgeStatus(activity: ActivityItem): 'processing' | 'success' | 'error' {
-  if (activity.status === 'failed') return 'error';
-  if (activity.status === 'done') return 'success';
-  return 'processing';
+function toggleActivity(activity: ActivityItem) {
+  const index = activity.expandedKeys.indexOf('history');
+  if (index === -1) activity.expandedKeys.push('history');
+  else activity.expandedKeys.splice(index, 1);
+}
+
+function activityStatusClass(activity: ActivityItem) {
+  return `activity-status-${activity.status}`;
 }
 
 function thoughtChainItems(activity: ActivityItem): ThoughtChainProps['items'] {
@@ -271,16 +273,8 @@ async function submit(message?: string) {
 
 function requestConfirmation(request: EnchantConfirmationRequest) {
   if (props.confirm) return props.confirm(request);
-  return new Promise<boolean>((resolve) => {
-    Modal.confirm({
-      title: '确认执行当前操作？',
-      content: `${request.capability.label}（${request.capability.effect}）将作用于当前界面。`,
-      okText: '确认执行',
-      cancelText: '取消',
-      onOk: () => resolve(true),
-      onCancel: () => resolve(false)
-    });
-  });
+  if (typeof globalThis.confirm !== 'function') return false;
+  return globalThis.confirm(`确认执行当前操作？\n${request.capability.label}（${request.capability.effect}）将作用于当前界面。`);
 }
 
 watch(() => props.page, () => {
@@ -359,21 +353,24 @@ onBeforeUnmount(() => {
                 :current-step="latestActivityStep(item)"
                 :history-items="thoughtChainItems(item)"
               >
-                <Collapse v-model:active-key="item.expandedKeys" ghost class="aura-progress-collapse">
-                  <CollapsePanel key="history">
-                    <template #header>
-                      <span class="activity-current">
-                        <Badge :status="activityBadgeStatus(item)" />
-                        <span>{{ latestActivityStep(item)?.label || '正在准备执行' }}</span>
-                        <code v-if="latestActivityStep(item)?.total">
-                          {{ latestActivityStep(item)?.current }}/{{ latestActivityStep(item)?.total }}
-                        </code>
-                        <small>{{ formatActivityDuration(item) }}</small>
-                      </span>
-                    </template>
-                    <ThoughtChain :items="thoughtChainItems(item)" size="small" />
-                  </CollapsePanel>
-                </Collapse>
+                <div class="aura-progress-collapse">
+                  <button type="button" class="activity-toggle" @click="toggleActivity(item)">
+                    <span class="activity-current">
+                      <i class="activity-status-dot" :class="activityStatusClass(item)"></i>
+                      <span>{{ latestActivityStep(item)?.label || '正在准备执行' }}</span>
+                      <code v-if="latestActivityStep(item)?.total">
+                        {{ latestActivityStep(item)?.current }}/{{ latestActivityStep(item)?.total }}
+                      </code>
+                      <small>{{ formatActivityDuration(item) }}</small>
+                    </span>
+                    <span class="activity-chevron">{{ item.expandedKeys.includes('history') ? '−' : '+' }}</span>
+                  </button>
+                  <ThoughtChain
+                    v-if="item.expandedKeys.includes('history')"
+                    :items="thoughtChainItems(item)"
+                    size="small"
+                  />
+                </div>
               </slot>
             </template>
           </Bubble>
@@ -419,14 +416,18 @@ onBeforeUnmount(() => {
 .aura-empty { margin: auto 8px; color: #64748b; font-size: 12px; line-height: 1.7; }
 .aura-chat-bubble { width: 100%; font-size: 12px; }
 .aura-activity-bubble { margin: -4px 0; }
-.aura-progress-collapse { width: min(100%, 340px); border: 0; background: transparent; }
-.activity-current { display: grid; width: 100%; min-width: 0; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 7px; align-items: center; color: #526477; font-size: 11px; line-height: 1.4; }
+.aura-progress-collapse { width: min(100%, 340px); }
+.activity-toggle { display: flex; width: 100%; min-width: 0; align-items: center; gap: 7px; padding: 5px 4px; border: 0; color: #526477; background: transparent; cursor: pointer; text-align: left; }
+.activity-current { display: grid; flex: 1; min-width: 0; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 7px; align-items: center; font-size: 11px; line-height: 1.4; }
 .activity-current > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .activity-current code { color: #7b8a9a; font-size: 9px; }
 .activity-current small { color: #8a99a8; font-size: 9px; white-space: nowrap; }
+.activity-chevron { color: #8a99a8; font-size: 15px; line-height: 1; }
+.activity-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; }
+.activity-status-running { background: #f0b429; animation: aura-pulse 1.2s ease-in-out infinite; }
+.activity-status-done { background: #52c41a; }
+.activity-status-failed { background: #ff4d4f; }
 .aura-input { padding: 12px; border-top: 1px solid #e5e7eb; }
-:deep(.aura-progress-collapse .ant-collapse-header) { align-items: center !important; padding: 5px 4px !important; }
-:deep(.aura-progress-collapse .ant-collapse-content-box) { padding: 8px 4px 4px 24px !important; }
 :deep(.aura-activity-bubble .ant-bubble-content) { width: 100%; padding: 0; background: transparent; }
 @keyframes aura-pulse { 0%, 100% { opacity: .65; } 50% { opacity: 1; } }
 </style>

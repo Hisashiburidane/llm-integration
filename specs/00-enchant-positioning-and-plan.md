@@ -210,7 +210,7 @@ Vue component / DOM / application store
   Aura and interaction primitives
   debugging hooks
 
-@enchantforge/adapter-ant-design-vue      # adapter 稳定后再拆包
+@enchantforge/adapter-ant-design-vue      # 独立子项目，未来按需提供
   form / input / select / modal / table adapters
 
 examples/vue
@@ -220,7 +220,7 @@ website
   documentation and example entry
 ```
 
-adapter 数量较少时可先作为 `@enchantforge/vue` 内部模块，API 稳定后再拆包，避免过早增加包管理成本。
+Core 不暂存 Ant Design Vue 等业务组件 adapter。即使首批只支持少量组件，也通过独立子项目管理版本和依赖边界。
 
 ## 6. 公共 API
 

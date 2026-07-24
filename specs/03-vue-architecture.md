@@ -17,7 +17,7 @@ EnchantForge 第一阶段只提供 Vue SDK。公共 API、文档和 canonical ex
   后续可选的 Element Plus adapter
 ```
 
-第一阶段 adapter 可以保留在 `@enchantforge/vue` 内部；只有在接口稳定且需要独立版本管理时才拆包。不得为了抽象纯度让入门用户安装多个内部包。
+`@enchantforge/vue` 不直接封装 Ant Design Vue。未来若提供 Ant Design Vue metadata/executor adapter，必须在独立的 `@enchantforge/adapter-ant-design-vue` 子项目中实现，避免业务组件依赖进入 Core。Aura 可以保留 `ant-design-x-vue` 作为交互层依赖，但这不代表 Core 提供 Ant Design Vue 组件适配 API。
 
 包提供 ES module 子入口以保持 tree shaking：
 
@@ -28,7 +28,7 @@ import Aura from '@enchantforge/vue/aura'
 import { createEnchantDebug } from '@enchantforge/vue/debug'
 ```
 
-根入口仍保留完整 API 兼容性；`core` 不引入 Aura、Debug overlay 或 Ant Design X，组件和调试能力只有从对应入口使用时才进入应用构建。
+根入口仍保留完整 API 兼容性；`core` 不引入 Aura、Debug overlay 或 Ant Design X，组件和调试能力只有从对应入口使用时才进入应用构建。`aura` 入口才引入 `ant-design-x-vue`。
 
 ## 3. 应用级 Forge
 
@@ -233,7 +233,7 @@ onUnmounted    -> unregister
 - `Enchantment` 数据模型
 - `Aura`，默认 orb 形态
 - DOM scanner
-- Ant Design Vue form adapter
+- 外部 UI adapter（不属于 `@enchantforge/vue`）
 - field fill executor
 - DOM visual adapter（聚焦、滚动、高亮）
 - application capability executor
