@@ -84,6 +84,7 @@ export function createLlmClient(options: LlmClientOptions = {}) {
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const abortFromCaller = () => controller.abort(request.signal?.reason);
     request.signal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (request.signal?.aborted) abortFromCaller();
     if (typeof timeout === 'number' && timeout > 0) {
       timeoutId = setTimeout(() => {
         timedOut = true;

@@ -77,6 +77,7 @@ export interface EnchantForgeOptions {
   agent?: EnchantAgent;
   policy?: Partial<EnchantPolicy>;
   snapshots?: Partial<EnchantSnapshotConfig>;
+  maxPlanCalls?: number;
   traceLimit?: number;
   onTrace?: (event: EnchantTraceEvent) => void;
 }
@@ -245,6 +246,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     throttle: Math.max(0, options.snapshots?.throttle ?? 120)
   };
   const traceLimit = Math.max(20, options.traceLimit ?? 200);
+  const maxPlanCalls = Math.max(1, options.maxPlanCalls ?? 20);
   const pluginCleanups: Array<() => void> = [];
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
   let installedApp: App | undefined;
@@ -391,7 +393,12 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         value: normalized?.data ?? value,
         warning: normalized?.warnings?.join('\n') || warning
       };
-      trace({ source: call.capabilityId, kind: 'result', title: 'Capability completed', detail: result });
+      trace({
+        source: call.capabilityId,
+        kind: 'result',
+        title: result.ok ? 'Capability completed' : 'Capability returned failure',
+        detail: result
+      });
       return result;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Capability 执行失败。';
@@ -420,6 +427,12 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         signal: request.signal
       });
       throwIfAborted(request.signal);
+      if (plan.snapshotVersion !== current.version) {
+        throw new Error(`Agent 计划的 snapshot version 无效，应为 ${current.version}。`);
+      }
+      if (plan.calls.length > maxPlanCalls) {
+        throw new Error(`Agent 计划包含 ${plan.calls.length} 个调用，超过上限 ${maxPlanCalls}。`);
+      }
       trace({ source: current.pageId, kind: 'plan', title: 'Agent plan', detail: plan });
 
       const results: EnchantExecutionResult[] = [];
