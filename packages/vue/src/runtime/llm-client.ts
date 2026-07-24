@@ -11,6 +11,7 @@ export interface LlmClientOptions {
   apiKey?: string;
   headers?: HeadersInit;
   configError?: string;
+  timeout?: number;
   fetcher?: typeof fetch;
 }
 
@@ -22,6 +23,7 @@ export interface LlmRunOptions {
   temperature?: number;
   model?: string;
   signal?: AbortSignal;
+  timeout?: number;
   body?: Record<string, unknown>;
 }
 
@@ -76,29 +78,51 @@ export function createLlmClient(options: LlmClientOptions = {}) {
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
     if (options.apiKey && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${options.apiKey}`);
 
-    const response = await fetcher(endpoint, {
-      method: 'POST',
-      headers,
-      signal: request.signal,
-      body: JSON.stringify({
-        model,
-        temperature: request.temperature ?? 0,
-        messages: buildMessages(request),
-        ...request.body
-      })
-    });
-
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`LLM 请求失败 (${response.status})：${detail.slice(0, 300) || response.statusText}`);
+    const timeout = request.timeout ?? options.timeout;
+    const controller = new AbortController();
+    let timedOut = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const abortFromCaller = () => controller.abort(request.signal?.reason);
+    request.signal?.addEventListener('abort', abortFromCaller, { once: true });
+    if (typeof timeout === 'number' && timeout > 0) {
+      timeoutId = setTimeout(() => {
+        timedOut = true;
+        controller.abort(new Error(`LLM 请求超过 ${timeout}ms 未完成。`));
+      }, timeout);
     }
 
-    const payload = await response.json() as {
-      choices?: Array<{ message?: { content?: unknown } }>;
-    };
-    const content = payload.choices?.[0]?.message?.content;
-    if (typeof content !== 'string') throw new Error('LLM 响应中缺少 message.content。');
-    return { content, payload };
+    try {
+      const response = await fetcher(endpoint, {
+        method: 'POST',
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          model,
+          temperature: request.temperature ?? 0,
+          messages: buildMessages(request),
+          ...request.body
+        })
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`LLM 请求失败 (${response.status})：${detail.slice(0, 300) || response.statusText}`);
+      }
+
+      const payload = await response.json() as {
+        choices?: Array<{ message?: { content?: unknown } }>;
+      };
+      const content = payload.choices?.[0]?.message?.content;
+      if (typeof content !== 'string') throw new Error('LLM 响应中缺少 message.content。');
+      return { content, payload };
+    } catch (error) {
+      if (timedOut) throw new Error(`LLM 请求超时（${timeout}ms）。`);
+      if (request.signal?.aborted || controller.signal.aborted) throw new Error('LLM 请求已取消。');
+      throw error;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+      request.signal?.removeEventListener('abort', abortFromCaller);
+    }
   }
 
   async function runJson<T = unknown>(request: LlmRunJsonOptions): Promise<T> {

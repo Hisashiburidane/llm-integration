@@ -30,6 +30,9 @@ function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
   if (typeof candidate.message !== 'string' || !Array.isArray(candidate.calls)) {
     throw new Error('LLM 返回的执行计划结构无效。');
   }
+  if (candidate.snapshotVersion !== snapshot.version) {
+    throw new Error(`LLM 计划的 snapshot version 无效，应为 ${snapshot.version}。`);
+  }
 
   const allowed = new Set(snapshot.tools.map((tool) => tool.capabilityId));
   const calls = candidate.calls.map((call, index): EnchantPlanCall => {
@@ -47,7 +50,7 @@ function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
 
   return {
     message: candidate.message,
-    snapshotVersion: snapshot.version,
+    snapshotVersion: candidate.snapshotVersion,
     calls
   };
 }

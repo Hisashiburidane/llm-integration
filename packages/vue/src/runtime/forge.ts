@@ -13,6 +13,7 @@ import {
 import { createDefaultEnchantAgent, type EnchantAgent } from './agent';
 import { vEnchant, vEnchantIgnore } from './dom-directives';
 import type {
+  EnchantCapability,
   EnchantCapabilityResult,
   EnchantContribution,
   EnchantExecutionResult,
@@ -28,7 +29,12 @@ import type {
   EnchantTraceEvent
 } from './enchantment';
 import type { LlmClientOptions } from './llm-client';
-import { evaluateEnchantPolicy, resolveEnchantPolicy, type EnchantPolicy } from './policy';
+import {
+  evaluateEnchantPolicy,
+  resolveEnchantPolicy,
+  type EnchantPolicy,
+  type EnchantPolicyDecision
+} from './policy';
 import { createEnchantRegistry, type EnchantRegistry, type EnchantSnapshotOptions } from './registry';
 
 export interface EnchantSnapshotConfig {
@@ -44,13 +50,24 @@ export interface EnchantRunOptions {
   prompt?: string;
   agent?: EnchantAgent;
   signal?: AbortSignal;
+  confirmed?: boolean;
+  confirm?: (request: EnchantConfirmationRequest) => boolean | Promise<boolean>;
   onProgress?: (event: EnchantProgressEvent) => void;
+}
+
+export interface EnchantConfirmationRequest {
+  runId: string;
+  call: EnchantPlanCall;
+  snapshot: EnchantSnapshot;
+  capability: EnchantCapability;
+  decision: EnchantPolicyDecision;
 }
 
 export interface EnchantExecuteOptions {
   snapshot: EnchantSnapshot;
   runId?: string;
   confirmed?: boolean;
+  confirm?: (request: EnchantConfirmationRequest) => boolean | Promise<boolean>;
   signal?: AbortSignal;
   onProgress?: (event: EnchantProgressEvent) => void;
 }
@@ -100,13 +117,74 @@ export const enchantContextKey: InjectionKey<EnchantContext> = Symbol('enchant-c
 
 let latestInstalledForge: EnchantForge | undefined;
 
-function validateInput(schema: Record<string, unknown> | undefined, input: unknown) {
-  if (!schema || schema.type !== 'object') return;
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Capability input 必须是对象。');
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function matchesSchemaType(type: string, value: unknown) {
+  if (type === 'null') return value === null;
+  if (type === 'object') return isRecord(value);
+  if (type === 'array') return Array.isArray(value);
+  if (type === 'integer') return typeof value === 'number' && Number.isInteger(value);
+  if (type === 'number') return typeof value === 'number' && Number.isFinite(value);
+  return typeof value === type;
+}
+
+function validateInput(schema: Record<string, unknown> | undefined, input: unknown, path = 'input') {
+  if (!schema) return;
+
+  const enumValues = Array.isArray(schema.enum) ? schema.enum : undefined;
+  if (enumValues && !enumValues.some((value) => Object.is(value, input))) {
+    throw new Error(`${path} 不在允许的枚举值中。`);
+  }
+
+  if (typeof schema.type === 'string' && !matchesSchemaType(schema.type, input)) {
+    throw new Error(`${path} 类型无效，应为 ${schema.type}。`);
+  }
+
+  if (typeof input === 'string') {
+    if (typeof schema.minLength === 'number' && input.length < schema.minLength) {
+      throw new Error(`${path} 长度不能小于 ${schema.minLength}。`);
+    }
+    if (typeof schema.maxLength === 'number' && input.length > schema.maxLength) {
+      throw new Error(`${path} 长度不能超过 ${schema.maxLength}。`);
+    }
+  }
+
+  if (Array.isArray(input)) {
+    if (typeof schema.minItems === 'number' && input.length < schema.minItems) {
+      throw new Error(`${path} 至少需要 ${schema.minItems} 项。`);
+    }
+    if (typeof schema.maxItems === 'number' && input.length > schema.maxItems) {
+      throw new Error(`${path} 最多允许 ${schema.maxItems} 项。`);
+    }
+    if (isRecord(schema.items)) {
+      input.forEach((item, index) => validateInput(schema.items as Record<string, unknown>, item, `${path}[${index}]`));
+    }
+    return;
+  }
+
+  const properties = isRecord(schema.properties) ? schema.properties : undefined;
+  if (!isRecord(input) || (!properties && schema.type !== 'object')) return;
+
   const required = Array.isArray(schema.required) ? schema.required : [];
   for (const key of required) {
-    if (typeof key === 'string' && !(key in input)) throw new Error(`Capability input 缺少 ${key}。`);
+    if (typeof key === 'string' && !Object.prototype.hasOwnProperty.call(input, key)) {
+      throw new Error(`${path}.${key} 为必填项。`);
+    }
   }
+
+  if (schema.additionalProperties === false) {
+    const known = new Set(Object.keys(properties ?? {}));
+    const unknown = Object.keys(input).filter((key) => !known.has(key));
+    if (unknown.length) throw new Error(`${path} 包含未声明字段：${unknown.join(', ')}。`);
+  }
+
+  Object.entries(properties ?? {}).forEach(([key, value]) => {
+    if (Object.prototype.hasOwnProperty.call(input, key) && isRecord(value)) {
+      validateInput(value, input[key], `${path}.${key}`);
+    }
+  });
 }
 
 function maskValue(value: unknown) {
@@ -228,6 +306,11 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
 
   async function execute(call: EnchantPlanCall, executeOptions: EnchantExecuteOptions): Promise<EnchantExecutionResult> {
     const runId = executeOptions.runId ?? `execute-${Date.now()}`;
+    if (registry.version.value !== executeOptions.snapshot.version) {
+      const error = `Snapshot 已失效（${executeOptions.snapshot.version} -> ${registry.version.value}），拒绝执行。`;
+      trace({ source: call.capabilityId, kind: 'error', title: 'Stale snapshot rejected', detail: error });
+      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error };
+    }
     const capability = registry.getCapability(call.capabilityId);
     const snapshotEnchantment = capability
       ? executeOptions.snapshot.enchantments.find((item) => item.id === capability.enchantmentId)
@@ -251,11 +334,20 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     const decision = evaluateEnchantPolicy(policy, capability, enchantment);
     trace({ source: call.capabilityId, kind: 'policy', title: decision.allowed ? 'Policy allowed' : 'Policy blocked', detail: decision });
     if (!decision.allowed) return { capabilityId: call.capabilityId, ok: false, status: 'failed', error: decision.reason };
-    if (decision.requiresConfirmation && !executeOptions.confirmed) {
-      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error: '该操作需要用户确认。' };
-    }
-
     try {
+      let confirmed = Boolean(executeOptions.confirmed);
+      if (decision.requiresConfirmation && !confirmed && executeOptions.confirm) {
+        confirmed = await executeOptions.confirm({
+          runId,
+          call,
+          snapshot: executeOptions.snapshot,
+          capability,
+          decision
+        });
+      }
+      if (decision.requiresConfirmation && !confirmed) {
+        return { capabilityId: call.capabilityId, ok: false, status: 'failed', error: '该操作需要用户确认。' };
+      }
       validateInput(capability.inputSchema, call.input ?? {});
       emitProgress(runId, 'executing', executeOptions.onProgress, {
         capabilityId: capability.id,
@@ -322,6 +414,8 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         results.push(await execute(call, {
           snapshot: current,
           runId,
+          confirmed: request.confirmed,
+          confirm: request.confirm,
           signal: request.signal,
           onProgress: request.onProgress
         }));

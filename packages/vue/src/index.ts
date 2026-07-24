@@ -33,6 +33,7 @@ export type {
   EnchantForgePlugin,
   EnchantRunOptions
 } from './runtime/forge';
+export type { EnchantConfirmationRequest } from './runtime/forge';
 export type { EnchantSnapshotConfig } from './runtime/forge';
 export { createEnchantRegistry } from './runtime/registry';
 export type { EnchantRegistry, EnchantSnapshotOptions } from './runtime/registry';
