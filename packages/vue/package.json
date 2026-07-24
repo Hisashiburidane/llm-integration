@@ -15,7 +15,8 @@
     }
   },
   "scripts": {
-    "build": "vite build && vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly"
+    "build": "vite build && vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly",
+    "test": "vite build && vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly && node --test tests/*.test.mjs"
   },
   "peerDependencies": {
     "vue": "^3.5.13"
