@@ -2,6 +2,7 @@
   "name": "@enchantforge/vue",
   "version": "0.1.0",
   "type": "module",
+  "sideEffects": false,
   "files": [
     "dist"
   ],
@@ -12,6 +13,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/enchantforge-vue.js"
+    },
+    "./core": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js"
+    },
+    "./enchant": {
+      "types": "./dist/enchant.d.ts",
+      "import": "./dist/enchant.js"
+    },
+    "./aura": {
+      "types": "./dist/aura.d.ts",
+      "import": "./dist/aura.js"
+    },
+    "./debug": {
+      "types": "./dist/debug.d.ts",
+      "import": "./dist/debug.js"
     }
   },
   "scripts": {

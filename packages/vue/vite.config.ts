@@ -1,16 +1,30 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import { fileURLToPath } from 'node:url';
+
+const source = (name: string) => fileURLToPath(new URL(`./src/${name}`, import.meta.url));
 
 export default defineConfig({
   plugins: [vue()],
   build: {
     lib: {
-      entry: 'src/index.ts',
+      entry: {
+        'enchantforge-vue': source('index.ts'),
+        core: source('core.ts'),
+        enchant: source('enchant.ts'),
+        aura: source('aura.ts'),
+        debug: source('debug.ts')
+      },
       formats: ['es'],
-      fileName: 'enchantforge-vue'
+      cssFileName: 'enchantforge-vue',
+      fileName: (_format, entryName) => `${entryName}.js`
     },
     rollupOptions: {
-      external: ['vue']
+      external: ['vue'],
+      output: {
+        entryFileNames: '[name].js',
+        chunkFileNames: 'chunks/[name]-[hash].js'
+      }
     }
   }
 });

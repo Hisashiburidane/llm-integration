@@ -19,6 +19,17 @@ EnchantForge 第一阶段只提供 Vue SDK。公共 API、文档和 canonical ex
 
 第一阶段 adapter 可以保留在 `@enchantforge/vue` 内部；只有在接口稳定且需要独立版本管理时才拆包。不得为了抽象纯度让入门用户安装多个内部包。
 
+包提供 ES module 子入口以保持 tree shaking：
+
+```ts
+import { createEnchantForge } from '@enchantforge/vue/core'
+import Enchant from '@enchantforge/vue/enchant'
+import Aura from '@enchantforge/vue/aura'
+import { createEnchantDebug } from '@enchantforge/vue/debug'
+```
+
+根入口仍保留完整 API 兼容性；`core` 不引入 Aura、Debug overlay 或 Ant Design X，组件和调试能力只有从对应入口使用时才进入应用构建。
+
 ## 3. 应用级 Forge
 
 `createEnchantForge()` 创建当前 Vue app 使用的 EnchantForge 实例：

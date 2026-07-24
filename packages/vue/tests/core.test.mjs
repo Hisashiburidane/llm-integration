@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   createEnchantForge,
@@ -357,4 +358,11 @@ test('debug plugin enables the lightweight in-page debug surface by default', ()
   const disabled = createEnchantForge();
   disabled.use(createEnchantDebug({ overlay: false }));
   assert.equal(disabled.debug.enabled, false);
+});
+
+test('core entry stays independent from optional UI component bundles', () => {
+  const coreEntry = readFileSync(new URL('../dist/core.js', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(coreEntry, /ant-design/);
+  assert.doesNotMatch(coreEntry, /ant-design-x/);
 });
