@@ -79,6 +79,17 @@ forge.use(createEnchantDebug({
 
 显式 Enchant debug 插件可以开启 DOM observer、响应式 state watch、自动 capture 和 snapshot history。不能因为浏览器安装了通用 Vue Devtools 就隐式开启这些成本。
 
+Debug 插件同时提供轻量页面内调试控件，不依赖独立 Devtools 应用：
+
+```ts
+forge.use(createEnchantDebug({
+  overlay: true,
+  title: 'Enchant Debug'
+}))
+```
+
+插件安装到 Vue app 后会自动在页面右下角显示 Debug 控件。点击后可以查看当前 digest、navigation、policy、snapshot、capability exporter 和 execution trace；`overlay: false` 只启用 snapshot 观察，不挂载页面控件。该控件是诊断入口，不参与 Aura 会话和业务执行。
+
 ## 6. 嵌套边界
 
 父 Enchant 的 DOM scanner 遇到子 `[data-enchant]` 时停止向下采集。父 snapshot 通过 registration 父子关系表达层级，不复制子边界的字段和文字。

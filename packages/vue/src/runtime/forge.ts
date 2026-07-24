@@ -97,6 +97,13 @@ export interface EnchantCapabilityExporter<T = unknown> {
 export interface EnchantForgePlugin {
   name: string;
   setup(forge: EnchantForge): void | (() => void);
+  install?(forge: EnchantForge, app: App): void | (() => void);
+}
+
+export interface EnchantDebugConfig {
+  enabled: boolean;
+  title: string;
+  position: 'bottom-right' | 'bottom-left';
 }
 
 export interface EnchantContext {
@@ -113,6 +120,7 @@ export type EnchantForge = Plugin & {
   readonly events: readonly EnchantTraceEvent[];
   readonly snapshots: readonly EnchantSnapshot[];
   readonly observationEnabled: Readonly<Ref<boolean>>;
+  readonly debug: Readonly<EnchantDebugConfig>;
   readonly navigation: Readonly<EnchantNavigationState>;
   readonly exporters: readonly string[];
   digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'route' | 'tab' | 'tags' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
@@ -130,6 +138,7 @@ export type EnchantForge = Plugin & {
   bindNavigation(source: EnchantNavigationSource): () => void;
   dispose(): void;
   configureSnapshots(config: Partial<EnchantSnapshotConfig>): void;
+  configureDebug(config: Partial<EnchantDebugConfig>): void;
   use(plugin: EnchantForgePlugin): EnchantForge;
   trace(event: Omit<EnchantTraceEvent, 'id' | 'timestamp'>): EnchantTraceEvent;
   clearTrace(sourcePrefix?: string): void;
@@ -264,6 +273,11 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const events = shallowReactive<EnchantTraceEvent[]>([]);
   const retainedSnapshots = shallowReactive<EnchantSnapshot[]>([]);
   const observationEnabled = ref(Boolean(options.snapshots?.autoCapture));
+  const debugState = shallowReactive<EnchantDebugConfig>({
+    enabled: false,
+    title: 'Enchant Debug',
+    position: 'bottom-right'
+  });
   const navigation = reactive<EnchantNavigationState>({
     app: undefined,
     page: undefined,
@@ -279,6 +293,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const traceLimit = Math.max(20, options.traceLimit ?? 200);
   const maxPlanCalls = Math.max(1, options.maxPlanCalls ?? 20);
   const pluginCleanups: Array<() => void> = [];
+  const plugins: EnchantForgePlugin[] = [];
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
   let installedApp: App | undefined;
   let disposed = false;
@@ -606,10 +621,15 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       app.provide(enchantForgeKey, forge);
       app.directive('enchant', vEnchant);
       app.directive('enchant-ignore', vEnchantIgnore);
+      plugins.forEach((plugin) => {
+        const cleanup = plugin.install?.(forge, app);
+        if (cleanup) pluginCleanups.push(cleanup);
+      });
     },
     registry,
     policy,
     agent,
+    debug: readonly(debugState) as Readonly<EnchantDebugConfig>,
     navigation: readonly(navigation) as Readonly<EnchantNavigationState>,
     get exporters() {
       return Array.from(exporters.keys());
@@ -640,9 +660,17 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       if (retainedSnapshots.length > snapshotConfig.retention) retainedSnapshots.splice(snapshotConfig.retention);
       if (snapshotConfig.autoCapture) scheduleAutoCapture();
     },
+    configureDebug(config) {
+      Object.assign(debugState, config);
+    },
     use(plugin) {
+      plugins.push(plugin);
       const cleanup = plugin.setup(forge);
       if (cleanup) pluginCleanups.push(cleanup);
+      if (installedApp) {
+        const installCleanup = plugin.install?.(forge, installedApp);
+        if (installCleanup) pluginCleanups.push(installCleanup);
+      }
       return forge;
     },
     trace,

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   createEnchantForge,
+  createEnchantDebug,
   createEnchantRegistry,
   createLlmClient,
   evaluateEnchantPolicy
@@ -343,4 +344,17 @@ test('forge dispose runs plugin cleanup and clears its app-owned registry', () =
 
   assert.equal(cleaned, true);
   assert.equal(forge.digest().activeEnchantments, 0);
+});
+
+test('debug plugin enables the lightweight in-page debug surface by default', () => {
+  const forge = createEnchantForge();
+  forge.use(createEnchantDebug({ title: 'Runtime Debug', position: 'bottom-left' }));
+
+  assert.equal(forge.debug.enabled, true);
+  assert.equal(forge.debug.title, 'Runtime Debug');
+  assert.equal(forge.debug.position, 'bottom-left');
+
+  const disabled = createEnchantForge();
+  disabled.use(createEnchantDebug({ overlay: false }));
+  assert.equal(disabled.debug.enabled, false);
 });
