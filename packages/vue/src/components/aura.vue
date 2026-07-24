@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { MessageOutlined } from '@ant-design/icons-vue';
-import { Badge, Collapse, CollapsePanel } from 'ant-design-vue';
+import { Badge, Collapse, CollapsePanel, Modal } from 'ant-design-vue';
 import { Bubble, Sender, ThoughtChain, type ThoughtChainProps } from 'ant-design-x-vue';
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, type Component } from 'vue';
 import { createDefaultEnchantAgent, type EnchantAgent } from '../runtime/agent';
+import type { EnchantConfirmationRequest } from '../runtime/forge';
 import type { EnchantProgressEvent } from '../runtime/enchantment';
 import { useEnchantForge } from '../runtime/forge';
 import {
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<{
   endpoint?: string;
   apiKey?: string;
   configError?: string;
+  confirm?: (request: EnchantConfirmationRequest) => boolean | Promise<boolean>;
 }>(), {
   page: '',
   appearance: 'orb',
@@ -243,6 +245,7 @@ async function submit(message?: string) {
       page: props.page || undefined,
       prompt: props.prompt || undefined,
       agent: resolvedAgent.value,
+      confirm: requestConfirmation,
       onProgress: progressHandler(activity)
     });
     conversation.value.push({
@@ -264,6 +267,20 @@ async function submit(message?: string) {
     stopClock();
     loading.value = false;
   }
+}
+
+function requestConfirmation(request: EnchantConfirmationRequest) {
+  if (props.confirm) return props.confirm(request);
+  return new Promise<boolean>((resolve) => {
+    Modal.confirm({
+      title: '确认执行当前操作？',
+      content: `${request.capability.label}（${request.capability.effect}）将作用于当前界面。`,
+      okText: '确认执行',
+      cancelText: '取消',
+      onOk: () => resolve(true),
+      onCancel: () => resolve(false)
+    });
+  });
 }
 
 watch(() => props.page, () => {
