@@ -44,7 +44,12 @@ export function evaluateEnchantPolicy(
   capability: EnchantCapability,
   enchantment: Enchantment
 ): EnchantPolicyDecision {
-  if (!enchantment.status.alive || !enchantment.status.active || !enchantment.status.enabled) {
+  if (
+    !enchantment.status.alive
+    || !enchantment.status.active
+    || !enchantment.status.visible
+    || !enchantment.status.enabled
+  ) {
     return { allowed: false, requiresConfirmation: false, reason: '目标 Enchantment 当前不可执行。' };
   }
 
@@ -56,7 +61,7 @@ export function evaluateEnchantPolicy(
     return { allowed: false, requiresConfirmation: false, reason: 'Capability effect 未被 policy 允许。' };
   }
 
-  if (!policy.allowDomWrite && capability.effect === 'draft' && capability.name.startsWith('dom.')) {
+  if (!policy.allowDomWrite && capability.effect === 'draft' && capability.provider === 'dom') {
     return { allowed: false, requiresConfirmation: false, reason: 'DOM 写入已被 policy 禁止。' };
   }
 
