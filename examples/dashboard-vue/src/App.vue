@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Aura, Enchant, useEnchantForge, useLlmDebugEvents } from '@enchantforge/vue';
 import { ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons-vue';
 import DashboardPanel from './components/DashboardPanel.vue';
+import PanelCatalog from './components/PanelCatalog.vue';
 import { dashboardMetadata, panelMetadata } from './runtime/metadata';
 import { dashboardCapabilities, panelCapabilities } from './runtime/capabilities';
 import {
@@ -18,13 +19,17 @@ import {
   setGlobalFilter,
   setTimeRange,
   loadDashboardConfig,
-  refreshDashboardData
+  refreshDashboardData,
+  savePanelConfig
 } from './runtime/dashboard-store';
 
 const forge = useEnchantForge();
 const traceEvents = useLlmDebugEvents();
 const traceOpen = ref(false);
 const contextOpen = ref(false);
+const activeView = ref<'dashboard' | 'panels'>('dashboard');
+const panelSaveError = ref('');
+const panelSaving = ref(false);
 const selectedPanelId = computed(() => dashboardState.selectedPanelId);
 const activePanel = computed(() => dashboardState.config.panels.find((panel) => panel.id === selectedPanelId.value));
 const rootMetadata = computed(() => dashboardMetadata(dashboardState.config));
@@ -100,6 +105,23 @@ function stringify(value: unknown) {
 function resultFor(id: string) {
   return panelResults.value.get(id);
 }
+
+async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
+  panelSaving.value = true;
+  panelSaveError.value = '';
+  try {
+    await savePanelConfig(panel);
+  } catch (error) {
+    panelSaveError.value = error instanceof Error ? error.message : 'Panel 保存失败。';
+  } finally {
+    panelSaving.value = false;
+  }
+}
+
+function openPanelInDashboard(panelId: string) {
+  activeView.value = 'dashboard';
+  selectPanel(panelId);
+}
 </script>
 
 <template>
@@ -114,12 +136,24 @@ function resultFor(id: string) {
       </div>
       <div class="topbar-actions">
         <a-tag color="blue">{{ dashboardState.config.panels.length }} panels</a-tag>
+        <a-button size="small" @click="activeView = activeView === 'dashboard' ? 'panels' : 'dashboard'">{{ activeView === 'dashboard' ? 'Panel 目录' : 'Dashboard' }}</a-button>
         <a-button size="small" @click="contextOpen = true"><SettingOutlined />上下文</a-button>
         <a-button size="small" @click="traceOpen = true">Trace ({{ filteredEvents.length }})</a-button>
       </div>
     </header>
 
     <main class="dashboard-main">
+      <PanelCatalog
+        v-if="activeView === 'panels'"
+        :panels="dashboardState.config.panels"
+        :dataset="dashboardState.dataset"
+        :saving="panelSaving"
+        :error="panelSaveError"
+        @save="savePanel"
+        @open-dashboard="openPanelInDashboard"
+      />
+
+      <template v-else>
       <section class="dashboard-heading">
         <div>
           <p class="eyebrow">AVIATION / ON-TIME PERFORMANCE</p>
@@ -158,6 +192,7 @@ function resultFor(id: string) {
               :panel="panel"
               :result="resultFor(panel.id)!"
               :highlighted="dashboardState.highlightedPanelIds.includes(panel.id)"
+              :lowlight="dashboardState.highlightedPanelIds.length > 0 && !dashboardState.highlightedPanelIds.includes(panel.id)"
               :selected="selectedPanelId === panel.id"
               :style="{ gridColumn: `span ${panel.layout.width}`, minHeight: `${panel.layout.minHeight}px` }"
               @select="selectPanel(panel.id)"
@@ -177,6 +212,7 @@ function resultFor(id: string) {
           <strong>{{ dashboardState.sourceManifest.license }}</strong>
         </div>
       </section>
+      </template>
     </main>
 
     <a-drawer :open="Boolean(activePanel)" :title="activePanel?.title" width="min(520px, 94vw)" @close="clearSelection">

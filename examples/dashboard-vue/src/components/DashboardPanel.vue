@@ -8,6 +8,7 @@ const props = defineProps<{
   panel: PanelConfig;
   result: QueryResult;
   highlighted: boolean;
+  lowlight: boolean;
   selected: boolean;
 }>();
 
@@ -59,7 +60,7 @@ function airportRows() {
 </script>
 
 <template>
-  <article class="dashboard-panel" :class="{ highlighted, selected }" @click="emit('select', panel)">
+  <article class="dashboard-panel" :class="{ highlighted, lowlight, selected }" @click="emit('select', panel)">
     <header class="panel-header">
       <div>
         <p class="panel-kicker">{{ panel.type }} / {{ panel.id }}</p>
@@ -109,6 +110,7 @@ function airportRows() {
 
 <style scoped>
 .dashboard-panel { position: relative; min-width: 0; height: 100%; padding: 16px; border: 1px solid #d8e0ea; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgb(24 39 75 / 4%); cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+.dashboard-panel.lowlight { opacity: .48; filter: saturate(.55); }
 .dashboard-panel:hover, .dashboard-panel.selected { border-color: #8fb7ed; box-shadow: 0 8px 22px rgb(59 130 246 / 12%); transform: translateY(-1px); }
 .dashboard-panel.highlighted { border-color: #f59e0b; background: linear-gradient(180deg, #fffdf5 0%, #fff 42%); box-shadow: 0 0 0 3px rgb(245 158 11 / 24%), 0 10px 28px rgb(180 83 9 / 12%); }
 .panel-header { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }

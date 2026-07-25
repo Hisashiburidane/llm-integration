@@ -275,6 +275,45 @@ async function readConfig() {
   };
 }
 
+function validatePanelPayload(value) {
+  if (!value || typeof value !== 'object') throw new Error('Panel 请求体无效。');
+  const panel = value;
+  if (typeof panel.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(panel.id)) throw new Error('Panel ID 只能使用小写字母、数字和连字符。');
+  if (typeof panel.title !== 'string' || !panel.title.trim()) throw new Error('Panel 标题不能为空。');
+  if (typeof panel.description !== 'string' || !panel.description.trim()) throw new Error('Panel 描述不能为空。');
+  if (!['metric', 'line', 'bar', 'donut', 'table', 'timeline', 'airport-status'].includes(panel.type)) throw new Error('Panel 类型不支持。');
+  if (!panel.query || panel.query.datasetId !== aviationDashboard.dataset.id) throw new Error('Panel QuerySpec 数据集不支持。');
+  if (!Array.isArray(panel.query.metrics) || panel.query.metrics.length !== 1) throw new Error('Panel 必须选择一个指标。');
+  if (!Array.isArray(panel.query.dimensions) || !Array.isArray(panel.query.filters)) throw new Error('Panel QuerySpec 结构无效。');
+  const metric = aviationDashboard.dataset.metrics.find((item) => item.id === panel.query.metrics[0].metricId);
+  if (!metric) throw new Error(`未知指标：${panel.query.metrics[0].metricId}。`);
+  for (const dimension of panel.query.dimensions) {
+    if (!aviationDashboard.dataset.dimensions.some((item) => item.id === dimension.dimensionId)) throw new Error(`未知维度：${dimension.dimensionId}。`);
+    if (!metric.supportedDimensions.includes(dimension.dimensionId)) throw new Error(`指标「${metric.label}」不支持维度「${dimension.dimensionId}」。`);
+  }
+  if (panel.query.limit !== undefined && (!Number.isInteger(panel.query.limit) || panel.query.limit < 1 || panel.query.limit > 100)) throw new Error('Query limit 必须是 1 到 100 的整数。');
+  if (!panel.layout || !Number.isInteger(panel.layout.width) || panel.layout.width < 3 || panel.layout.width > 12 || !Number.isInteger(panel.layout.minHeight) || panel.layout.minHeight < 120 || panel.layout.minHeight > 800) throw new Error('Panel 布局参数无效。');
+  return panel;
+}
+
+async function savePanel(value) {
+  const panel = validatePanelPayload(value);
+  const existing = await runSql(`SELECT id, is_template, sort_order FROM dashboard_panels WHERE id = ${sqlString(panel.id)}`);
+  if (existing[0]?.is_template) throw new Error(`Panel ID 已被模板占用：${panel.id}。`);
+  const dashboardId = aviationDashboard.id;
+  const visualization = panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL';
+  const query = sqlString(JSON.stringify(panel.query));
+  const layout = sqlString(JSON.stringify(panel.layout));
+  if (existing.length) {
+    await runSql(`UPDATE dashboard_panels SET type = ${sqlString(panel.type)}, title = ${sqlString(panel.title.trim())}, description = ${sqlString(panel.description.trim())}, query_json = ${query}, visualization_json = ${visualization}, layout_json = ${layout} WHERE id = ${sqlString(panel.id)}`, { readonly: false });
+  } else {
+    const nextOrder = await runSql(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM dashboard_panels WHERE dashboard_id = ${sqlString(dashboardId)} AND is_template = 0`);
+    await runSql(`INSERT INTO dashboard_panels (id, dashboard_id, template_id, is_template, sort_order, type, title, description, query_json, visualization_json, layout_json) VALUES (${sqlString(panel.id)}, ${sqlString(dashboardId)}, NULL, 0, ${Number(nextOrder[0]?.next_order ?? 0)}, ${sqlString(panel.type)}, ${sqlString(panel.title.trim())}, ${sqlString(panel.description.trim())}, ${query}, ${visualization}, ${layout})`, { readonly: false });
+  }
+  queryCache.clear();
+  return readConfig();
+}
+
 async function readBody(request) {
   let body = '';
   for await (const chunk of request) {
@@ -305,6 +344,14 @@ const server = createServer(async (request, response) => {
       sendJson(response, 200, await readConfig());
     } catch (error) {
       sendJson(response, 503, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+  if (request.method === 'POST' && request.url === '/api/dashboard/panels') {
+    try {
+      sendJson(response, 200, await savePanel(await readBody(request)));
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
     }
     return;
   }

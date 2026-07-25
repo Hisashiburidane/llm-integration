@@ -119,6 +119,29 @@ export async function loadDashboardConfig() {
   }
 }
 
+export async function savePanelConfig(panel: PanelConfig) {
+  const response = await fetch('/api/dashboard/panels', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(panel)
+  });
+  const payload = await response.json() as {
+    panels?: PanelConfig[];
+    panelTemplates?: PanelConfig[];
+    error?: string;
+  };
+  if (!response.ok || payload.error || !payload.panels || !payload.panelTemplates) {
+    throw new Error(payload.error || `Panel 保存失败（${response.status}）。`);
+  }
+  dashboardState.config.panels = payload.panels.map((item) => clone(item));
+  dashboardState.defaultPanels = payload.panels.map((item) => clone(item));
+  dashboardState.panelTemplates = payload.panelTemplates.map((item) => clone(item));
+  dashboardState.panelResults.clear();
+  setAction(`已保存 Panel：${panel.title}`);
+  await refreshDashboardData();
+  return dashboardState.config.panels.find((item) => item.id === panel.id) ?? panel;
+}
+
 export async function refreshDashboardData() {
   const panels = dashboardState.config.panels.map((panel) => clone(panel));
   const sequence = ++refreshSequence;
