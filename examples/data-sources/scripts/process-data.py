@@ -145,6 +145,23 @@ def create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_aviation_origin ON aviation_flights(origin);
         CREATE INDEX IF NOT EXISTS idx_aviation_carrier ON aviation_flights(carrier);
 
+        CREATE TABLE IF NOT EXISTS aviation_dashboard_rollup (
+          origin TEXT NOT NULL,
+          carrier TEXT NOT NULL,
+          direction TEXT NOT NULL,
+          hour INTEGER NOT NULL,
+          delay_cause TEXT NOT NULL,
+          flight_count INTEGER NOT NULL,
+          on_time_count INTEGER NOT NULL,
+          dep_delay_sum REAL NOT NULL,
+          delay_minutes_sum REAL NOT NULL,
+          cancelled_count INTEGER NOT NULL,
+          severe_delay_count INTEGER NOT NULL,
+          PRIMARY KEY (origin, carrier, direction, hour, delay_cause)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_aviation_rollup_origin ON aviation_dashboard_rollup(origin, direction, hour);
+        CREATE INDEX IF NOT EXISTS idx_aviation_rollup_carrier ON aviation_dashboard_rollup(carrier, direction, hour);
+
         CREATE TABLE IF NOT EXISTS retail_transactions (
           invoice_no TEXT,
           stock_code TEXT,
@@ -212,6 +229,27 @@ def reset_table(connection: sqlite3.Connection, table: str) -> None:
     connection.execute(f"DELETE FROM {table}")
 
 
+def build_aviation_rollup(connection: sqlite3.Connection) -> int:
+    """Materialize the dimensions used by the dashboard's recurring queries."""
+    reset_table(connection, "aviation_dashboard_rollup")
+    connection.execute(
+        """
+        INSERT INTO aviation_dashboard_rollup
+        (origin, carrier, direction, hour, delay_cause, flight_count,
+         on_time_count, dep_delay_sum, delay_minutes_sum, cancelled_count,
+         severe_delay_count)
+        SELECT COALESCE(origin, ''), COALESCE(carrier, ''), direction,
+               COALESCE(hour, 0), delay_cause, COUNT(*), SUM(on_time),
+               SUM(dep_delay), SUM(delay_minutes), SUM(cancelled),
+               SUM(severe_delay)
+        FROM aviation_flights
+        GROUP BY COALESCE(origin, ''), COALESCE(carrier, ''), direction,
+                 COALESCE(hour, 0), delay_cause
+        """
+    )
+    return int(connection.execute("SELECT COUNT(*) FROM aviation_dashboard_rollup").fetchone()[0])
+
+
 def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, int]:
     archive = first_file(data_dir / "aviation-ontime" / "raw", "*.zip", "aviation")
     reset_table(connection, "aviation_flights")
@@ -274,6 +312,8 @@ def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Pa
     if batch:
         connection.executemany(insert_sql, batch)
         count += len(batch)
+    rollup_count = build_aviation_rollup(connection)
+    print(f"aviation-ontime: built {rollup_count} dashboard aggregate rows", flush=True)
     return archive, count
 
 

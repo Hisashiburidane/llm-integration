@@ -2,7 +2,7 @@
 
 This package contains source plans for future Dashboard topics. It does not add domain models or claim that these topics are implemented.
 
-航班 Dashboard 也已纳入本统一数据源工具。页面 fixture 仍在 `examples/dashboard-vue/src/data/aviation.ts`，所有原始下载包统一写入本目录的 `data/<dataset>/raw/`。
+航班 Dashboard 也已纳入本统一数据源工具。所有原始下载包统一写入本目录的 `data/<dataset>/raw/`，清洗后的航班明细和分析结果统一写入 SQLite。
 
 ## 可直接下载
 
@@ -119,4 +119,4 @@ pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi --db
 uv run python scripts/process-data.py --help
 ```
 
-生成的表包括 `aviation_flights`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。
+生成的表包括 `aviation_flights`、`aviation_dashboard_rollup`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。其中 `aviation_dashboard_rollup` 按机场、航空公司、方向、小时和延误原因预聚合 Dashboard 指标，Node 查询服务会优先使用它；航班明细和 P95 查询仍读取 `aviation_flights`。

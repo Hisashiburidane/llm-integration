@@ -21,7 +21,7 @@ pnpm --filter @enchantforge/data-sources data:process -- --dataset aviation-onti
 pnpm --filter @enchantforge/dashboard-vue data:serve
 ```
 
-默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把航班明细打包进浏览器。
+默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把航班明细打包进浏览器。常用指标查询优先使用 `aviation_dashboard_rollup`，航班明细和 P95 查询才读取 `aviation_flights`。
 
 LLM 配置使用 OpenAI-compatible Chat Completions endpoint：
 

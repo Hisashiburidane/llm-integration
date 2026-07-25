@@ -22,7 +22,7 @@ const dimensions = {
   flightId: 'flight_id'
 };
 
-const metricSql = {
+const rawMetricSql = {
   flightCount: 'COUNT(*)',
   onTimeRate: 'AVG(on_time)',
   averageDepartureDelay: 'AVG(dep_delay)',
@@ -30,6 +30,19 @@ const metricSql = {
   severeDelayCount: 'SUM(severe_delay)',
   delayMinutes: 'SUM(delay_minutes)'
 };
+
+const rollupMetricSql = {
+  flightCount: 'SUM(flight_count)',
+  onTimeRate: 'SUM(on_time_count) * 1.0 / NULLIF(SUM(flight_count), 0)',
+  averageDepartureDelay: 'SUM(dep_delay_sum) * 1.0 / NULLIF(SUM(flight_count), 0)',
+  cancellationRate: 'SUM(cancelled_count) * 1.0 / NULLIF(SUM(flight_count), 0)',
+  severeDelayCount: 'SUM(severe_delay_count)',
+  delayMinutes: 'SUM(delay_minutes_sum)'
+};
+
+const rollupDimensions = new Set(['airport', 'carrier', 'direction', 'hour', 'delayCause']);
+const rollupFields = { airport: 'origin', carrier: 'carrier', direction: 'direction', hour: 'hour', delayCause: 'delay_cause' };
+let rollupAvailable = false;
 
 function sendJson(response, status, body) {
   const payload = JSON.stringify(body);
@@ -56,7 +69,7 @@ function validateQuery(query) {
   if (!Array.isArray(query.metrics) || query.metrics.length === 0) throw new Error('QuerySpec 至少需要一个指标。');
   if (!Array.isArray(query.dimensions) || !Array.isArray(query.filters)) throw new Error('QuerySpec 结构无效。');
   for (const item of query.metrics) {
-    if (!metricSql[item.metricId] && item.metricId !== 'p95DepartureDelay') throw new Error(`未知指标：${item.metricId}。`);
+    if (!rawMetricSql[item.metricId] && item.metricId !== 'p95DepartureDelay') throw new Error(`未知指标：${item.metricId}。`);
   }
   for (const item of query.dimensions) {
     if (!dimensions[item.dimensionId]) throw new Error(`未知维度：${item.dimensionId}。`);
@@ -70,10 +83,10 @@ function validateQuery(query) {
   }
 }
 
-function whereClause(query) {
+function whereClause(query, fields = dimensions) {
   const clauses = [];
   for (const filter of query.filters) {
-    const field = dimensions[filter.dimensionId];
+    const field = fields[filter.dimensionId];
     if (!field) throw new Error(`未知过滤维度：${filter.dimensionId}。`);
     if (filter.operator === 'eq' || filter.operator === 'neq' || filter.operator === 'gte' || filter.operator === 'lte') {
       clauses.push(`${field} ${filter.operator === 'eq' ? '=' : filter.operator === 'neq' ? '!=' : filter.operator === 'gte' ? '>=' : '<='} ${sqlValue(filter.value)}`);
@@ -87,18 +100,29 @@ function whereClause(query) {
       throw new Error(`不支持的过滤条件：${filter.operator}。`);
     }
   }
-  if (query.timeRange) clauses.push(`hour BETWEEN ${query.timeRange.startHour} AND ${query.timeRange.endHour}`);
+  if (query.timeRange) clauses.push(`${fields.hour} BETWEEN ${query.timeRange.startHour} AND ${query.timeRange.endHour}`);
   return clauses.length ? clauses.join(' AND ') : '1 = 1';
+}
+
+function canUseRollup(query) {
+  return rollupAvailable
+    && !query.metrics.some((item) => item.metricId === 'p95DepartureDelay')
+    && query.dimensions.every((item) => rollupDimensions.has(item.dimensionId))
+    && query.filters.every((item) => rollupDimensions.has(item.dimensionId));
 }
 
 function buildSql(query) {
   validateQuery(query);
-  const groupFields = query.dimensions.map((item) => dimensions[item.dimensionId]);
+  const useRollup = canUseRollup(query);
+  const fields = useRollup ? rollupFields : dimensions;
+  const metricDefinitions = useRollup ? rollupMetricSql : rawMetricSql;
+  const table = useRollup ? 'aviation_dashboard_rollup' : 'aviation_flights';
+  const groupFields = query.dimensions.map((item) => fields[item.dimensionId]);
   const groupAliases = query.dimensions.map((item) => item.alias || item.dimensionId);
   const groupSql = groupFields.length ? groupFields.join(', ') : '';
   const partitionSql = groupFields.length ? groupFields.join(', ') : '1';
   const hasP95 = query.metrics.some((item) => item.metricId === 'p95DepartureDelay');
-  const base = `SELECT *, COUNT(*) OVER() AS __row_count FROM aviation_flights WHERE ${whereClause(query)}`;
+  const base = `SELECT *, ${useRollup ? 'SUM(flight_count) OVER()' : 'COUNT(*) OVER()'} AS __row_count FROM ${table} WHERE ${whereClause(query, fields)}`;
   const source = hasP95
     ? `ranked AS (SELECT base.*, ROW_NUMBER() OVER (PARTITION BY ${partitionSql} ORDER BY dep_delay) AS __rank, COUNT(*) OVER (PARTITION BY ${partitionSql}) AS __group_count FROM base)`
     : 'ranked AS (SELECT * FROM base)';
@@ -106,12 +130,12 @@ function buildSql(query) {
     ...groupFields.map((field, index) => `${field} AS ${groupAliases[index]}`),
     ...query.metrics.map((item) => {
       if (item.metricId === 'p95DepartureDelay') return `MAX(CASE WHEN __rank = CAST((__group_count * 95 + 99) / 100 AS INTEGER) THEN dep_delay END) AS ${item.alias || item.metricId}`;
-      return `${metricSql[item.metricId]} AS ${item.alias || item.metricId}`;
+      return `${metricDefinitions[item.metricId]} AS ${item.alias || item.metricId}`;
     }),
     'MAX(__row_count) AS __row_count'
   ];
   const grouping = groupSql ? ` GROUP BY ${groupSql} ORDER BY ${groupSql}` : '';
-  return `WITH base AS (${base}), ${source} SELECT ${selections.join(', ')} FROM ranked${grouping} LIMIT ${query.limit || 100}`;
+  return { sql: `WITH base AS (${base}), ${source} SELECT ${selections.join(', ')} FROM ranked${grouping} LIMIT ${query.limit || 100}`, useRollup };
 }
 
 function runSql(sql, { readonly = true } = {}) {
@@ -163,6 +187,16 @@ async function ensureDashboardConfig() {
   await runSql(`${statements.join(';')}; ${insertConfig}; ${inserts.join(';')}`, { readonly: false });
 }
 
+async function detectRollup() {
+  const table = await runSql("SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = 'aviation_dashboard_rollup'");
+  if (!table.length) {
+    rollupAvailable = false;
+    return;
+  }
+  const rows = await runSql('SELECT COUNT(*) AS aggregate_count FROM aviation_dashboard_rollup');
+  rollupAvailable = Number(rows[0]?.aggregate_count ?? 0) > 0;
+}
+
 async function readConfig() {
   const configs = await runSql('SELECT id, topic_id, title, description, source_manifest_json, dataset_json FROM dashboard_configs LIMIT 1');
   if (!configs.length) throw new Error('Dashboard 配置尚未初始化。');
@@ -202,8 +236,9 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && request.url === '/api/dashboard/health') {
     try {
-      const rows = await runSql('SELECT COUNT(*) AS flight_count FROM aviation_flights');
-      sendJson(response, 200, { status: 'ok', database, flightCount: rows[0]?.flight_count ?? 0 });
+      const rows = await runSql("SELECT COALESCE((SELECT row_count FROM dataset_runs WHERE dataset_id = 'aviation-ontime'), 0) AS flight_count");
+      const rollupRows = rollupAvailable ? await runSql('SELECT COUNT(*) AS aggregate_count FROM aviation_dashboard_rollup') : [];
+      sendJson(response, 200, { status: rollupAvailable ? 'ok' : 'degraded', database, flightCount: rows[0]?.flight_count ?? 0, aggregateCount: rollupRows[0]?.aggregate_count ?? 0, querySource: rollupAvailable ? 'aviation_dashboard_rollup' : 'aviation_flights' });
     } catch (error) {
       sendJson(response, 503, { status: 'error', error: error instanceof Error ? error.message : String(error) });
     }
@@ -220,13 +255,14 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && request.url === '/api/dashboard/query') {
     try {
       const query = await readBody(request);
-      const rows = await runSql(buildSql(query));
+      const statement = buildSql(query);
+      const rows = await runSql(statement.sql);
       const rowCount = Number(rows[0]?.__row_count ?? 0);
       rows.forEach((row) => { delete row.__row_count; });
       sendJson(response, 200, {
         columns: [...query.dimensions.map((item) => item.alias || item.dimensionId), ...query.metrics.map((item) => item.alias || item.metricId)],
         rows,
-        summary: { rowCount, source: 'SQLite aviation_flights', query }
+        summary: { rowCount, source: statement.useRollup ? 'SQLite aviation_dashboard_rollup' : 'SQLite aviation_flights', query }
       });
     } catch (error) {
       sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
@@ -237,6 +273,7 @@ const server = createServer(async (request, response) => {
 });
 
 ensureDashboardConfig()
+  .then(detectRollup)
   .then(() => server.listen(port, '127.0.0.1', () => {
     console.log(`[dashboard-data] http://127.0.0.1:${port} -> ${database}`);
   }))
