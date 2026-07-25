@@ -1,4 +1,5 @@
 # BTS archives and generated manifests are local inputs/outputs, not source files.
 raw/*.zip
+raw/*.part
 processed/*
 manifests/*
