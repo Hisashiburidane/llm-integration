@@ -1,6 +1,6 @@
 # Dashboard Vue
 
-这是一个独立的 Vue Dashboard 示例，包含航班运行与延误分析、北京空气质量两个专题。开发服务从 `examples/data-sources/data/dashboard.sqlite` 查询已清洗数据；来源和限制由 Node 配置服务返回。
+这是一个配置驱动的 Vue Dashboard 平台示例，包含航班运行与延误分析、北京空气质量、NYC Taxi 三个专题。前端只负责通用 Dashboard/Panel 渲染和运行时交互；专题数据集、筛选定义、Panel QuerySpec 和 Assistant prompt 由 Node 配置服务返回。
 
 ## Run
 
@@ -25,6 +25,8 @@ pnpm --filter @enchantforge/dashboard-vue data:serve
 默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把航班明细打包进浏览器。常用指标查询优先使用 `aviation_dashboard_rollup`，航班明细和 P95 查询才读取 `aviation_flights`。
 
 打开 `http://localhost:5173/#air-quality` 可进入 Beijing Air Quality Dashboard。空气质量 Panel 使用 `air_quality_dashboard_rollup`，支持日期范围、监测站筛选和 Air Quality Assistant 分析。
+
+打开 `http://localhost:5173/#taxi` 可进入 NYC Taxi Dashboard。出租车 Panel 使用 `nyc_taxi_dashboard_rollup`，支持日期范围、行政区和上车区域筛选。`http://localhost:5173/#panels` 是跨专题的统一 Panel Library。
 
 LLM 配置使用 OpenAI-compatible Chat Completions endpoint：
 

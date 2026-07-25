@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { aviationDashboard } from './dashboard-config.mjs';
 import { airQualityDashboard } from './air-quality-config.mjs';
+import { taxiDashboard } from './taxi-config.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultDatabase = path.resolve(here, '../../data-sources/data/dashboard.sqlite');
@@ -14,7 +15,8 @@ const maxBodySize = 1024 * 1024;
 
 const dashboards = new Map([
   [aviationDashboard.id, aviationDashboard],
-  [airQualityDashboard.id, airQualityDashboard]
+  [airQualityDashboard.id, airQualityDashboard],
+  [taxiDashboard.id, taxiDashboard]
 ]);
 const datasetDefinitions = {
   aviation_ontime_demo: {
@@ -38,6 +40,18 @@ const datasetDefinitions = {
     rollupFields: { date: 'observed_date', station: 'station' },
     rollupDimensions: new Set(['date', 'station']),
     rowCountExpression: 'SUM(observation_count)'
+  },
+  nyc_taxi_demo: {
+    dimensions: { date: 'pickup_date', borough: 'pickup_borough', pickupZone: 'pickup_zone', pickupLocation: 'pickup_location_id', paymentType: 'payment_type' },
+    rawDimensions: { date: "substr(pickup_at, 1, 10)", borough: 'pickup_location_id', pickupZone: 'pickup_location_id', pickupLocation: 'pickup_location_id', paymentType: 'payment_type' },
+    rawMetricSql: { tripCount: 'COUNT(*)', passengerCount: 'SUM(COALESCE(passenger_count, 0))', averageTripDistance: 'AVG(trip_distance)', averageFare: 'AVG(fare_amount)', averageTip: 'AVG(tip_amount)', totalRevenue: 'SUM(total_amount)', averageTripDuration: 'AVG(trip_duration_minutes)' },
+    rollupMetricSql: { tripCount: 'SUM(trip_count)', passengerCount: 'SUM(passenger_sum)', averageTripDistance: 'SUM(distance_sum) * 1.0 / NULLIF(SUM(trip_count), 0)', averageFare: 'SUM(fare_sum) * 1.0 / NULLIF(SUM(trip_count), 0)', averageTip: 'SUM(tip_sum) * 1.0 / NULLIF(SUM(trip_count), 0)', totalRevenue: 'SUM(total_amount_sum)', averageTripDuration: 'SUM(duration_sum) * 1.0 / NULLIF(SUM(trip_count), 0)' },
+    rawTable: 'nyc_taxi_trips',
+    rollupTable: 'nyc_taxi_dashboard_rollup',
+    rollupFields: { date: 'pickup_date', borough: 'pickup_borough', pickupZone: 'pickup_zone', pickupLocation: 'pickup_location_id' },
+    rollupDimensions: new Set(['date', 'borough', 'pickupZone', 'pickupLocation']),
+    taxiJoins: true,
+    rowCountExpression: 'SUM(trip_count)'
   }
 };
 const rollupAvailable = new Map();
@@ -139,6 +153,9 @@ function buildSql(query) {
   if (definition.labelJoins && query.dimensions.some((item) => item.dimensionId === 'delayCause')) {
     joins.push('LEFT JOIN aviation_delay_cause_dictionary AS delay_cause_dictionary ON delay_cause_dictionary.code = ranked.delay_cause');
   }
+  if (definition.taxiJoins && !useRollup && query.dimensions.some((item) => item.dimensionId === 'borough' || item.dimensionId === 'pickupZone')) {
+    joins.push('LEFT JOIN nyc_taxi_zones AS pickup_zone_dictionary ON pickup_zone_dictionary.location_id = ranked.pickup_location_id');
+  }
   const dimensionSelections = query.dimensions.flatMap((item, index) => {
     const field = groupFields[index];
     const alias = groupAliases[index];
@@ -150,6 +167,12 @@ function buildSql(query) {
     }
     if (definition.labelJoins && item.dimensionId === 'delayCause') {
       return [`COALESCE(delay_cause_dictionary.label_zh, ranked.${field}) AS ${alias}`, `ranked.${field} AS ${alias}Code`];
+    }
+    if (definition.taxiJoins && !useRollup && item.dimensionId === 'borough') {
+      return [`COALESCE(pickup_zone_dictionary.borough, ranked.${field}) AS ${alias}`, `ranked.${field} AS ${alias}Code`];
+    }
+    if (definition.taxiJoins && !useRollup && item.dimensionId === 'pickupZone') {
+      return [`COALESCE(pickup_zone_dictionary.zone, ranked.${field}) AS ${alias}`, `ranked.${field} AS ${alias}Code`];
     }
     return [`ranked.${field} AS ${alias}`];
   });
@@ -235,7 +258,7 @@ async function ensureDashboardConfig() {
   } catch (error) {
     if (!String(error).includes('duplicate column name')) throw error;
   }
-  const configs = [aviationDashboard, airQualityDashboard];
+  const configs = [aviationDashboard, airQualityDashboard, taxiDashboard];
   const configInserts = configs.map((config) => `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json) VALUES (${sqlString(config.id)}, ${sqlString(config.topicId)}, ${sqlString(config.title)}, ${sqlString(config.description)}, ${sqlString(JSON.stringify(config.sourceManifest))}, ${sqlString(JSON.stringify(config.dataset))}) ON CONFLICT(id) DO UPDATE SET topic_id = excluded.topic_id, title = excluded.title, description = excluded.description, source_manifest_json = excluded.source_manifest_json, dataset_json = excluded.dataset_json`);
   const allPanels = configs.flatMap((config) => [
     ...config.panels.map((panel, index) => ({ ...panel, dashboardId: config.id, sortOrder: index, isTemplate: 0, templateId: null })),
@@ -279,6 +302,9 @@ async function readConfig(dashboardId = aviationDashboard.id) {
   const stations = dashboard.id === airQualityDashboard.id
     ? await runSql('SELECT DISTINCT station AS code, station AS label FROM air_quality_observations WHERE station <> \'\' ORDER BY station')
     : [];
+  const taxiZones = dashboard.id === taxiDashboard.id
+    ? await runSql("SELECT COALESCE(zone, '区域 ' || location_id) AS code, COALESCE(zone, '区域 ' || location_id) AS label FROM nyc_taxi_zones WHERE location_id IS NOT NULL ORDER BY label")
+    : [];
   const parsePanel = (panel) => {
     const parsedQuery = JSON.parse(panel.query_json || '{}');
     const query = {
@@ -299,7 +325,10 @@ async function readConfig(dashboardId = aviationDashboard.id) {
     panels: panels.map(parsePanel),
     panelLibrary: panelLibrary.map(parsePanel),
     panelTemplates: dashboard.panelTemplates,
-    facets: { airports: airports.map((item) => ({ code: item.code, label: item.label })), carriers: carriers.map((item) => item.value), stations: stations.map((item) => ({ code: item.code, label: item.label })) }
+    facets: { airports: airports.map((item) => ({ code: item.code, label: item.label })), carriers: carriers.map((item) => item.value), stations: stations.map((item) => ({ code: item.code, label: item.label })), taxiZones: taxiZones.map((item) => ({ code: item.code, label: item.label })) },
+    filterDefinitions: dashboard.filterDefinitions ?? [],
+    assistantPrompt: dashboard.assistantPrompt ?? '',
+    suggestions: dashboard.suggestions ?? []
   };
 }
 

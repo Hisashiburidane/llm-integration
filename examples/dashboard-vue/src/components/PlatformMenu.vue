@@ -1,8 +1,8 @@
 <script setup lang="ts">
-defineProps<{ active: 'aviation' | 'air-quality' | 'panels' }>();
+defineProps<{ active: 'aviation' | 'air-quality' | 'taxi' | 'panels' }>();
 
-function navigate(target: 'aviation' | 'air-quality' | 'panels') {
-  window.location.hash = target === 'aviation' ? '' : target === 'air-quality' ? 'air-quality' : 'panels';
+function navigate(target: 'aviation' | 'air-quality' | 'taxi' | 'panels') {
+  window.location.hash = target === 'aviation' ? '' : target === 'air-quality' ? 'air-quality' : target === 'taxi' ? 'taxi' : 'panels';
 }
 </script>
 
@@ -12,6 +12,7 @@ function navigate(target: 'aviation' | 'air-quality' | 'panels') {
     <div class="platform-links">
       <button type="button" :class="{ active: active === 'aviation' }" @click="navigate('aviation')">Flight Operations</button>
       <button type="button" :class="{ active: active === 'air-quality' }" @click="navigate('air-quality')">Air Quality</button>
+      <button type="button" :class="{ active: active === 'taxi' }" @click="navigate('taxi')">NYC Taxi</button>
       <button type="button" :class="{ active: active === 'panels' }" @click="navigate('panels')">Panel Library</button>
     </div>
   </nav>

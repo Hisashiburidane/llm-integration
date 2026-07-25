@@ -285,6 +285,23 @@ def create_schema(connection: sqlite3.Connection) -> None:
           zone TEXT,
           service_zone TEXT
         );
+        CREATE TABLE IF NOT EXISTS nyc_taxi_dashboard_rollup (
+          pickup_date TEXT NOT NULL,
+          pickup_location_id INTEGER NOT NULL,
+          pickup_borough TEXT NOT NULL,
+          pickup_zone TEXT NOT NULL,
+          trip_count INTEGER NOT NULL,
+          passenger_sum REAL NOT NULL,
+          distance_sum REAL NOT NULL,
+          fare_sum REAL NOT NULL,
+          tip_sum REAL NOT NULL,
+          total_amount_sum REAL NOT NULL,
+          duration_sum REAL NOT NULL,
+          PRIMARY KEY (pickup_date, pickup_location_id)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_taxi_rollup_date ON nyc_taxi_dashboard_rollup(pickup_date);
+        CREATE INDEX IF NOT EXISTS idx_taxi_rollup_borough ON nyc_taxi_dashboard_rollup(pickup_borough, pickup_date);
+        CREATE INDEX IF NOT EXISTS idx_taxi_rollup_zone ON nyc_taxi_dashboard_rollup(pickup_location_id, pickup_date);
         """
     )
     try:
@@ -371,6 +388,33 @@ def build_air_quality_rollup(connection: sqlite3.Connection) -> int:
         """
     )
     return int(connection.execute("SELECT COUNT(*) FROM air_quality_dashboard_rollup").fetchone()[0])
+
+
+def build_taxi_rollup(connection: sqlite3.Connection) -> int:
+    """Materialize daily pickup-zone statistics used by the taxi dashboard."""
+    reset_table(connection, "nyc_taxi_dashboard_rollup")
+    connection.execute(
+        """
+        INSERT INTO nyc_taxi_dashboard_rollup
+        (pickup_date, pickup_location_id, pickup_borough, pickup_zone,
+         trip_count, passenger_sum, distance_sum, fare_sum, tip_sum,
+         total_amount_sum, duration_sum)
+        SELECT substr(t.pickup_at, 1, 10), COALESCE(t.pickup_location_id, 0),
+               COALESCE(z.borough, ''), COALESCE(z.zone, ''), COUNT(*),
+               SUM(COALESCE(t.passenger_count, 0)),
+               SUM(COALESCE(t.trip_distance, 0)),
+               SUM(COALESCE(t.fare_amount, 0)),
+               SUM(COALESCE(t.tip_amount, 0)),
+               SUM(COALESCE(t.total_amount, 0)),
+               SUM(COALESCE(t.trip_duration_minutes, 0))
+        FROM nyc_taxi_trips AS t
+        LEFT JOIN nyc_taxi_zones AS z ON z.location_id = t.pickup_location_id
+        WHERE t.pickup_at IS NOT NULL AND substr(t.pickup_at, 1, 10) <> ''
+        GROUP BY substr(t.pickup_at, 1, 10), COALESCE(t.pickup_location_id, 0),
+                 COALESCE(z.borough, ''), COALESCE(z.zone, '')
+        """
+    )
+    return int(connection.execute("SELECT COUNT(*) FROM nyc_taxi_dashboard_rollup").fetchone()[0])
 
 
 def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, int]:
@@ -656,6 +700,8 @@ def process_taxi(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, 
         count += len(rows)
         connection.commit()
         print(f"nyc-taxi: processed {count} rows", flush=True)
+    rollup_count = build_taxi_rollup(connection)
+    print(f"nyc-taxi: built {rollup_count} daily pickup-zone aggregate rows", flush=True)
     return parquet, count
 
 

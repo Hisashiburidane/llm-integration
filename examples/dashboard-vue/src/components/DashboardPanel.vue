@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import ChartCanvas from './ChartCanvas.vue';
-import { formatMetricValue } from '../query/engine';
+import { formatMetricValue } from '../query/format';
 import type { PanelConfig, QueryResult } from '../model/types';
 
 const props = defineProps<{
@@ -14,7 +14,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [panel: PanelConfig];
-  selectAirport: [airport: string];
 }>();
 
 const metricKey = computed(() => props.panel.query.metrics[0]?.alias ?? props.panel.query.metrics[0]?.metricId ?? 'value');
@@ -57,14 +56,6 @@ function displayDimensionValue(row: Record<string, unknown>, dimension: string) 
   return String(row[`${dimension}Label`] ?? row[dimension] ?? '-');
 }
 
-function airportRows() {
-  return props.result.rows.map((row) => ({
-    airport: String(row.airportCode ?? row.airport ?? '-'),
-    label: String(row.airport ?? row.airportLabel ?? '-'),
-    onTimeRate: formatMetricValue('onTimeRate', row.onTimeRate),
-    delay: formatMetricValue('averageDepartureDelay', row.averageDepartureDelay)
-  }));
-}
 </script>
 
 <template>
@@ -92,14 +83,7 @@ function airportRows() {
       <strong>{{ displayValue(primaryValue) }}</strong>
       <span>{{ metricId }}</span>
     </div>
-    <div v-else-if="panel.type === 'airport-status'" class="airport-status-list">
-      <button v-for="item in airportRows()" :key="item.airport" type="button" class="airport-status-row" @click.stop="emit('selectAirport', item.airport)">
-        <span class="airport-code"><strong>{{ item.label }}</strong><small>{{ item.airport }}</small></span>
-        <span class="airport-rate">{{ item.onTimeRate }}</span>
-        <span class="airport-delay">{{ item.delay }}</span>
-      </button>
-    </div>
-    <div v-else-if="panel.type === 'table'" class="table-wrap">
+    <div v-else-if="panel.type === 'table' || panel.type === 'airport-status'" class="table-wrap">
       <table>
         <thead><tr><th v-for="column in result.columns" :key="column">{{ column }}</th></tr></thead>
         <tbody>
@@ -134,14 +118,6 @@ h3 { margin: 0; color: #1e293b; font-size: 14px; }
 .metric-value strong { color: #0f3d75; font: 600 32px/1 'IBM Plex Mono', monospace; }
 .metric-value span { margin-top: 8px; color: #94a3b8; font: 10px/1.2 'IBM Plex Mono', monospace; }
 .panel-visual { height: 235px; }
-.airport-status-list { display: grid; gap: 8px; padding: 8px 0; }
-.airport-status-row { display: grid; grid-template-columns: minmax(120px, 1fr) 70px 86px; gap: 10px; align-items: center; padding: 11px 10px; border: 1px solid #e6edf5; border-radius: 6px; color: #334155; background: #f8fafc; cursor: pointer; text-align: left; }
-.airport-status-row:hover { border-color: #8fb7ed; background: #eff6ff; }
-.airport-code { min-width: 0; color: #0f3d75; font: 700 12px/1.25 'IBM Plex Sans', sans-serif; }
-.airport-code strong, .airport-code small { display: block; overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; }
-.airport-code small { margin-top: 2px; color: #94a3b8; font: 9px/1.2 'IBM Plex Mono', monospace; }
-.airport-rate { color: #0f766e; font: 600 13px/1 'IBM Plex Mono', monospace; }
-.airport-delay { color: #b45309; font: 11px/1 'IBM Plex Mono', monospace; text-align: right; }
 .panel-empty { display: grid; height: 180px; place-items: center; color: #94a3b8; font-size: 12px; }
 .panel-error { display: flex; min-height: 180px; flex-direction: column; justify-content: center; gap: 8px; color: #b42318; font-size: 11px; line-height: 1.5; }
 .panel-error strong { font-size: 12px; }

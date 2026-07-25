@@ -11,6 +11,12 @@ export const airQualityDashboard = {
     retrievedAt: '2026-07',
     limitations: ['源数据覆盖 2013-03 至 2017-02。', '污染物缺失值保留为空，不以零替代。', 'Panel 查询使用日期 × 监测站物化聚合表。']
   },
+  filterDefinitions: [
+    { id: 'date', dimensionId: 'date', operator: 'between', defaultValue: ['2016-01-01', '2017-02-28'] },
+    { id: 'station', dimensionId: 'station', operator: 'eq', defaultValue: 'ALL', allValue: 'ALL', facetKey: 'stations' }
+  ],
+  assistantPrompt: '你是 Air Quality Assistant。回答问题前必须调用 dashboard.read_data；涉及站点比较使用 aq-station-ranking，涉及趋势使用 aq-pm25-trend，需要强调证据时调用 dashboard.highlight。必须说明监测站名称、日期范围和指标单位。',
+  suggestions: ['哪个监测站的 PM2.5 最高？', 'PM2.5 在当前日期范围如何变化？', '比较主要污染物的平均浓度。', '查看温度和降雨背景。'],
   dataset: {
     id: 'beijing_air_quality_demo',
     name: 'Beijing multi-site air quality',

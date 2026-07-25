@@ -1,6 +1,19 @@
 import { reactive, toRaw } from 'vue';
 import { queryDashboardBatch } from '../query/client';
-import type { DashboardConfig, DatasetDefinition, FacetOption, PanelConfig, QueryResult, QuerySpec } from '../model/types';
+import type { DashboardConfig, DatasetDefinition, FacetOption, FilterOperator, PanelConfig, QueryResult, QuerySpec, Scalar } from '../model/types';
+
+export interface DashboardFilterDefinition {
+  id: string;
+  dimensionId: string;
+  operator: FilterOperator;
+  defaultValue?: Scalar | Scalar[];
+  allValue?: Scalar;
+  facetKey?: string;
+  type?: 'range' | 'date' | 'select';
+  min?: number;
+  max?: number;
+  options?: Array<{ value: Scalar; label: string }>;
+}
 
 export interface DashboardRuntimeState<TFilters extends Record<string, unknown>> {
   config: DashboardConfig;
@@ -8,7 +21,10 @@ export interface DashboardRuntimeState<TFilters extends Record<string, unknown>>
   panelTemplates: PanelConfig[];
   dataset: DatasetDefinition;
   sourceManifest: Record<string, unknown>;
+  assistantPrompt: string;
+  suggestions: string[];
   facets: Record<string, FacetOption[] | string[]>;
+  filterDefinitions: DashboardFilterDefinition[];
   filters: TFilters;
   panelResults: Map<string, QueryResult>;
   dataLoading: boolean;
@@ -21,8 +37,20 @@ export interface DashboardRuntimeOptions<TFilters extends Record<string, unknown
   configUrl: string;
   initialConfig: DashboardConfig;
   initialDataset: DatasetDefinition;
-  initialFilters: TFilters;
-  buildQuery: (panel: PanelConfig, filters: TFilters) => QuerySpec;
+  initialFilters?: TFilters;
+  filterDefinitions?: DashboardFilterDefinition[];
+  buildQuery?: (panel: PanelConfig, filters: TFilters) => QuerySpec;
+}
+
+export interface DashboardRuntime<TFilters extends Record<string, unknown>> {
+  state: DashboardRuntimeState<TFilters>;
+  queryForPanel: (panel: PanelConfig) => QuerySpec;
+  resultForPanel: (panel: PanelConfig) => QueryResult;
+  loadConfig: () => Promise<void>;
+  refreshData: () => Promise<void>;
+  highlightPanels: (panelIds: string[]) => void;
+  setFilter: (id: string, value: Scalar | Scalar[]) => void;
+  setAction: (message: string) => void;
 }
 
 function clone<T>(value: T): T {
@@ -42,21 +70,24 @@ function normalizePanel(panel: PanelConfig): PanelConfig {
   };
 }
 
-export function createDashboardRuntime<TFilters extends Record<string, unknown>>(options: DashboardRuntimeOptions<TFilters>) {
-  const state = reactive<DashboardRuntimeState<TFilters>>({
+export function createDashboardRuntime<TFilters extends Record<string, unknown>>(options: DashboardRuntimeOptions<TFilters>): DashboardRuntime<TFilters> {
+  const state = reactive({
     config: clone(options.initialConfig),
     panelLibrary: [],
     panelTemplates: [],
     dataset: clone(options.initialDataset),
     sourceManifest: {},
+    assistantPrompt: '',
+    suggestions: [],
     facets: {},
-    filters: clone(options.initialFilters),
+    filterDefinitions: options.filterDefinitions ?? [],
+    filters: clone(options.initialFilters ?? {} as TFilters),
     panelResults: new Map(),
     dataLoading: false,
     dataError: '',
     highlightedPanelIds: [],
     lastAction: '页面已加载'
-  });
+  }) as unknown as DashboardRuntimeState<TFilters>;
 
   let refreshSequence = 0;
 
@@ -65,7 +96,16 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
   }
 
   function queryForPanel(panel: PanelConfig): QuerySpec {
-    return options.buildQuery(panel, state.filters as TFilters);
+    if (options.buildQuery) return options.buildQuery(panel, state.filters as TFilters);
+    const filterValues = state.filters as Record<string, unknown>;
+    const dimensions = new Set(state.filterDefinitions.map((definition) => definition.dimensionId));
+    const filters = panel.query.filters.filter((item) => !dimensions.has(item.dimensionId));
+    state.filterDefinitions.forEach((definition) => {
+      const value = filterValues[definition.id];
+      if (value === undefined || (definition.allValue !== undefined && value === definition.allValue)) return;
+      filters.push({ dimensionId: definition.dimensionId, operator: definition.operator, value: value as Scalar | Scalar[] });
+    });
+    return { ...panel.query, filters };
   }
 
   function resultForPanel(panel: PanelConfig): QueryResult {
@@ -86,7 +126,8 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
       const payload = await response.json() as {
         id: string; topicId: string; title: string; description: string; sourceManifest?: Record<string, unknown>;
         dataset: DatasetDefinition; panels: PanelConfig[]; panelTemplates: PanelConfig[]; panelLibrary: PanelConfig[];
-        facets?: Record<string, FacetOption[] | string[]>; error?: string;
+        facets?: Record<string, FacetOption[] | string[]>; assistantPrompt?: string; suggestions?: string[]; error?: string;
+        filterDefinitions?: DashboardFilterDefinition[];
       };
       if (!response.ok || payload.error) throw new Error(payload.error || `Dashboard 配置请求失败（${response.status}）。`);
       state.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: (payload.panels ?? []).map(normalizePanel) };
@@ -94,7 +135,14 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
       state.panelTemplates = (payload.panelTemplates ?? []).map(normalizePanel);
       state.dataset = payload.dataset;
       state.sourceManifest = payload.sourceManifest ?? {};
+      state.assistantPrompt = payload.assistantPrompt ?? '';
+      state.suggestions = payload.suggestions ?? [];
       state.facets = payload.facets ?? {};
+      state.filterDefinitions = payload.filterDefinitions ?? state.filterDefinitions;
+      state.filterDefinitions.forEach((definition) => {
+        const filterValues = state.filters as Record<string, unknown>;
+        if (filterValues[definition.id] === undefined && definition.defaultValue !== undefined) filterValues[definition.id] = clone(definition.defaultValue);
+      });
       await refreshData();
     } catch (error) {
       state.dataError = error instanceof Error ? error.message : 'Dashboard 配置加载失败。';
@@ -133,5 +181,11 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
     setAction(state.highlightedPanelIds.length ? `已高亮 ${state.highlightedPanelIds.length} 个 Panel` : '已清除 Panel 高亮');
   }
 
-  return { state, queryForPanel, resultForPanel, loadConfig, refreshData, highlightPanels, setAction };
+  function setFilter(id: string, value: Scalar | Scalar[]) {
+    if (!state.filterDefinitions.some((definition) => definition.id === id)) throw new Error(`未知 Dashboard 筛选：${id}。`);
+    (state.filters as Record<string, unknown>)[id] = value;
+    setAction(`已更新筛选：${id}`);
+  }
+
+  return { state, queryForPanel, resultForPanel, loadConfig, refreshData, highlightPanels, setFilter, setAction };
 }
