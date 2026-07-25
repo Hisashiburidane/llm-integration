@@ -285,7 +285,6 @@ test('default agent can use an injected LLM client', async () => {
         request = value;
         return {
           message: 'custom client',
-          snapshotVersion: String(value.context.version),
           calls: []
         };
       }
@@ -296,7 +295,8 @@ test('default agent can use an injected LLM client', async () => {
 
   assert.equal(result.message, 'custom client');
   assert.equal(request.input, 'inspect');
-  assert.match(request.prompt, new RegExp(`snapshotVersion=${request.context.version}`));
+  assert.doesNotMatch(request.prompt, /snapshotVersion/);
+  assert.equal(request.context.version, undefined);
 });
 
 test('registry filters route-scoped registrations for the active snapshot', () => {

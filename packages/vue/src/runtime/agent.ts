@@ -21,7 +21,7 @@ const DEFAULT_AGENT_PROMPT = [
   '多个 capability 都能满足请求时，选择效果范围最小且调用次数最少的方案。',
   '使用最少调用完成任务。不要提交、审批、支付、删除或调用未授权动作。',
   '无法完成时 calls 返回空数组并说明原因。',
-  '返回格式：{"message":"","snapshotVersion":<本次 snapshot 的版本号>,"calls":[{"capabilityId":"","input":{},"reason":""}]}。'
+  '返回格式：{"message":"","calls":[{"capabilityId":"","input":{},"reason":""}]}。'
 ].join('\n');
 
 function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
@@ -31,11 +31,13 @@ function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
     throw new Error('LLM 返回的执行计划结构无效。');
   }
   const rawSnapshotVersion = (value as Record<string, unknown>).snapshotVersion;
-  const snapshotVersion = typeof rawSnapshotVersion === 'string'
-    ? Number(rawSnapshotVersion)
-    : rawSnapshotVersion;
-  if (!Number.isInteger(snapshotVersion) || snapshotVersion !== snapshot.version) {
-    throw new Error(`LLM 计划的 snapshot version 无效（收到 ${String(rawSnapshotVersion)}），应为 ${snapshot.version}。`);
+  if (rawSnapshotVersion !== undefined) {
+    const snapshotVersion = typeof rawSnapshotVersion === 'string'
+      ? Number(rawSnapshotVersion)
+      : rawSnapshotVersion;
+    if (!Number.isInteger(snapshotVersion) || snapshotVersion !== snapshot.version) {
+      throw new Error(`LLM 计划的 snapshot version 无效（收到 ${String(rawSnapshotVersion)}），应为 ${snapshot.version}。`);
+    }
   }
 
   const allowed = new Set(snapshot.tools.map((tool) => tool.capabilityId));
@@ -54,7 +56,7 @@ function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
 
   return {
     message: candidate.message,
-    snapshotVersion: snapshotVersion as number,
+    snapshotVersion: snapshot.version,
     calls
   };
 }
@@ -62,14 +64,14 @@ function validatePlan(value: unknown, snapshot: EnchantSnapshot): EnchantPlan {
 export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client = createLlmClient(options)): EnchantAgent {
   return {
     async plan(request) {
+      const { version: _snapshotVersion, ...context } = request.snapshot;
       const plan = await client.runJson<unknown>({
         prompt: [
           DEFAULT_AGENT_PROMPT,
-          `本次请求必须原样返回 snapshotVersion=${request.snapshot.version}，不要使用示例值、旧版本或其他数字。`,
           request.instruction
         ].filter(Boolean).join('\n\n'),
         input: request.input,
-        context: request.snapshot,
+        context,
         signal: request.signal
       });
       return validatePlan(plan, request.snapshot);
