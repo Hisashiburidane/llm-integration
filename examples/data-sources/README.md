@@ -9,6 +9,13 @@ pnpm --filter @enchantforge/data-sources data:plan
 pnpm --filter @enchantforge/data-sources data:plan -- --dataset online-retail-ii
 ```
 
+`data:plan` supports:
+
+- `--dataset <id>`: generate only one plan; omit it to generate all plans;
+- `--help`: list supported dataset IDs and print usage.
+
+Supported IDs are `online-retail-ii`, `beijing-air-quality`, `nyc-taxi`, `otel-demo`, `cicids2017`, and `cmapps`.
+
 Download only the direct-file datasets:
 
 ```bash
@@ -16,6 +23,14 @@ pnpm --filter @enchantforge/data-sources data:download -- --dataset online-retai
 pnpm --filter @enchantforge/data-sources data:download -- --dataset beijing-air-quality
 pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi
 ```
+
+`data:download` supports:
+
+- `--dataset <id>`: download only one plan; omit it to process all plans with direct URLs;
+- `--force`: replace existing files instead of skipping them;
+- `--help`: print usage and exit.
+
+Plans with status `collect`, `manual`, or `unavailable` do not have direct URLs and are reported without a download attempt. The `--` after the pnpm script name separates pnpm arguments from script arguments. The downloader requires Bash, `curl`, and either `shasum` or `sha256sum`.
 
 Archives and Parquet files are written below `examples/data-sources/data/<dataset>/raw/`. SHA-256 manifests are written below the ignored `manifests/` directories. The generated plan for OpenTelemetry Demo describes a collection workflow rather than a static file; CIC-IDS2017 requires a manual download from its provider page; NASA currently marks C-MAPSS unavailable, so no mirror is substituted.
 
