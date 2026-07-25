@@ -102,6 +102,7 @@ export interface QuerySpec {
 export interface QueryResult {
   columns: string[];
   rows: Array<Record<string, Scalar | null>>;
+  loading?: boolean;
   error?: string;
   summary: {
     rowCount: number;

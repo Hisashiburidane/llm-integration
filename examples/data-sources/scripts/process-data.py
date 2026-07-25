@@ -144,6 +144,7 @@ def create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_aviation_date ON aviation_flights(flight_date);
         CREATE INDEX IF NOT EXISTS idx_aviation_origin ON aviation_flights(origin);
         CREATE INDEX IF NOT EXISTS idx_aviation_carrier ON aviation_flights(carrier);
+        CREATE INDEX IF NOT EXISTS idx_aviation_dashboard_scope ON aviation_flights(direction, hour, origin, carrier, dep_delay);
 
         CREATE TABLE IF NOT EXISTS aviation_dashboard_rollup (
           origin TEXT NOT NULL,

@@ -60,11 +60,14 @@ function airportRows() {
         <p class="panel-kicker">{{ panel.type }} / {{ panel.id }}</p>
         <h3>{{ panel.title }}</h3>
       </div>
-      <span class="panel-source">{{ result.summary.rowCount }} rows</span>
+      <span class="panel-source">{{ result.loading ? '--' : `${result.summary.rowCount} rows` }}</span>
     </header>
     <p class="panel-description">{{ panel.description }}</p>
 
-    <div v-if="result.error" class="panel-error">
+    <div v-if="result.loading" class="panel-loading">
+      <a-skeleton active :paragraph="{ rows: panel.type === 'metric' ? 2 : 4 }" />
+    </div>
+    <div v-else-if="result.error" class="panel-error">
       <strong>QuerySpec 无效</strong>
       <span>{{ result.error }}</span>
     </div>
@@ -105,6 +108,8 @@ function airportRows() {
 h3 { margin: 0; color: #1e293b; font-size: 14px; }
 .panel-source { flex: 0 0 auto; color: #94a3b8; font: 10px/1.2 'IBM Plex Mono', monospace; }
 .panel-description { min-height: 32px; margin: 8px 0 10px; color: #64748b; font-size: 11px; line-height: 1.5; }
+.panel-loading { min-height: 180px; padding-top: 12px; }
+.panel-loading :deep(.ant-skeleton-title), .panel-loading :deep(.ant-skeleton-paragraph > li) { background: linear-gradient(90deg, #edf2f7 25%, #f8fafc 37%, #edf2f7 63%); background-size: 400% 100%; }
 .metric-value { display: flex; min-height: 84px; flex-direction: column; justify-content: center; }
 .metric-value strong { color: #0f3d75; font: 600 32px/1 'IBM Plex Mono', monospace; }
 .metric-value span { margin-top: 8px; color: #94a3b8; font: 10px/1.2 'IBM Plex Mono', monospace; }

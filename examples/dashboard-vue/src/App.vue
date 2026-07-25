@@ -42,8 +42,7 @@ watch(
     () => dashboardState.filters.carrier,
     () => dashboardState.filters.direction,
     () => dashboardState.filters.timeRange.startHour,
-    () => dashboardState.filters.timeRange.endHour,
-    () => dashboardState.config.panels.map((panel) => panel.id).join('|')
+    () => dashboardState.filters.timeRange.endHour
   ],
   () => { void refreshDashboardData(); }
 );

@@ -43,6 +43,9 @@ const rollupMetricSql = {
 const rollupDimensions = new Set(['airport', 'carrier', 'direction', 'hour', 'delayCause']);
 const rollupFields = { airport: 'origin', carrier: 'carrier', direction: 'direction', hour: 'hour', delayCause: 'delay_cause' };
 let rollupAvailable = false;
+const queryCache = new Map();
+const queryInFlight = new Map();
+const queryCacheTtlMs = 5000;
 
 function sendJson(response, status, body) {
   const payload = JSON.stringify(body);
@@ -165,6 +168,33 @@ function runSql(sql, { readonly = true } = {}) {
   });
 }
 
+async function executeDashboardQuery(query) {
+  const key = JSON.stringify(query);
+  const cached = queryCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.result;
+  const running = queryInFlight.get(key);
+  if (running) return running;
+  const promise = (async () => {
+    const statement = buildSql(query);
+    const rows = await runSql(statement.sql);
+    const rowCount = Number(rows[0]?.__row_count ?? 0);
+    rows.forEach((row) => { delete row.__row_count; });
+    const result = {
+      columns: [...query.dimensions.map((item) => item.alias || item.dimensionId), ...query.metrics.map((item) => item.alias || item.metricId)],
+      rows,
+      summary: { rowCount, source: statement.useRollup ? 'SQLite aviation_dashboard_rollup' : 'SQLite aviation_flights', query }
+    };
+    queryCache.set(key, { expiresAt: Date.now() + queryCacheTtlMs, result });
+    return result;
+  })();
+  queryInFlight.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    queryInFlight.delete(key);
+  }
+}
+
 async function ensureDashboardConfig() {
   if (!existsSync(database)) return;
   const statements = [
@@ -255,15 +285,17 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && request.url === '/api/dashboard/query') {
     try {
       const query = await readBody(request);
-      const statement = buildSql(query);
-      const rows = await runSql(statement.sql);
-      const rowCount = Number(rows[0]?.__row_count ?? 0);
-      rows.forEach((row) => { delete row.__row_count; });
-      sendJson(response, 200, {
-        columns: [...query.dimensions.map((item) => item.alias || item.dimensionId), ...query.metrics.map((item) => item.alias || item.metricId)],
-        rows,
-        summary: { rowCount, source: statement.useRollup ? 'SQLite aviation_dashboard_rollup' : 'SQLite aviation_flights', query }
-      });
+      sendJson(response, 200, await executeDashboardQuery(query));
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+  if (request.method === 'POST' && request.url === '/api/dashboard/query-batch') {
+    try {
+      const body = await readBody(request);
+      if (!Array.isArray(body.queries) || body.queries.length < 1 || body.queries.length > 24) throw new Error('批量查询数量必须是 1 到 24。');
+      sendJson(response, 200, { results: await Promise.all(body.queries.map((query) => executeDashboardQuery(query))) });
     } catch (error) {
       sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
     }

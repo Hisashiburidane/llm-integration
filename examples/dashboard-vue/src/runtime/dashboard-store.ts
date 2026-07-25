@@ -1,6 +1,6 @@
 import { reactive, toRaw } from 'vue';
 import { aviationDataset, aviationPanelTemplates, aviationSourceManifest, defaultAviationPanels, metricById } from '../data/aviation';
-import { queryDashboard } from '../query/client';
+import { queryDashboardBatch } from '../query/client';
 import type { DashboardConfig, DashboardFilters, DashboardView, DatasetDefinition, PanelConfig, QueryResult, QuerySpec } from '../model/types';
 
 const defaultFilters: DashboardFilters = {
@@ -56,6 +56,8 @@ export const dashboardState = reactive<{
   lastAction: '页面已加载'
 });
 
+let refreshSequence = 0;
+
 function setAction(message: string) {
   dashboardState.lastAction = message;
 }
@@ -77,7 +79,8 @@ export function resultForPanel(panel: PanelConfig): QueryResult {
   return dashboardState.panelResults.get(panel.id) ?? {
     columns: [],
     rows: [],
-    error: dashboardState.dataError || (dashboardState.dataLoading ? '正在从 SQLite 加载数据。' : '数据尚未加载。'),
+    loading: dashboardState.dataLoading,
+    error: dashboardState.dataLoading ? undefined : (dashboardState.dataError || '数据尚未加载。'),
     summary: { rowCount: 0, source: 'SQLite aviation_flights', query }
   };
 }
@@ -118,18 +121,20 @@ export async function loadDashboardConfig() {
 
 export async function refreshDashboardData() {
   const panels = dashboardState.config.panels.map((panel) => clone(panel));
+  const sequence = ++refreshSequence;
   dashboardState.dataLoading = true;
-  const results = await Promise.all(panels.map(async (panel) => {
-    try {
-      return [panel.id, await queryDashboard(queryForPanel(panel))] as const;
-    } catch (error) {
-      const query = queryForPanel(panel);
-      const result: QueryResult = { columns: [], rows: [], error: error instanceof Error ? error.message : '查询执行失败。', summary: { rowCount: 0, source: 'SQLite aviation_flights', query } };
-      return [panel.id, result] as const;
-    }
-  }));
   dashboardState.panelResults.clear();
-  results.forEach(([id, result]) => dashboardState.panelResults.set(id, result));
+  const queries = panels.map((panel) => queryForPanel(panel));
+  let results: QueryResult[];
+  try {
+    results = await queryDashboardBatch(queries);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '查询执行失败。';
+    results = queries.map((query) => ({ columns: [], rows: [], error: message, summary: { rowCount: 0, source: 'SQLite aviation_flights', query } }));
+  }
+  if (sequence !== refreshSequence) return;
+  dashboardState.panelResults.clear();
+  panels.forEach((panel, index) => dashboardState.panelResults.set(panel.id, results[index] ?? { columns: [], rows: [], error: '查询没有返回结果。', summary: { rowCount: 0, source: 'SQLite aviation_flights', query: queries[index] } }));
   dashboardState.dataLoading = false;
 }
 
@@ -173,6 +178,7 @@ export function addPanel(templateId: string) {
   panel.title = `${template.title} / AI ${count + 1}`;
   dashboardState.config.panels.push(panel);
   setAction(`已添加 Panel：${panel.title}`);
+  void refreshDashboardData();
   return panel.id;
 }
 
@@ -183,6 +189,7 @@ export function resetDashboard() {
   dashboardState.selectedPanelId = '';
   dashboardState.selectedAirport = '';
   setAction('已恢复默认 Dashboard');
+  void refreshDashboardData();
 }
 
 export function saveView(name = `调查视图 ${dashboardState.savedViews.length + 1}`) {
