@@ -10,10 +10,11 @@
 - [x] 为 Dashboard 与 Panel 注册 Enchant metadata/capability。
 - [x] 接入 Aura、Debug overlay 和页面内 Trace 抽屉。
 - [x] 提供固定、可审计的航班演示 fixture 与来源说明。
+- [x] 生成 BTS 月度原始数据地址清单、目标目录和数据治理 manifest 模板。
 
 ## 下一步
 
-- [ ] 下载并固化一份 BTS/公开航班准点数据，补充 checksum、许可和清洗脚本。
+- [ ] 手动下载并固化一份 BTS/公开航班准点数据，补充真实 checksum、许可和清洗脚本。
 - [ ] 将 QuerySpec 编译到 DuckDB 或轻量 FastAPI 查询服务；保留本地 fixture fallback。
 - [ ] 增加航班明细抽屉、航线下钻和可逆的 Panel 删除/撤销操作。
 - [ ] 增加操作 Trace 的 state before/after、耗时、失败码和撤销入口。

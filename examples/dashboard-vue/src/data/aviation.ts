@@ -180,7 +180,7 @@ export const aviationSourceManifest = {
   provider: 'EnchantForge example project',
   license: 'Fixture values are committed for demonstration; not a live operational feed.',
   retrievedAt: '2026-07-25',
-  limitations: ['The fixture is deterministic and intentionally small.', 'It does not represent current airport operations.', 'BTS download and checksum workflow remains TODO.']
+  limitations: ['The fixture is deterministic and intentionally small.', 'It does not represent current airport operations.', 'BTS archive processing and checksum workflow remains TODO.']
 };
 
 export const metricById = new Map<string, MetricDefinition>(aviationDataset.metrics.map((metric) => [metric.id, metric]));

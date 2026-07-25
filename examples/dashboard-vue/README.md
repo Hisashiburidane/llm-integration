@@ -19,6 +19,17 @@ LLM_MODEL=gpt-4o-mini
 
 Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；页面代码只使用 `Aura` 和已注册 capability，不直接处理代理细节。
 
+## BTS data plan
+
+示例默认使用 `src/data/aviation.ts` 中的固定 fixture。生成计划中的官方 BTS 月度地址，不会发起网络请求：
+
+```bash
+pnpm --filter @enchantforge/dashboard-vue data:plan
+pnpm --filter @enchantforge/dashboard-vue exec node scripts/generate-aviation-data-plan.mjs --from 2025-07 --to 2025-09
+```
+
+地址清单和 manifest 会写入 `data/download-urls.txt` 与 `data/download-plan.json`。请将手动下载的压缩包放到 `data/raw/`；原始数据接入和清洗仍是后续任务，当前页面不会把下载文件冒充为实时数据。
+
 ## Example requests
 
 - `读取当前 JFK 晚高峰的延误数据，指出最严重的时间段`

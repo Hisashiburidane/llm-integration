@@ -1,0 +1,30 @@
+{
+  "datasetId": "aviation_ontime",
+  "name": "US Airline On-Time Performance",
+  "provider": "US Bureau of Transportation Statistics",
+  "sourceIndex": "https://www.transtats.bts.gov/ontime/",
+  "fieldSelector": "https://www.transtats.bts.gov/DL_SelectFields.aspx?QO_fu146_anzr=b0-gvzr&gnoyr_VQ=FGJ",
+  "rawDirectory": "data/raw",
+  "files": [
+    {
+      "period": "2025-07",
+      "provider": "US Bureau of Transportation Statistics",
+      "sourceType": "public_open_data",
+      "url": "https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_7.zip",
+      "fileName": "On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_7.zip",
+      "downloadTo": "data/raw/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_7.zip",
+      "checksum": "pending: calculate SHA-256 after download"
+    }
+  ],
+  "expectedTransformations": [
+    "normalize airport and carrier codes",
+    "derive departure hour from CRS_DEP_TIME",
+    "derive on-time flag from ARR_DELAY",
+    "map BTS delay-cause columns to delayCause"
+  ],
+  "limitations": [
+    "historical monthly data is not live operations data",
+    "some delay-cause fields are empty for non-delayed or cancelled flights",
+    "BTS files must be downloaded manually and checked before processing"
+  ]
+}
