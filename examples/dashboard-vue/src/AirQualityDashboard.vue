@@ -25,6 +25,7 @@ const globalSummary = computed(() => {
   return panel ? resultForAirPanel(panel).summary : { rowCount: 0, source: 'SQLite air_quality_dashboard_rollup', query: queryForAirPanel(panel ?? { id: 'empty', type: 'metric', title: '', description: '', query: { datasetId: airQualityState.dataset.id, metrics: [{ metricId: 'observationCount' }], dimensions: [], filters: [] }, layout: { width: 1, minHeight: 1 } }) };
 });
 const activePanel = computed(() => panels.value.find((panel) => panel.id === selectedPanelId.value));
+const airQualityAssistantPrompt = `你是 Air Quality Assistant，负责分析当前北京空气质量 Dashboard。回答问题前必须调用 dashboard.read_data 读取真实聚合结果；涉及站点比较时使用 aq-station-ranking，涉及趋势时使用 aq-pm25-trend，涉及污染物横向比较时使用 aq-pollutant-profile。需要强调证据时必须调用 dashboard.highlight，不能只在文字中声称已高亮。不要把监测站代码当作结论，必须同时说明监测站名称和指标单位。当前可询问：哪个监测站 PM2.5 最高？PM2.5 在当前日期范围如何变化？主要污染物的平均浓度如何比较？降雨和温度是否提供了气象背景？`;
 
 watch(
   [() => airQualityState.filters.startDate, () => airQualityState.filters.endDate, () => airQualityState.filters.station],
@@ -96,7 +97,7 @@ function openFlightOperations() {
 
       <a-alert v-if="airQualityState.dataError" type="error" show-icon :message="airQualityState.dataError" class="data-alert" />
 
-      <Enchant name="air-quality-dashboard" page="air-quality-dashboard" :metadata="rootMetadata" :capabilities="airQualityCapabilities">
+      <Enchant name="air-quality-dashboard" page="air-quality-dashboard" :metadata="rootMetadata" :capabilities="airQualityCapabilities" :prompt="airQualityAssistantPrompt">
         <section class="dashboard-grid">
           <Enchant v-for="panel in panels" :key="panel.id" :name="panel.id" page="air-quality-dashboard" kind="panel" :metadata="airQualityPanelMetadata(panel)" :capabilities="airQualityPanelCapabilities(panel.id)">
             <DashboardPanel :panel="panel" :result="resultForAirPanel(panel)" :highlighted="airQualityState.highlightedPanelIds.includes(panel.id)" :lowlight="airQualityState.highlightedPanelIds.length > 0 && !airQualityState.highlightedPanelIds.includes(panel.id)" :selected="selectedPanelId === panel.id" :style="{ gridColumn: `span ${panel.layout.width}`, minHeight: `${panel.layout.minHeight}px` }" @select="selectPanel(panel.id)" />
@@ -111,7 +112,7 @@ function openFlightOperations() {
       <template v-if="activePanel"><a-descriptions :column="1" size="small" bordered><a-descriptions-item label="Panel ID">{{ activePanel.id }}</a-descriptions-item><a-descriptions-item label="指标">{{ activePanel.query.metrics.map((metric) => metric.metricId).join(', ') }}</a-descriptions-item><a-descriptions-item label="维度">{{ activePanel.query.dimensions.map((dimension) => dimension.dimensionId).join(', ') || '-' }}</a-descriptions-item></a-descriptions><a-divider /><pre class="json-block">{{ stringify(queryForAirPanel(activePanel)) }}</pre></template>
     </a-drawer>
     <a-drawer v-model:open="contextOpen" title="Air Quality Context" width="min(640px, 94vw)"><pre class="json-block">{{ stringify(airQualityDashboardContext()) }}</pre></a-drawer>
-    <Aura page="air-quality-dashboard" title="Air Quality Assistant" :prompt="`你是 Air Quality Assistant，负责分析当前北京空气质量 Dashboard。回答问题前必须调用 dashboard.read_data 读取真实聚合结果；涉及站点比较时使用 aq-station-ranking，涉及趋势时使用 aq-pm25-trend，涉及污染物横向比较时使用 aq-pollutant-profile。需要强调证据时调用 dashboard.highlight，不能只在文字中声称已高亮。不要把监测站英文代码当作结论，必须同时说明监测站名称和指标单位。当前可询问：哪个监测站 PM2.5 最高？PM2.5 在当前日期范围如何变化？主要污染物的平均浓度如何比较？降雨和温度是否提供了气象背景？`" :suggestions="['哪个监测站的 PM2.5 最高？', 'PM2.5 在当前日期范围如何变化？', '比较主要污染物的平均浓度。', '查看温度和降雨背景。']" />
+    <Aura page="air-quality-dashboard" title="Air Quality Assistant" :prompt="airQualityAssistantPrompt" :suggestions="['哪个监测站的 PM2.5 最高？', 'PM2.5 在当前日期范围如何变化？', '比较主要污染物的平均浓度。', '查看温度和降雨背景。']" />
   </div>
 </template>
 
