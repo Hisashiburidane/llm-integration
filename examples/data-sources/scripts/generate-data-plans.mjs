@@ -9,6 +9,21 @@ const dataDir = resolve(projectDir, 'data')
 
 const catalog = [
   {
+    id: 'aviation-ontime',
+    name: 'US Airline On-Time Performance',
+    topic: 'aviation',
+    status: 'ready',
+    provider: 'US Bureau of Transportation Statistics',
+    sourcePage: 'https://www.transtats.bts.gov/ontime/',
+    license: 'Public data; verify provider terms before redistribution',
+    files: [{
+      name: 'On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_7.zip',
+      url: 'https://transtats.bts.gov/PREZIP/On_Time_Reporting_Carrier_On_Time_Performance_1987_present_2025_7.zip',
+    }],
+    transformations: ['normalize airport and carrier codes', 'derive departure hour from CRS_DEP_TIME', 'derive on-time flag from ARR_DELAY', 'map BTS delay-cause columns to delayCause'],
+    limitations: ['historical monthly data is not live operations data', 'the initial plan covers 2025-07 only', 'raw download is not yet wired into the Dashboard fixture query engine'],
+  },
+  {
     id: 'online-retail-ii',
     name: 'Online Retail II',
     topic: 'ecommerce',

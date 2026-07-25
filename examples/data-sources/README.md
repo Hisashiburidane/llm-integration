@@ -1,20 +1,21 @@
-# Secondary example data sources
+# Example data sources
 
 This package contains source plans for future Dashboard topics. It does not add domain models or claim that these topics are implemented.
 
-注意：这里不包含已经实现的航班 Dashboard 数据。航班 fixture 和 BTS 原始压缩包位于 `examples/dashboard-vue/data/`，请使用该目录文档中的命令；本目录只管理其他专题的数据源。
+航班 Dashboard 也已纳入本统一数据源工具。页面 fixture 仍在 `examples/dashboard-vue/src/data/aviation.ts`，所有原始下载包统一写入本目录的 `data/<dataset>/raw/`。
 
 ## 可直接下载
 
-当前有三个数据集提供稳定直链：
+当前有四个数据集提供稳定直链：
 
 | 数据集 | 命令 | 本地目录 |
 | --- | --- | --- |
+| 航班 BTS On-Time | `pnpm --filter @enchantforge/data-sources data:download -- --dataset aviation-ontime` | `data/aviation-ontime/raw/` |
 | Online Retail II | `pnpm --filter @enchantforge/data-sources data:download -- --dataset online-retail-ii` | `data/online-retail-ii/raw/` |
 | 北京多站点空气质量 | `pnpm --filter @enchantforge/data-sources data:download -- --dataset beijing-air-quality` | `data/beijing-air-quality/raw/` |
 | NYC Yellow Taxi | `pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi` | `data/nyc-taxi/raw/` |
 
-下载全部三个数据集：
+下载全部四个有直链的数据集：
 
 ```bash
 pnpm --filter @enchantforge/data-sources data:plan
@@ -39,6 +40,7 @@ pnpm --filter @enchantforge/data-sources data:plan -- --dataset online-retail-ii
 
 | `--dataset` 值 | 专题 | 状态 | 计划中的文件 | 执行结果 |
 | --- | --- | --- | --- | --- |
+| `aviation-ontime` | 航班运行 | `ready` | BTS 2025-07 月度 ZIP | 直接下载到 `data/aviation-ontime/raw/` |
 | `online-retail-ii` | 电商交易 | `ready` | UCI Online Retail II ZIP | 直接下载到 `data/online-retail-ii/raw/` |
 | `beijing-air-quality` | 空气质量 | `ready` | 北京多站点空气质量 ZIP | 直接下载到 `data/beijing-air-quality/raw/` |
 | `nyc-taxi` | 城市出行 | `ready` | NYC Yellow Taxi Parquet、Taxi Zone CSV | 直接下载到 `data/nyc-taxi/raw/` |
@@ -91,4 +93,4 @@ HTTPS_PROXY=http://127.0.0.1:7890 \
 
 If a previous download left a `.part` file and the server does not support byte-range resume, the script automatically removes the partial file and retries from the beginning.
 
-The source choices follow the planned topics: UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.
+The source choices follow the planned topics: BTS On-Time Performance for aviation, UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.

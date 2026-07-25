@@ -19,17 +19,16 @@ LLM_MODEL=gpt-4o-mini
 
 Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；页面代码只使用 `Aura` 和已注册 capability，不直接处理代理细节。
 
-## BTS data plan
+## BTS data
 
-示例默认使用 `src/data/aviation.ts` 中的固定 fixture。生成计划中的官方 BTS 月度地址，不会发起网络请求：
+示例默认使用 `src/data/aviation.ts` 中的固定 fixture。航班原始数据由统一的 `@enchantforge/data-sources` 工具管理：
 
 ```bash
-pnpm --filter @enchantforge/dashboard-vue data:plan
-pnpm --filter @enchantforge/dashboard-vue exec node scripts/generate-aviation-data-plan.mjs --from 2025-07 --to 2025-09
-pnpm --filter @enchantforge/dashboard-vue data:download
+pnpm --filter @enchantforge/data-sources data:plan -- --dataset aviation-ontime
+pnpm --filter @enchantforge/data-sources data:download -- --dataset aviation-ontime
 ```
 
-地址清单和计划 manifest 会写入 `data/download-urls.txt` 与 `data/download-plan.json`。`data:download` 会按计划下载到 `data/raw/` 并写入 SHA-256 清单；原始数据接入和清洗仍是后续任务，当前页面不会把下载文件冒充为实时数据。
+地址清单和计划 manifest 会写入 `examples/data-sources/data/aviation-ontime/`。原始数据接入和清洗仍是后续任务，当前页面不会把下载文件冒充为实时数据。
 
 ## Example requests
 

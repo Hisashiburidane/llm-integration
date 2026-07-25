@@ -28,7 +28,7 @@ dataset semantic model
 - `read`、筛选、时间范围、选择、高亮、添加模板 Panel、保存视图等能力；
 - Aura 助手、Debug trace、数据来源说明和本地运行配置。
 
-业务数据使用固定、可审计的演示 fixture，明确标注为非实时数据。示例已提供生成 BTS 月度下载地址、按计划下载原始压缩包和生成治理 manifest 的脚本，但 BTS 原始数据清洗与接入仍属于后续任务，不能把 fixture 描述为实时运行数据。
+业务数据使用固定、可审计的演示 fixture，明确标注为非实时数据。统一的 `examples/data-sources` 已登记 BTS 月度下载地址、按计划下载原始压缩包并生成治理 manifest；BTS 原始数据清洗与接入仍属于后续任务，不能把 fixture 描述为实时运行数据。
 
 ## 3. 边界
 

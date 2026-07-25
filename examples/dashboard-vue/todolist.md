@@ -10,8 +10,8 @@
 - [x] 为 Dashboard 与 Panel 注册 Enchant metadata/capability。
 - [x] 接入 Aura、Debug overlay 和页面内 Trace 抽屉。
 - [x] 提供固定、可审计的航班演示 fixture 与来源说明。
-- [x] 生成 BTS 月度原始数据地址清单、目标目录和数据治理 manifest 模板。
-- [x] 提供按计划下载 BTS 原始压缩包并生成 SHA-256 manifest 的命令。
+- [x] 在统一 `examples/data-sources` 中登记 BTS 月度地址、目标目录和数据治理 manifest 模板。
+- [x] 通过统一数据源下载器下载 BTS 原始压缩包并生成 SHA-256 manifest。
 
 ## 下一步
 
