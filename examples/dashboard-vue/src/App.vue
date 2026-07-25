@@ -1,0 +1,223 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue';
+import { Aura, Enchant, useEnchantForge, useLlmDebugEvents } from '@enchantforge/vue';
+import { ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons-vue';
+import DashboardPanel from './components/DashboardPanel.vue';
+import { aviationDataset, aviationPanelTemplates, aviationSourceManifest } from './data/aviation';
+import { runQuery } from './query/engine';
+import { dashboardMetadata, panelMetadata } from './runtime/metadata';
+import { dashboardCapabilities, panelCapabilities } from './runtime/capabilities';
+import {
+  dashboardContext,
+  dashboardState,
+  highlightPanels,
+  queryForPanel,
+  resetDashboard,
+  restoreView,
+  resultForPanel,
+  saveView,
+  selectAirport,
+  setGlobalFilter,
+  setTimeRange
+} from './runtime/dashboard-store';
+
+const forge = useEnchantForge();
+const traceEvents = useLlmDebugEvents();
+const traceOpen = ref(false);
+const contextOpen = ref(false);
+const selectedPanelId = computed(() => dashboardState.selectedPanelId);
+const activePanel = computed(() => dashboardState.config.panels.find((panel) => panel.id === selectedPanelId.value));
+const rootMetadata = computed(() => dashboardMetadata(dashboardState.config));
+const panelResults = computed(() => new Map(dashboardState.config.panels.map((panel) => [panel.id, resultForPanel(panel)])));
+const filteredEvents = computed(() => traceEvents.value.slice(0, 80));
+const savedViews = computed(() => dashboardState.savedViews);
+const globalSummary = computed(() => {
+  const query = { datasetId: aviationDataset.id, metrics: [{ metricId: 'flightCount' }], dimensions: [], filters: [], timeRange: dashboardState.filters.timeRange };
+  return runQuery({ ...query, filters: [
+    ...(dashboardState.filters.airport === 'ALL' ? [] : [{ dimensionId: 'airport', operator: 'eq' as const, value: dashboardState.filters.airport }]),
+    ...(dashboardState.filters.carrier === 'ALL' ? [] : [{ dimensionId: 'carrier', operator: 'eq' as const, value: dashboardState.filters.carrier }]),
+    { dimensionId: 'direction', operator: 'eq', value: dashboardState.filters.direction }
+  ] }).summary;
+});
+
+function selectPanel(panelId: string) {
+  dashboardState.selectedPanelId = panelId;
+}
+
+function clearSelection() {
+  dashboardState.selectedPanelId = '';
+}
+
+function onSelectAirport(airport: string) {
+  selectAirport(airport);
+}
+
+function saveCurrentView() {
+  saveView();
+}
+
+function restoreLatestView() {
+  restoreView();
+}
+
+function clearTrace() {
+  forge.clearTrace();
+}
+
+function stringify(value: unknown) {
+  return JSON.stringify(value, null, 2) ?? '';
+}
+
+function resultFor(id: string) {
+  return panelResults.value.get(id);
+}
+</script>
+
+<template>
+  <div class="dashboard-app">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <span class="brand-mark">EF / OPS</span>
+        <div>
+          <strong>Flight Operations</strong>
+          <span>EnchantForge Dashboard Example</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a-tag color="blue">{{ dashboardState.config.panels.length }} panels</a-tag>
+        <a-button size="small" @click="contextOpen = true"><SettingOutlined />上下文</a-button>
+        <a-button size="small" @click="traceOpen = true">Trace ({{ filteredEvents.length }})</a-button>
+      </div>
+    </header>
+
+    <main class="dashboard-main">
+      <section class="dashboard-heading">
+        <div>
+          <p class="eyebrow">AVIATION / ON-TIME PERFORMANCE</p>
+          <h1>Delay investigation workspace</h1>
+          <p class="heading-copy">用结构化 QuerySpec 连接当前筛选、Panel 语义和受约束的页面能力。数据是固定演示 fixture，不代表实时机场运行状态。</p>
+        </div>
+        <div class="heading-actions">
+          <a-button size="small" @click="saveCurrentView"><SaveOutlined />保存视图</a-button>
+          <a-button size="small" :disabled="!savedViews.length" @click="restoreLatestView"><ReloadOutlined />恢复视图</a-button>
+          <a-button size="small" danger @click="resetDashboard">重置</a-button>
+        </div>
+      </section>
+
+      <section class="filter-bar" aria-label="全局筛选">
+        <div class="filter-item"><span>机场</span><a-select :value="dashboardState.filters.airport" size="small" @change="(value: string) => setGlobalFilter('airport', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option value="JFK">JFK</a-select-option><a-select-option value="LGA">LGA</a-select-option><a-select-option value="EWR">EWR</a-select-option></a-select></div>
+        <div class="filter-item"><span>航空公司</span><a-select :value="dashboardState.filters.carrier" size="small" @change="(value: string) => setGlobalFilter('carrier', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option value="AA">AA</a-select-option><a-select-option value="DL">DL</a-select-option><a-select-option value="UA">UA</a-select-option><a-select-option value="B6">B6</a-select-option></a-select></div>
+        <div class="filter-item"><span>方向</span><a-segmented v-model:value="dashboardState.filters.direction" :options="[{ label: '出港', value: 'departure' }, { label: '到港', value: 'arrival' }]" @change="(value: string) => setGlobalFilter('direction', value)" /></div>
+        <div class="filter-item time-filter"><span>小时 {{ dashboardState.filters.timeRange.startHour }}:00 - {{ dashboardState.filters.timeRange.endHour }}:00</span><a-slider :value="[dashboardState.filters.timeRange.startHour, dashboardState.filters.timeRange.endHour]" range :min="0" :max="23" :tooltip-visible="false" @change="(value: number[]) => setTimeRange(value[0] ?? 0, value[1] ?? 23)" /></div>
+        <div class="filter-summary"><strong>{{ globalSummary.rowCount }}</strong><span>records in query scope</span></div>
+      </section>
+
+      <Enchant name="aviation-dashboard" page="aviation-dashboard" :metadata="rootMetadata" :capabilities="dashboardCapabilities" prompt="根据当前航班 Dashboard 回答分析请求。先读取相关 Panel 数据，再用最少的已注册能力完成筛选、高亮、添加模板 Panel 或保存视图。不要猜测数据因果关系。">
+        <section class="dashboard-grid">
+          <Enchant
+            v-for="panel in dashboardState.config.panels"
+            :key="panel.id"
+            :name="panel.id"
+            page="aviation-dashboard"
+            kind="panel"
+            :metadata="panelMetadata(panel)"
+            :capabilities="panelCapabilities(panel.id)"
+          >
+            <DashboardPanel
+              :panel="panel"
+              :result="resultFor(panel.id)!"
+              :highlighted="dashboardState.highlightedPanelIds.includes(panel.id)"
+              :selected="selectedPanelId === panel.id"
+              :style="{ gridColumn: `span ${panel.layout.width}`, minHeight: `${panel.layout.minHeight}px` }"
+              @select="selectPanel(panel.id)"
+              @select-airport="onSelectAirport"
+            />
+          </Enchant>
+        </section>
+      </Enchant>
+
+      <section class="dashboard-footer">
+        <div>
+          <span class="footer-label">LAST ACTION</span>
+          <strong>{{ dashboardState.lastAction }}</strong>
+        </div>
+        <div>
+          <span class="footer-label">SOURCE</span>
+          <strong>{{ aviationSourceManifest.license }}</strong>
+        </div>
+      </section>
+    </main>
+
+    <a-drawer :open="Boolean(activePanel)" :title="activePanel?.title" width="min(520px, 94vw)" @close="clearSelection">
+      <template v-if="activePanel">
+        <a-descriptions :column="1" size="small" bordered>
+          <a-descriptions-item label="Panel ID">{{ activePanel.id }}</a-descriptions-item>
+          <a-descriptions-item label="Type">{{ activePanel.type }}</a-descriptions-item>
+          <a-descriptions-item label="Metric">{{ activePanel.query.metrics.map((metric) => metric.metricId).join(', ') }}</a-descriptions-item>
+          <a-descriptions-item label="Dimension">{{ activePanel.query.dimensions.map((dimension) => dimension.dimensionId).join(', ') || '-' }}</a-descriptions-item>
+        </a-descriptions>
+        <a-divider />
+        <h3>Current QuerySpec</h3>
+        <pre class="json-block">{{ stringify(queryForPanel(activePanel)) }}</pre>
+      </template>
+    </a-drawer>
+
+    <a-drawer v-model:open="contextOpen" title="Dashboard Context" width="min(640px, 94vw)">
+      <pre class="json-block">{{ stringify(dashboardContext()) }}</pre>
+    </a-drawer>
+
+    <a-drawer v-model:open="traceOpen" title="Runtime Trace" width="min(760px, 94vw)">
+      <div class="trace-actions"><a-button size="small" @click="clearTrace">清空 trace</a-button></div>
+      <a-empty v-if="!filteredEvents.length" description="当前没有运行事件" />
+      <a-collapse v-else>
+        <a-collapse-panel v-for="event in filteredEvents" :key="event.id" :header="`${event.title} / ${event.kind}`">
+          <pre class="json-block">{{ stringify(event) }}</pre>
+        </a-collapse-panel>
+      </a-collapse>
+    </a-drawer>
+
+    <Aura page="aviation-dashboard" title="Flight Ops Assistant" />
+  </div>
+</template>
+
+<style>
+:root { color: #1e293b; background: #f4f7fb; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea, select { font: inherit; }
+.dashboard-app { min-height: 100vh; background: #f4f7fb; }
+.topbar { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 24px; padding: 0 30px; color: #e5edf8; background: #15263e; }
+.brand-lockup, .topbar-actions, .heading-actions, .filter-bar, .filter-item, .dashboard-footer, .trace-actions { display: flex; align-items: center; }
+.brand-lockup { gap: 12px; }
+.brand-lockup strong, .brand-lockup span { display: block; }
+.brand-lockup strong { color: #fff; font-size: 14px; }
+.brand-lockup span:last-child { margin-top: 3px; color: #9fb0c8; font: 10px/1.2 "IBM Plex Mono", monospace; }
+.brand-mark { padding: 7px 8px; border: 1px solid #4b82c7; border-radius: 4px; color: #9cc6ff !important; font: 700 10px/1 "IBM Plex Mono", monospace !important; letter-spacing: .08em; }
+.topbar-actions { gap: 8px; }
+.dashboard-main { width: min(1540px, 100%); margin: 0 auto; padding: 30px; }
+.dashboard-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.eyebrow, .footer-label { margin: 0; color: #3b82f6; font: 700 10px/1.2 "IBM Plex Mono", monospace; letter-spacing: .12em; }
+.dashboard-heading h1 { margin: 7px 0 8px; color: #14233a; font-size: clamp(24px, 3vw, 36px); letter-spacing: -.03em; }
+.heading-copy { max-width: 760px; margin: 0; color: #64748b; font-size: 12px; line-height: 1.7; }
+.heading-actions { flex: 0 0 auto; gap: 8px; }
+.filter-bar { flex-wrap: wrap; gap: 16px; padding: 14px 16px; margin-bottom: 18px; border: 1px solid #d8e0ea; border-radius: 8px; background: #fff; }
+.filter-item { gap: 8px; color: #64748b; font-size: 11px; }
+.filter-item > span { white-space: nowrap; }
+.filter-item :deep(.ant-select) { min-width: 100px; }
+.time-filter { flex: 1 1 260px; min-width: 240px; }
+.time-filter :deep(.ant-slider) { flex: 1; min-width: 140px; margin: 7px 4px; }
+.filter-summary { margin-left: auto; text-align: right; }
+.filter-summary strong, .filter-summary span { display: block; }
+.filter-summary strong { color: #0f3d75; font: 600 18px/1 "IBM Plex Mono", monospace; }
+.filter-summary span { margin-top: 4px; color: #94a3b8; font: 9px/1 "IBM Plex Mono", monospace; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+.dashboard-grid > .llm-scope { display: contents; }
+.dashboard-grid > .llm-scope > .dashboard-panel { min-width: 0; }
+.dashboard-footer { justify-content: space-between; gap: 24px; padding: 18px 2px 0; color: #64748b; font-size: 11px; }
+.dashboard-footer > div { min-width: 0; }
+.dashboard-footer strong { display: block; max-width: 620px; margin-top: 5px; overflow: hidden; color: #475569; font: 10px/1.4 "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.json-block { max-height: 520px; margin: 0; padding: 12px; overflow: auto; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font: 11px/1.6 "IBM Plex Mono", monospace; white-space: pre-wrap; word-break: break-word; }
+.trace-actions { justify-content: flex-end; margin-bottom: 12px; }
+@media (max-width: 980px) { .dashboard-main { padding: 22px 18px; } .dashboard-heading { align-items: flex-start; flex-direction: column; } .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dashboard-grid > .llm-scope > .dashboard-panel { grid-column: span 1 !important; } }
+@media (max-width: 620px) { .topbar { align-items: flex-start; flex-direction: column; padding: 14px 16px; } .topbar-actions { width: 100%; justify-content: flex-end; } .dashboard-grid { grid-template-columns: 1fr; } .dashboard-grid > .llm-scope > .dashboard-panel { grid-column: span 1 !important; } .filter-summary { margin-left: 0; } .dashboard-footer { align-items: flex-start; flex-direction: column; } }
+</style>
