@@ -1,7 +1,7 @@
 import { reactive, toRaw } from 'vue';
 import { aviationDataset, aviationPanelTemplates, aviationSourceManifest, defaultAviationPanels, metricById } from '../data/aviation';
 import { queryDashboardBatch } from '../query/client';
-import type { DashboardConfig, DashboardFilters, DashboardView, DatasetDefinition, PanelConfig, QueryResult, QuerySpec } from '../model/types';
+import type { DashboardConfig, DashboardFilters, DashboardView, DatasetDefinition, FacetOption, PanelConfig, QueryResult, QuerySpec } from '../model/types';
 
 const defaultFilters: DashboardFilters = {
   airport: 'ALL',
@@ -18,7 +18,7 @@ export const dashboardState = reactive<{
   config: DashboardConfig;
   defaultPanels: PanelConfig[];
   panelTemplates: PanelConfig[];
-  airports: string[];
+  airports: FacetOption[];
   carriers: string[];
   dataset: DatasetDefinition;
   sourceManifest: typeof aviationSourceManifest;
@@ -41,7 +41,7 @@ export const dashboardState = reactive<{
   },
   defaultPanels: defaultAviationPanels.map((panel) => clone(panel)),
   panelTemplates: aviationPanelTemplates.map((panel) => clone(panel)),
-  airports: ['JFK', 'LGA', 'EWR'],
+  airports: [{ code: 'JFK', label: '约翰·肯尼迪国际机场' }, { code: 'LGA', label: '拉瓜迪亚机场' }, { code: 'EWR', label: '纽瓦克自由国际机场' }],
   carriers: ['AA', 'DL', 'UA', 'B6'],
   dataset: aviationDataset,
   sourceManifest: aviationSourceManifest,
@@ -99,7 +99,7 @@ export async function loadDashboardConfig() {
       dataset: DatasetDefinition;
       panels: PanelConfig[];
       panelTemplates: PanelConfig[];
-      facets: { airports: string[]; carriers: string[] };
+      facets: { airports: FacetOption[]; carriers: string[] };
     } & { error?: string };
     if (!response.ok || payload.error) throw new Error(payload.error || `Dashboard 配置请求失败（${response.status}）。`);
     dashboardState.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: payload.panels.map((panel) => clone(panel)) };
@@ -163,7 +163,7 @@ export function highlightPanels(panelIds: string[]) {
 }
 
 export function selectAirport(airport: string) {
-  if (!dashboardState.airports.includes(airport)) throw new Error(`未知机场：${airport}。`);
+  if (!dashboardState.airports.some((item) => item.code === airport)) throw new Error(`未知机场：${airport}。`);
   dashboardState.selectedAirport = airport;
   setGlobalFilter('airport', airport);
   highlightPanels(['airport-status', 'airport-ranking', 'hourly-on-time']);

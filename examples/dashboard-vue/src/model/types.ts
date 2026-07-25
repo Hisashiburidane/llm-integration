@@ -1,4 +1,5 @@
 export type Scalar = string | number | boolean;
+export interface FacetOption { code: string; label: string; }
 export type PanelType = 'metric' | 'line' | 'bar' | 'donut' | 'table' | 'timeline' | 'airport-status';
 export type DataType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p95' | 'ratio';

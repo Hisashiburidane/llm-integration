@@ -119,4 +119,4 @@ pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi --db
 uv run python scripts/process-data.py --help
 ```
 
-生成的表包括 `aviation_flights`、`aviation_dashboard_rollup`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。其中 `aviation_dashboard_rollup` 按机场、航空公司、方向、小时和延误原因预聚合 Dashboard 指标，Node 查询服务会优先使用它；航班明细和 P95 查询仍读取 `aviation_flights`。
+生成的表包括 `aviation_flights`、`aviation_dashboard_rollup`、`aviation_airport_dictionary`、`aviation_delay_cause_dictionary`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。其中 `aviation_dashboard_rollup` 按机场、航空公司、方向、小时和延误原因预聚合 Dashboard 指标，两个 dictionary 表负责中文显示标签；Node 查询服务会优先使用 rollup，航班明细和 P95 查询仍读取 `aviation_flights`。

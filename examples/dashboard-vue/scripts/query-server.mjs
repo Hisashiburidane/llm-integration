@@ -46,6 +46,8 @@ let rollupAvailable = false;
 const queryCache = new Map();
 const queryInFlight = new Map();
 const queryCacheTtlMs = 5000;
+const airportLabels = new Map();
+const delayCauseLabels = new Map();
 
 function sendJson(response, status, body) {
   const payload = JSON.stringify(body);
@@ -179,6 +181,15 @@ async function executeDashboardQuery(query) {
     const rows = await runSql(statement.sql);
     const rowCount = Number(rows[0]?.__row_count ?? 0);
     rows.forEach((row) => { delete row.__row_count; });
+    query.dimensions.forEach((dimension) => {
+      const alias = dimension.alias || dimension.dimensionId;
+      if (dimension.dimensionId === 'airport' || dimension.dimensionId === 'destination') {
+        rows.forEach((row) => { row[`${alias}Label`] = airportLabels.get(String(row[alias] ?? '')) || `机场（${row[alias] ?? '-'}）`; });
+      }
+      if (dimension.dimensionId === 'delayCause') {
+        rows.forEach((row) => { row[`${alias}Label`] = delayCauseLabels.get(String(row[alias] ?? '')) || String(row[alias] ?? '-'); });
+      }
+    });
     const result = {
       columns: [...query.dimensions.map((item) => item.alias || item.dimensionId), ...query.metrics.map((item) => item.alias || item.metricId)],
       rows,
@@ -227,13 +238,28 @@ async function detectRollup() {
   rollupAvailable = Number(rows[0]?.aggregate_count ?? 0) > 0;
 }
 
+async function loadDictionaries() {
+  try {
+    const airports = await runSql('SELECT code, name_zh FROM aviation_airport_dictionary');
+    airports.forEach((item) => airportLabels.set(item.code, item.name_zh));
+  } catch {
+    // Older snapshots continue to work with code-based fallback labels.
+  }
+  try {
+    const causes = await runSql('SELECT code, label_zh FROM aviation_delay_cause_dictionary');
+    causes.forEach((item) => delayCauseLabels.set(item.code, item.label_zh));
+  } catch {
+    // Older snapshots continue to work with raw cause codes.
+  }
+}
+
 async function readConfig() {
   const configs = await runSql('SELECT id, topic_id, title, description, source_manifest_json, dataset_json FROM dashboard_configs LIMIT 1');
   if (!configs.length) throw new Error('Dashboard 配置尚未初始化。');
   const config = configs[0];
   const panels = await runSql(`SELECT id, type, title, description, query_json, visualization_json, layout_json FROM dashboard_panels WHERE dashboard_id = ${sqlString(config.id)} AND is_template = 0 ORDER BY sort_order`);
   const templates = await runSql(`SELECT id, type, title, description, query_json, visualization_json, layout_json FROM dashboard_panels WHERE dashboard_id = ${sqlString(config.id)} AND is_template = 1 ORDER BY sort_order`);
-  const airports = await runSql('SELECT DISTINCT origin AS value FROM aviation_flights WHERE origin <> \'\' ORDER BY origin');
+  const airports = await runSql("SELECT DISTINCT f.origin AS code, COALESCE(d.name_zh, '机场（' || f.origin || '）') AS label FROM aviation_flights AS f LEFT JOIN aviation_airport_dictionary AS d ON d.code = f.origin WHERE f.origin <> '' ORDER BY f.origin").catch(() => runSql("SELECT DISTINCT origin AS code, '机场（' || origin || '）' AS label FROM aviation_flights WHERE origin <> '' ORDER BY origin"));
   const carriers = await runSql('SELECT DISTINCT carrier AS value FROM aviation_flights WHERE carrier <> \'\' ORDER BY carrier');
   const parsePanel = (panel) => ({ id: panel.id, type: panel.type, title: panel.title, description: panel.description, query: JSON.parse(panel.query_json), ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: JSON.parse(panel.layout_json) });
   return {
@@ -245,7 +271,7 @@ async function readConfig() {
     dataset: JSON.parse(config.dataset_json),
     panels: panels.map(parsePanel),
     panelTemplates: templates.map(parsePanel),
-    facets: { airports: airports.map((item) => item.value), carriers: carriers.map((item) => item.value) }
+    facets: { airports: airports.map((item) => ({ code: item.code, label: item.label })), carriers: carriers.map((item) => item.value) }
   };
 }
 
@@ -306,6 +332,7 @@ const server = createServer(async (request, response) => {
 
 ensureDashboardConfig()
   .then(detectRollup)
+  .then(loadDictionaries)
   .then(() => server.listen(port, '127.0.0.1', () => {
     console.log(`[dashboard-data] http://127.0.0.1:${port} -> ${database}`);
   }))

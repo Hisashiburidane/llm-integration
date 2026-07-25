@@ -38,6 +38,33 @@ class DatasetName(str, Enum):
     TAXI = "nyc-taxi"
 MISSING = {"", "NA", "N/A", "NULL", "NONE", "-", "NAN"}
 
+AIRPORT_NAMES_ZH = {
+    "JFK": ("约翰·肯尼迪国际机场", "John F. Kennedy International Airport"),
+    "LGA": ("拉瓜迪亚机场", "LaGuardia Airport"),
+    "EWR": ("纽瓦克自由国际机场", "Newark Liberty International Airport"),
+    "LAX": ("洛杉矶国际机场", "Los Angeles International Airport"),
+    "ATL": ("亚特兰大哈茨菲尔德-杰克逊国际机场", "Hartsfield-Jackson Atlanta International Airport"),
+    "ORD": ("芝加哥奥黑尔国际机场", "Chicago O'Hare International Airport"),
+    "BOS": ("波士顿洛根国际机场", "Boston Logan International Airport"),
+    "DFW": ("达拉斯沃思堡国际机场", "Dallas/Fort Worth International Airport"),
+    "MSP": ("明尼阿波利斯-圣保罗国际机场", "Minneapolis-Saint Paul International Airport"),
+    "DEN": ("丹佛国际机场", "Denver International Airport"),
+    "MCO": ("奥兰多国际机场", "Orlando International Airport"),
+    "SFO": ("旧金山国际机场", "San Francisco International Airport"),
+    "IAH": ("休斯敦乔治·布什洲际机场", "George Bush Intercontinental Airport"),
+    "SEA": ("西雅图-塔科马国际机场", "Seattle-Tacoma International Airport"),
+    "CLT": ("夏洛特道格拉斯国际机场", "Charlotte Douglas International Airport"),
+    "MIA": ("迈阿密国际机场", "Miami International Airport"),
+}
+
+DELAY_CAUSES = (
+    ("carrier", "航空公司原因", "航空公司运行、机组、飞机或调度导致的延误。"),
+    ("weather", "天气原因", "雷暴、降雪、低能见度等天气条件导致的延误。"),
+    ("nas", "国家空域系统（空管）", "美国国家空域系统、空中交通管制或机场流量限制导致的延误。"),
+    ("security", "安保原因", "安全检查或其他航空安保流程导致的延误。"),
+    ("none", "无记录原因", "该航班没有记录到可归类的延误原因。"),
+)
+
 
 class DatasetUnavailable(RuntimeError):
     pass
@@ -146,6 +173,19 @@ def create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_aviation_carrier ON aviation_flights(carrier);
         CREATE INDEX IF NOT EXISTS idx_aviation_dashboard_scope ON aviation_flights(direction, hour, origin, carrier, dep_delay);
 
+        CREATE TABLE IF NOT EXISTS aviation_airport_dictionary (
+          code TEXT PRIMARY KEY,
+          name_zh TEXT NOT NULL,
+          name_en TEXT NOT NULL,
+          source TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS aviation_delay_cause_dictionary (
+          code TEXT PRIMARY KEY,
+          label_zh TEXT NOT NULL,
+          description TEXT NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS aviation_dashboard_rollup (
           origin TEXT NOT NULL,
           carrier TEXT NOT NULL,
@@ -251,6 +291,25 @@ def build_aviation_rollup(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM aviation_dashboard_rollup").fetchone()[0])
 
 
+def build_aviation_dictionaries(connection: sqlite3.Connection) -> None:
+    connection.executemany(
+        "INSERT OR REPLACE INTO aviation_delay_cause_dictionary (code, label_zh, description) VALUES (?, ?, ?)",
+        DELAY_CAUSES,
+    )
+    codes = connection.execute(
+        "SELECT code FROM (SELECT origin AS code FROM aviation_flights UNION SELECT destination AS code FROM aviation_flights) WHERE code IS NOT NULL AND code <> '' ORDER BY code"
+    ).fetchall()
+    rows = []
+    for (code,) in codes:
+        name_zh, name_en = AIRPORT_NAMES_ZH.get(code, (f"机场（{code}）", f"Airport ({code})"))
+        source = "curated" if code in AIRPORT_NAMES_ZH else "code-fallback"
+        rows.append((code, name_zh, name_en, source))
+    connection.executemany(
+        "INSERT OR REPLACE INTO aviation_airport_dictionary (code, name_zh, name_en, source) VALUES (?, ?, ?, ?)",
+        rows,
+    )
+
+
 def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, int]:
     archive = first_file(data_dir / "aviation-ontime" / "raw", "*.zip", "aviation")
     reset_table(connection, "aviation_flights")
@@ -314,6 +373,7 @@ def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Pa
         connection.executemany(insert_sql, batch)
         count += len(batch)
     rollup_count = build_aviation_rollup(connection)
+    build_aviation_dictionaries(connection)
     print(f"aviation-ontime: built {rollup_count} dashboard aggregate rows", flush=True)
     return archive, count
 

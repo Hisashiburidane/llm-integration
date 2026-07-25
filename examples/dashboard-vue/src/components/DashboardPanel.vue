@@ -22,7 +22,7 @@ const metricId = computed(() => props.panel.query.metrics[0]?.metricId ?? 'fligh
 const primaryValue = computed(() => props.result.rows[0]?.[metricKey.value] ?? 0);
 const option = computed(() => {
   const rows = props.result.rows;
-  const x = rows.map((row) => String(row[dimensionKey.value] ?? '-'));
+  const x = rows.map((row) => displayDimensionValue(row, dimensionKey.value));
   const values = rows.map((row) => Number(row[metricKey.value] ?? 0));
   const common = {
     animation: false,
@@ -44,9 +44,14 @@ function displayValue(value: unknown) {
   return formatMetricValue(metricId.value, value);
 }
 
+function displayDimensionValue(row: Record<string, unknown>, dimension: string) {
+  return String(row[`${dimension}Label`] ?? row[dimension] ?? '-');
+}
+
 function airportRows() {
   return props.result.rows.map((row) => ({
     airport: String(row.airport ?? '-'),
+    label: displayDimensionValue(row, 'airport'),
     onTimeRate: formatMetricValue('onTimeRate', row.onTimeRate),
     delay: formatMetricValue('averageDepartureDelay', row.averageDepartureDelay)
   }));
@@ -77,7 +82,7 @@ function airportRows() {
     </div>
     <div v-else-if="panel.type === 'airport-status'" class="airport-status-list">
       <button v-for="item in airportRows()" :key="item.airport" type="button" class="airport-status-row" @click.stop="emit('selectAirport', item.airport)">
-        <span class="airport-code">{{ item.airport }}</span>
+        <span class="airport-code"><strong>{{ item.label }}</strong><small>{{ item.airport }}</small></span>
         <span class="airport-rate">{{ item.onTimeRate }}</span>
         <span class="airport-delay">{{ item.delay }}</span>
       </button>
@@ -87,7 +92,7 @@ function airportRows() {
         <thead><tr><th v-for="column in result.columns" :key="column">{{ column }}</th></tr></thead>
         <tbody>
           <tr v-for="(row, index) in result.rows" :key="`${panel.id}-${index}`">
-            <td v-for="column in result.columns" :key="column">{{ row[column] ?? '-' }}</td>
+            <td v-for="column in result.columns" :key="column">{{ displayDimensionValue(row, column) }}</td>
           </tr>
         </tbody>
       </table>
@@ -117,7 +122,9 @@ h3 { margin: 0; color: #1e293b; font-size: 14px; }
 .airport-status-list { display: grid; gap: 8px; padding: 8px 0; }
 .airport-status-row { display: grid; grid-template-columns: 54px 1fr 74px; gap: 10px; align-items: center; padding: 11px 10px; border: 1px solid #e6edf5; border-radius: 6px; color: #334155; background: #f8fafc; cursor: pointer; text-align: left; }
 .airport-status-row:hover { border-color: #8fb7ed; background: #eff6ff; }
-.airport-code { color: #0f3d75; font: 700 14px/1 'IBM Plex Mono', monospace; }
+.airport-code { min-width: 0; color: #0f3d75; font: 700 12px/1.25 'IBM Plex Sans', sans-serif; }
+.airport-code strong, .airport-code small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.airport-code small { margin-top: 2px; color: #94a3b8; font: 9px/1.2 'IBM Plex Mono', monospace; }
 .airport-rate { color: #0f766e; font: 600 13px/1 'IBM Plex Mono', monospace; }
 .airport-delay { color: #b45309; font: 11px/1 'IBM Plex Mono', monospace; text-align: right; }
 .panel-empty { display: grid; height: 180px; place-items: center; color: #94a3b8; font-size: 12px; }

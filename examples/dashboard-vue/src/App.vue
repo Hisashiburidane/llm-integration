@@ -48,6 +48,8 @@ ${flightOpsAssistantQuestions.map((question, index) => `${index + 1}. ${question
 
 还可以询问机场 P95 延误、晚高峰风险和延误原因贡献，并要求高亮相关 Panel。
 
+延误原因字典：NAS 表示国家空域系统/空管流量限制，carrier 表示航空公司运行原因，weather 表示天气原因，security 表示安保流程，none 表示没有记录到可归类原因。
+
 分析规则：先读取相关 Panel 数据和当前筛选，再给出基于结果的结论；需要改变范围时使用已注册的筛选能力，需要强调证据时高亮相关 Panel。只能使用当前数据和已注册能力，不要编造航班、原因或因果关系；如果当前 Panel 不足以回答问题，应明确说明数据缺口。`;
 const globalSummary = computed(() => {
   const countPanel = dashboardState.config.panels.find((panel) => panel.id === 'flight-count');
@@ -132,7 +134,7 @@ function resultFor(id: string) {
       </section>
 
       <section class="filter-bar" aria-label="全局筛选">
-        <div class="filter-item"><span>机场</span><a-select :value="dashboardState.filters.airport" size="small" @change="(value: string) => setGlobalFilter('airport', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option v-for="airport in dashboardState.airports" :key="airport" :value="airport">{{ airport }}</a-select-option></a-select></div>
+        <div class="filter-item"><span>机场</span><a-select :value="dashboardState.filters.airport" size="small" @change="(value: string) => setGlobalFilter('airport', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option v-for="airport in dashboardState.airports" :key="airport.code" :value="airport.code">{{ airport.label }} ({{ airport.code }})</a-select-option></a-select></div>
         <div class="filter-item"><span>航空公司</span><a-select :value="dashboardState.filters.carrier" size="small" @change="(value: string) => setGlobalFilter('carrier', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option v-for="carrier in dashboardState.carriers" :key="carrier" :value="carrier">{{ carrier }}</a-select-option></a-select></div>
         <div class="filter-item"><span>方向</span><a-segmented v-model:value="dashboardState.filters.direction" :options="[{ label: '出港', value: 'departure' }, { label: '到港', value: 'arrival' }]" @change="(value: string) => setGlobalFilter('direction', value)" /></div>
         <div class="filter-item time-filter"><span>小时 {{ dashboardState.filters.timeRange.startHour }}:00 - {{ dashboardState.filters.timeRange.endHour }}:00</span><a-slider :value="[dashboardState.filters.timeRange.startHour, dashboardState.filters.timeRange.endHour]" range :min="0" :max="23" :tooltip-open="false" @change="(value: number[]) => setTimeRange(value[0] ?? 0, value[1] ?? 23)" /></div>
