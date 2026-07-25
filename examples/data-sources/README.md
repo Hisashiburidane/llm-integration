@@ -22,8 +22,6 @@ pnpm --filter @enchantforge/data-sources data:plan
 pnpm --filter @enchantforge/data-sources data:download
 ```
 
-`data:download` 不会下载 `otel-demo`、`cicids2017` 或 `cmapps`：它们分别需要运行采集流程、手动下载，或当前不可用。
-
 Generate all plans and URL lists without making network requests:
 
 ```bash
@@ -44,9 +42,6 @@ pnpm --filter @enchantforge/data-sources data:plan -- --dataset online-retail-ii
 | `online-retail-ii` | 电商交易 | `ready` | UCI Online Retail II ZIP | 直接下载到 `data/online-retail-ii/raw/` |
 | `beijing-air-quality` | 空气质量 | `ready` | 北京多站点空气质量 ZIP | 直接下载到 `data/beijing-air-quality/raw/` |
 | `nyc-taxi` | 城市出行 | `ready` | NYC Yellow Taxi Parquet、Taxi Zone CSV | 直接下载到 `data/nyc-taxi/raw/` |
-| `otel-demo` | 云原生可观测性 | `collect` | 无静态文件 | 只输出 OpenTelemetry Demo 采集步骤 |
-| `cicids2017` | 网络安全 | `manual` | 无稳定直链 | 打开官方页面后手动下载 |
-| `cmapps` | 预测性维护 | `unavailable` | 无 | NASA 当前标记为不可下载，不执行下载 |
 
 例如，以下命令只处理 NYC Taxi：
 
@@ -80,9 +75,9 @@ pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi
 - `--force`: replace existing files instead of skipping them;
 - `--help`: print usage and exit.
 
-Plans with status `collect`, `manual`, or `unavailable` do not have direct URLs and are reported without a download attempt. The `--` after the pnpm script name separates pnpm arguments from script arguments. The downloader requires Bash, `curl`, and either `shasum` or `sha256sum`.
+The `--` after the pnpm script name separates pnpm arguments from script arguments. The downloader requires Bash, `curl`, and either `shasum` or `sha256sum`.
 
-Archives and Parquet files are written below `examples/data-sources/data/<dataset>/raw/`. SHA-256 manifests are written below the ignored `manifests/` directories. The generated plan for OpenTelemetry Demo describes a collection workflow rather than a static file; CIC-IDS2017 requires a manual download from its provider page; NASA currently marks C-MAPSS unavailable, so no mirror is substituted.
+Archives and Parquet files are written below `examples/data-sources/data/<dataset>/raw/`. SHA-256 files are written beside each dataset's `raw/` directory.
 
 The shell downloader delegates networking to `curl`, so it honors `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, their lowercase variants, and `NO_PROXY`. For example:
 
@@ -94,3 +89,34 @@ HTTPS_PROXY=http://127.0.0.1:7890 \
 If a previous download left a `.part` file and the server does not support byte-range resume, the script automatically removes the partial file and retries from the beginning.
 
 The source choices follow the planned topics: BTS On-Time Performance for aviation, UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.
+
+## 写入 SQLite
+
+安装 XLSX 和 Parquet 读取依赖：
+
+```bash
+uv sync
+```
+
+处理所有已下载的数据集：
+
+```bash
+pnpm --filter @enchantforge/data-sources data:process -- --dataset all
+```
+
+SQLite 默认写入 `data/dashboard.sqlite`。也可以只处理一个数据集或指定数据库路径：
+
+```bash
+pnpm --filter @enchantforge/data-sources data:process -- --dataset aviation-ontime
+pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi --db data/nyc.sqlite
+```
+
+`data:process` 由 Typer 提供 CLI。运行 `pnpm --filter @enchantforge/data-sources data:process -- --help` 可查看完整帮助；它支持 `--dataset all|aviation-ontime|online-retail-ii|beijing-air-quality|nyc-taxi`、`--db PATH` 和 `--strict`。默认缺少原始文件或 Python 依赖时跳过并报告；`--strict` 会将这类情况视为失败。脚本只读取原始文件并重建对应表，不生成模拟记录。
+
+也可以绕过 pnpm 直接使用 Typer CLI：
+
+```bash
+uv run python scripts/process-data.py --help
+```
+
+生成的表包括 `aviation_flights`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。

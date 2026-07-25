@@ -2,3 +2,5 @@
 */manifests/*
 */raw/*.part
 */checksums.sha256
+dashboard.sqlite*
+__pycache__/
