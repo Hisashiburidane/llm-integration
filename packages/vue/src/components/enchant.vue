@@ -11,8 +11,7 @@ import {
   ref,
   unref,
   watch,
-  type PropType,
-  type WatchStopHandle
+  type PropType
 } from 'vue';
 import { scanDom, type EnchantScan } from '../runtime/dom-adapter';
 import type {
@@ -104,7 +103,6 @@ const initialScopeId = props.name || props.id || `component-${instance?.uid ?? M
 const enchantmentId = props.id || ['enchant', props.page || 'global', initialScopeId, instance?.uid ?? 'local'].join(':');
 let unregister: (() => void) | undefined;
 let observer: MutationObserver | undefined;
-let stopStateWatch: WatchStopHandle | undefined;
 let invalidateTimer: ReturnType<typeof setTimeout> | undefined;
 
 function currentExposure(): EnchantExposure {
@@ -226,8 +224,6 @@ function registerContribution(contribution: EnchantContribution) {
 function configureObservation(enabled: boolean) {
   observer?.disconnect();
   observer = undefined;
-  stopStateWatch?.();
-  stopStateWatch = undefined;
   if (!enabled || !rootEl.value) return;
 
   // Do not observe arbitrary visualization DOM when this boundary has no scanner.
@@ -251,7 +247,6 @@ function configureObservation(enabled: boolean) {
       ]
     });
   }
-  stopStateWatch = watch(resolveState, invalidate, { deep: true, flush: 'post' });
 }
 
 function refresh() {
@@ -303,7 +298,6 @@ watch(() => [
 onBeforeUnmount(() => {
   mounted.value = false;
   observer?.disconnect();
-  stopStateWatch?.();
   if (invalidateTimer) clearTimeout(invalidateTimer);
   unregister?.();
 });

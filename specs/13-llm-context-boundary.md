@@ -15,6 +15,8 @@
 
 LLM 负责理解命令并选择工具；Core 负责工具白名单、输入校验、policy、确认和执行。
 
+Snapshot version 表示 metadata/capability 合约版本，不表示业务数据版本。表格、图表和 store 数据刷新不应触发 capture 或改变 registry version；需要实时数据时，由 read capability 在执行阶段读取。
+
 ## 2. 请求分层
 
 ### 2.1 System prompt

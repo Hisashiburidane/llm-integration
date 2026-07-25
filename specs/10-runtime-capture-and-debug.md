@@ -25,7 +25,7 @@ registry 保存 registration，不保存持续更新的 metadata tree。默认 E
 </Enchant>
 ```
 
-`state` 支持普通对象、ref、computed 或 getter。Forge 保存 source；capture 时使用当前值。默认不 deep-watch state，也不因 state 更新创建 snapshot。
+`state` 支持普通对象、ref、computed 或 getter。Forge 保存 source；capture 时使用当前值，但不会 deep-watch state，也不会因业务数据更新创建 snapshot。需要读取实时数据时，应注册显式的 `read` capability，在执行阶段读取当前值。
 
 生命周期使用 `Enchantment.status`：alive、active、visible、enabled。应用状态使用 `Enchantment.state`。两者不能共用同一个字段。
 
@@ -80,7 +80,7 @@ forge.use(createEnchantDebug({
 }))
 ```
 
-显式 Enchant debug 插件可以提供 DOM observer、响应式 state watch、自动 capture 和 snapshot history 的配置入口，但默认不打开 `autoCapture`。不能因为浏览器安装了通用 Vue Devtools 或 debug overlay 就隐式开启这些成本；需要主动传入 `snapshots.autoCapture: true`。
+显式 Enchant debug 插件可以提供 DOM observer、自动 capture 和 snapshot history 的配置入口，但默认不打开 `autoCapture`，也不会 watch 业务 state。不能因为浏览器安装了通用 Vue Devtools 或 debug overlay 就隐式开启这些成本；需要主动传入 `snapshots.autoCapture: true`。
 
 Debug 插件同时提供轻量页面内调试控件，不依赖独立 Devtools 应用：
 
