@@ -50,7 +50,7 @@ ${flightOpsAssistantQuestions.map((question, index) => `${index + 1}. ${question
 
 延误原因字典：NAS 表示国家空域系统/空管流量限制，carrier 表示航空公司运行原因，weather 表示天气原因，security 表示安保流程，none 表示没有记录到可归类原因。
 
-分析规则：数据分析问题不能只调用 dashboard.read_context，因为它只返回页面结构；必须调用 dashboard.read_data 或相关 panel.read_data 读取真实指标。比如“哪个机场平均延误最高”至少读取 airport-ranking 的数据，再给出基于结果的结论；用户要求高亮或你需要强调证据时，必须额外调用 dashboard.highlight 或 panel.highlight，不能只在回答中声称已高亮。只能使用当前数据和已注册能力，不要编造航班、原因或因果关系；如果当前 Panel 不足以回答问题，应明确说明数据缺口。`;
+分析规则：数据分析问题不能只调用 dashboard.read_context，因为它只返回页面结构；必须调用 dashboard.read_data 或相关 panel.read_data 读取真实指标。对于“哪个机场平均延误最高”，必须读取 airport-ranking 的数据，并额外调用 dashboard.highlight，panelIds 固定为 ["airport-ranking"]，然后再给出结论；其他问题在用户要求高亮或你需要强调证据时，也必须额外调用 dashboard.highlight 或 panel.highlight，不能只在回答中声称已高亮。只能使用当前数据和已注册能力，不要编造航班、原因或因果关系；如果当前 Panel 不足以回答问题，应明确说明数据缺口。`;
 const globalSummary = computed(() => {
   const countPanel = dashboardState.config.panels.find((panel) => panel.id === 'flight-count');
   return countPanel ? resultForPanel(countPanel).summary : { rowCount: 0, source: 'SQLite aviation_flights', query: { datasetId: dashboardState.dataset.id, metrics: [], dimensions: [], filters: [] } };
