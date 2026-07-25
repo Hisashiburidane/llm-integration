@@ -697,6 +697,30 @@ interface PanelConfig {
 }
 ```
 
+### 9.2.1 Panel 库与 Dashboard 编排
+
+Panel 是独立的可复用定义，不属于某一个 Dashboard。Panel 库保存 Panel 的语义、QuerySpec、可视化类型和默认布局；Dashboard 只保存对 Panel 的引用、排序和当前布局。
+
+```typescript
+interface PanelDefinition {
+  id: string
+  type: PanelType
+  title: string
+  description: string
+  query: QuerySpec
+  visualization: VisualizationConfig
+}
+
+interface DashboardPanelPlacement {
+  dashboardId: string
+  panelId: string
+  sortOrder: number
+  layout: PanelLayout
+}
+```
+
+因此，用户可以先创建并独立查看 Panel，再在创建或编辑 Dashboard 时从 Panel 库选择并排列组合。新建 Panel 不应自动挂载到当前 Dashboard；Panel 目录负责独立搜索、查看和编辑，Dashboard 页面负责组合后的运行态展示。
+
 ---
 
 ## 9.3 标准 Panel 能力
@@ -1086,7 +1110,7 @@ const plan: AnalysisPlan = {
 * 选择组件；
 * 创建实例；
 * 注册能力；
-* 加入 Dashboard。
+* 写入 Panel Library；由 Dashboard 编排器决定是否加入某个 Dashboard。
 
 ---
 
@@ -1788,4 +1812,3 @@ Agent 在开发过程中必须遵守以下规则：
 > EnchantForge 将当前运行中的 Vue 页面转换为模型可理解、可寻址、可操作且受约束的语义环境。
 
 > 模型操作的不是抽象工具列表，而是当前页面中已经实例化的业务组件、数据对象、筛选条件和分析状态。
-

@@ -1,5 +1,5 @@
 import type { EnchantCapabilityDefinition } from '@enchantforge/vue';
-import { aviationDataset, aviationPanelTemplates } from '../data/aviation';
+import { aviationDataset } from '../data/aviation';
 import {
   addPanel,
   dashboardContext,
@@ -128,12 +128,12 @@ export const dashboardCapabilities: EnchantCapabilityDefinition[] = [
     provider: 'aviation-dashboard',
     name: 'dashboard.add_panel',
     label: '添加分析 Panel',
-    description: '从受约束的模板列表中添加 Panel，不接受任意组件代码。',
+    description: '从 Panel Library 选择已定义的 Panel 资产并加入当前 Dashboard，不接受任意组件代码。',
     effect: 'visual',
     inputSchema: {
       type: 'object',
       required: ['templateId'],
-      properties: { templateId: { type: 'string', enum: aviationPanelTemplates.map((panel) => panel.id) } }
+      properties: { templateId: { type: 'string', minLength: 1, description: 'Panel Library 中的 Panel ID。' } }
     },
     execute(input) {
       const templateId = input && typeof input === 'object' ? String((input as { templateId?: unknown }).templateId ?? '') : '';

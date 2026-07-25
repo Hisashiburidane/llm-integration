@@ -211,7 +211,11 @@ async function ensureDashboardConfig() {
   const statements = [
     'CREATE TABLE IF NOT EXISTS dashboard_configs (id TEXT PRIMARY KEY, topic_id TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, source_manifest_json TEXT NOT NULL, dataset_json TEXT NOT NULL)',
     'CREATE TABLE IF NOT EXISTS dashboard_panels (id TEXT PRIMARY KEY, dashboard_id TEXT NOT NULL, template_id TEXT, is_template INTEGER NOT NULL DEFAULT 0, sort_order INTEGER NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, query_json TEXT NOT NULL, visualization_json TEXT, layout_json TEXT NOT NULL, FOREIGN KEY (dashboard_id) REFERENCES dashboard_configs(id))',
-    'CREATE INDEX IF NOT EXISTS idx_dashboard_panels_dashboard ON dashboard_panels(dashboard_id, is_template, sort_order)'
+    'CREATE INDEX IF NOT EXISTS idx_dashboard_panels_dashboard ON dashboard_panels(dashboard_id, is_template, sort_order)',
+    'CREATE TABLE IF NOT EXISTS panel_definitions (id TEXT PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, query_json TEXT NOT NULL, visualization_json TEXT, default_width INTEGER NOT NULL, default_min_height INTEGER NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS dashboard_panel_placements (dashboard_id TEXT NOT NULL, panel_id TEXT NOT NULL, sort_order INTEGER NOT NULL, width INTEGER NOT NULL, min_height INTEGER NOT NULL, PRIMARY KEY (dashboard_id, panel_id), FOREIGN KEY (dashboard_id) REFERENCES dashboard_configs(id), FOREIGN KEY (panel_id) REFERENCES panel_definitions(id))',
+    'CREATE INDEX IF NOT EXISTS idx_dashboard_panel_placements_dashboard ON dashboard_panel_placements(dashboard_id, sort_order)',
+    'CREATE INDEX IF NOT EXISTS idx_panel_definitions_title ON panel_definitions(title)'
   ];
   const config = aviationDashboard;
   try {
@@ -225,7 +229,11 @@ async function ensureDashboardConfig() {
     ...config.panelTemplates.map((panel, index) => ({ ...panel, sortOrder: index, isTemplate: 1, templateId: panel.id }))
   ];
   const inserts = allPanels.map((panel) => `INSERT OR IGNORE INTO dashboard_panels (id, dashboard_id, template_id, is_template, sort_order, type, title, description, query_json, visualization_json, layout_json) VALUES (${sqlString(panel.id)}, ${sqlString(config.id)}, ${panel.templateId ? sqlString(panel.templateId) : 'NULL'}, ${panel.isTemplate}, ${panel.sortOrder}, ${sqlString(panel.type)}, ${sqlString(panel.title)}, ${sqlString(panel.description)}, ${sqlString(JSON.stringify(panel.query))}, ${panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL'}, ${sqlString(JSON.stringify(panel.layout))})`);
-  await runSql(`${statements.join(';')}; ${insertConfig}; ${inserts.join(';')}`, { readonly: false });
+  const definitionInserts = allPanels.map((panel) => `INSERT OR IGNORE INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) VALUES (${sqlString(panel.id)}, ${sqlString(panel.type)}, ${sqlString(panel.title)}, ${sqlString(panel.description)}, ${sqlString(JSON.stringify(panel.query))}, ${panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL'}, ${panel.layout.width}, ${panel.layout.minHeight})`);
+  const migrateDefinitions = `INSERT OR IGNORE INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) SELECT id, type, title, description, query_json, visualization_json, 6, 300 FROM dashboard_panels`;
+  const migratePlacements = `INSERT OR IGNORE INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) SELECT dashboard_id, id, sort_order, COALESCE(CAST(json_extract(layout_json, '$.width') AS INTEGER), 6), COALESCE(CAST(json_extract(layout_json, '$.minHeight') AS INTEGER), 300) FROM dashboard_panels WHERE is_template = 0`;
+  const placementInserts = config.panels.map((panel, index) => `INSERT OR IGNORE INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) VALUES (${sqlString(config.id)}, ${sqlString(panel.id)}, ${index}, ${panel.layout.width}, ${panel.layout.minHeight})`);
+  await runSql(`${statements.join(';')}; ${insertConfig}; ${inserts.join(';')}; ${definitionInserts.join(';')}; ${migrateDefinitions}; ${migratePlacements}; ${placementInserts.join(';')}`, { readonly: false });
 }
 
 async function detectRollup() {
@@ -257,11 +265,11 @@ async function readConfig() {
   const configs = await runSql('SELECT id, topic_id, title, description, source_manifest_json, dataset_json FROM dashboard_configs LIMIT 1');
   if (!configs.length) throw new Error('Dashboard 配置尚未初始化。');
   const config = configs[0];
-  const panels = await runSql(`SELECT id, type, title, description, query_json, visualization_json, layout_json FROM dashboard_panels WHERE dashboard_id = ${sqlString(config.id)} AND is_template = 0 ORDER BY sort_order`);
-  const templates = await runSql(`SELECT id, type, title, description, query_json, visualization_json, layout_json FROM dashboard_panels WHERE dashboard_id = ${sqlString(config.id)} AND is_template = 1 ORDER BY sort_order`);
+  const panels = await runSql(`SELECT d.id, d.type, d.title, d.description, d.query_json, d.visualization_json, p.width, p.min_height FROM dashboard_panel_placements AS p JOIN panel_definitions AS d ON d.id = p.panel_id WHERE p.dashboard_id = ${sqlString(config.id)} ORDER BY p.sort_order`);
+  const panelLibrary = await runSql('SELECT id, type, title, description, query_json, visualization_json, default_width AS width, default_min_height AS min_height FROM panel_definitions ORDER BY title, id');
   const airports = await runSql("SELECT DISTINCT f.origin AS code, COALESCE(d.name_zh, '机场（' || f.origin || '）') AS label FROM aviation_flights AS f LEFT JOIN aviation_airport_dictionary AS d ON d.code = f.origin WHERE f.origin <> '' ORDER BY f.origin").catch(() => runSql("SELECT DISTINCT origin AS code, '机场（' || origin || '）' AS label FROM aviation_flights WHERE origin <> '' ORDER BY origin"));
   const carriers = await runSql('SELECT DISTINCT carrier AS value FROM aviation_flights WHERE carrier <> \'\' ORDER BY carrier');
-  const parsePanel = (panel) => ({ id: panel.id, type: panel.type, title: panel.title, description: panel.description, query: JSON.parse(panel.query_json), ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: JSON.parse(panel.layout_json) });
+  const parsePanel = (panel) => ({ id: panel.id, type: panel.type, title: panel.title, description: panel.description, query: JSON.parse(panel.query_json), ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: { width: Number(panel.width), minHeight: Number(panel.min_height) } });
   return {
     id: config.id,
     topicId: config.topic_id,
@@ -270,7 +278,8 @@ async function readConfig() {
     sourceManifest: JSON.parse(config.source_manifest_json),
     dataset: JSON.parse(config.dataset_json),
     panels: panels.map(parsePanel),
-    panelTemplates: templates.map(parsePanel),
+    panelLibrary: panelLibrary.map(parsePanel),
+    panelTemplates: config.panelTemplates,
     facets: { airports: airports.map((item) => ({ code: item.code, label: item.label })), carriers: carriers.map((item) => item.value) }
   };
 }
@@ -298,17 +307,14 @@ function validatePanelPayload(value) {
 
 async function savePanel(value) {
   const panel = validatePanelPayload(value);
-  const existing = await runSql(`SELECT id, is_template, sort_order FROM dashboard_panels WHERE id = ${sqlString(panel.id)}`);
-  if (existing[0]?.is_template) throw new Error(`Panel ID 已被模板占用：${panel.id}。`);
-  const dashboardId = aviationDashboard.id;
+  const existing = await runSql(`SELECT id FROM panel_definitions WHERE id = ${sqlString(panel.id)}`);
+  if (!existing.length && aviationDashboard.panelTemplates.some((item) => item.id === panel.id)) throw new Error(`Panel ID 已被模板占用：${panel.id}。`);
   const visualization = panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL';
   const query = sqlString(JSON.stringify(panel.query));
-  const layout = sqlString(JSON.stringify(panel.layout));
   if (existing.length) {
-    await runSql(`UPDATE dashboard_panels SET type = ${sqlString(panel.type)}, title = ${sqlString(panel.title.trim())}, description = ${sqlString(panel.description.trim())}, query_json = ${query}, visualization_json = ${visualization}, layout_json = ${layout} WHERE id = ${sqlString(panel.id)}`, { readonly: false });
+    await runSql(`UPDATE panel_definitions SET type = ${sqlString(panel.type)}, title = ${sqlString(panel.title.trim())}, description = ${sqlString(panel.description.trim())}, query_json = ${query}, visualization_json = ${visualization}, default_width = ${panel.layout.width}, default_min_height = ${panel.layout.minHeight} WHERE id = ${sqlString(panel.id)}`, { readonly: false });
   } else {
-    const nextOrder = await runSql(`SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM dashboard_panels WHERE dashboard_id = ${sqlString(dashboardId)} AND is_template = 0`);
-    await runSql(`INSERT INTO dashboard_panels (id, dashboard_id, template_id, is_template, sort_order, type, title, description, query_json, visualization_json, layout_json) VALUES (${sqlString(panel.id)}, ${sqlString(dashboardId)}, NULL, 0, ${Number(nextOrder[0]?.next_order ?? 0)}, ${sqlString(panel.type)}, ${sqlString(panel.title.trim())}, ${sqlString(panel.description.trim())}, ${query}, ${visualization}, ${layout})`, { readonly: false });
+    await runSql(`INSERT INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) VALUES (${sqlString(panel.id)}, ${sqlString(panel.type)}, ${sqlString(panel.title.trim())}, ${sqlString(panel.description.trim())}, ${query}, ${visualization}, ${panel.layout.width}, ${panel.layout.minHeight})`, { readonly: false });
   }
   queryCache.clear();
   return readConfig();

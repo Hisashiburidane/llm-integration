@@ -11,7 +11,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   save: [panel: PanelConfig];
-  openDashboard: [panelId: string];
 }>();
 
 type PanelDraft = {
@@ -39,6 +38,7 @@ const search = ref('');
 const editorOpen = ref(false);
 const editing = ref(false);
 const formError = ref('');
+const detailPanel = ref<PanelConfig | null>(null);
 const draft = ref<PanelDraft>(emptyDraft());
 
 const filteredPanels = computed(() => {
@@ -128,6 +128,10 @@ function openEdit(panel: PanelConfig) {
   editorOpen.value = true;
 }
 
+function openDetails(panel: PanelConfig) {
+  detailPanel.value = panel;
+}
+
 function submit() {
   const panel = toPanel(draft.value);
   if (!/^[a-z0-9][a-z0-9-]*$/.test(panel.id)) {
@@ -153,8 +157,8 @@ function submit() {
     <div class="catalog-heading">
       <div>
         <p class="eyebrow">DASHBOARD / PANEL CATALOG</p>
-        <h1>Panel metadata</h1>
-        <p class="heading-copy">查看、搜索和维护当前 Dashboard 的 Panel 元数据。这里不编辑图表代码，只维护 QuerySpec 和展示合约。</p>
+        <h1>Panel library</h1>
+        <p class="heading-copy">Panel 是独立的可复用资产。这里维护定义、QuerySpec 和展示合约；Dashboard 只负责选择 Panel 并安排布局。</p>
       </div>
       <a-button type="primary" @click="openCreate">新增 Panel</a-button>
     </div>
@@ -183,7 +187,7 @@ function submit() {
           <div><dt>Layout</dt><dd>{{ panel.layout.width }}/12 · {{ panel.layout.minHeight }}px</dd></div>
           <div><dt>Query limit</dt><dd>{{ panel.query.limit ?? '默认' }}</dd></div>
         </dl>
-        <a-button block size="small" @click="emit('openDashboard', panel.id)">在 Dashboard 中查看</a-button>
+        <a-button block size="small" @click="openDetails(panel)">独立查看 Panel</a-button>
       </a-card>
     </div>
 
@@ -205,6 +209,21 @@ function submit() {
         </div>
       </a-form>
     </a-modal>
+
+    <a-drawer :open="Boolean(detailPanel)" title="Panel Definition" width="min(560px, 94vw)" @close="detailPanel = null">
+      <template v-if="detailPanel">
+        <a-descriptions :column="1" size="small" bordered>
+          <a-descriptions-item label="Panel ID">{{ detailPanel.id }}</a-descriptions-item>
+          <a-descriptions-item label="类型">{{ typeLabel(detailPanel.type) }}</a-descriptions-item>
+          <a-descriptions-item label="指标">{{ detailPanel.query.metrics.map((metric) => metricLabel(metric.metricId)).join('、') }}</a-descriptions-item>
+          <a-descriptions-item label="维度">{{ detailPanel.query.dimensions.map((dimension) => dimensionLabel(dimension.dimensionId)).join('、') || '无' }}</a-descriptions-item>
+          <a-descriptions-item label="默认布局">{{ detailPanel.layout.width }}/12 · {{ detailPanel.layout.minHeight }}px</a-descriptions-item>
+        </a-descriptions>
+        <a-divider />
+        <h3>QuerySpec</h3>
+        <pre class="catalog-json">{{ JSON.stringify(detailPanel.query, null, 2) }}</pre>
+      </template>
+    </a-drawer>
   </section>
 </template>
 
@@ -229,6 +248,7 @@ h1 { margin: 7px 0 8px; color: #14233a; font-size: clamp(24px, 3vw, 36px); lette
 .catalog-meta dt { color: #94a3b8; font: 10px/1.4 "IBM Plex Mono", monospace; }
 .catalog-meta dd { min-width: 0; margin: 0; overflow: hidden; color: #475569; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .editor-alert { margin-bottom: 16px; }
+.catalog-json { max-height: 480px; padding: 12px; overflow: auto; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font: 11px/1.6 "IBM Plex Mono", monospace; white-space: pre-wrap; word-break: break-word; }
 .editor-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 @media (max-width: 980px) { .catalog-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .catalog-heading, .catalog-toolbar { align-items: stretch; flex-direction: column; } .catalog-toolbar :deep(.ant-input-search) { max-width: none; } .catalog-count { margin-left: 0; } .catalog-grid { grid-template-columns: 1fr; } .editor-row { grid-template-columns: 1fr; } }

@@ -118,10 +118,6 @@ async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
   }
 }
 
-function openPanelInDashboard(panelId: string) {
-  activeView.value = 'dashboard';
-  selectPanel(panelId);
-}
 </script>
 
 <template>
@@ -136,7 +132,7 @@ function openPanelInDashboard(panelId: string) {
       </div>
       <div class="topbar-actions">
         <a-tag color="blue">{{ dashboardState.config.panels.length }} panels</a-tag>
-        <a-button size="small" @click="activeView = activeView === 'dashboard' ? 'panels' : 'dashboard'">{{ activeView === 'dashboard' ? 'Panel 目录' : 'Dashboard' }}</a-button>
+        <a-button size="small" @click="activeView = activeView === 'dashboard' ? 'panels' : 'dashboard'">{{ activeView === 'dashboard' ? 'Panel Library' : 'Dashboard' }}</a-button>
         <a-button size="small" @click="contextOpen = true"><SettingOutlined />上下文</a-button>
         <a-button size="small" @click="traceOpen = true">Trace ({{ filteredEvents.length }})</a-button>
       </div>
@@ -145,12 +141,11 @@ function openPanelInDashboard(panelId: string) {
     <main class="dashboard-main">
       <PanelCatalog
         v-if="activeView === 'panels'"
-        :panels="dashboardState.config.panels"
+        :panels="dashboardState.panelLibrary"
         :dataset="dashboardState.dataset"
         :saving="panelSaving"
         :error="panelSaveError"
         @save="savePanel"
-        @open-dashboard="openPanelInDashboard"
       />
 
       <template v-else>

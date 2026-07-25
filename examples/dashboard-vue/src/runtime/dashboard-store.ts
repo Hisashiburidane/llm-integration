@@ -16,6 +16,7 @@ function clone<T>(value: T): T {
 
 export const dashboardState = reactive<{
   config: DashboardConfig;
+  panelLibrary: PanelConfig[];
   defaultPanels: PanelConfig[];
   panelTemplates: PanelConfig[];
   airports: FacetOption[];
@@ -39,6 +40,7 @@ export const dashboardState = reactive<{
     description: '基于 BTS 航班运行数据的可寻址、可联动 Dashboard。',
     panels: defaultAviationPanels.map((panel) => clone(panel))
   },
+  panelLibrary: [...defaultAviationPanels, ...aviationPanelTemplates].map((panel) => clone(panel)),
   defaultPanels: defaultAviationPanels.map((panel) => clone(panel)),
   panelTemplates: aviationPanelTemplates.map((panel) => clone(panel)),
   airports: [{ code: 'JFK', label: '约翰·肯尼迪国际机场' }, { code: 'LGA', label: '拉瓜迪亚机场' }, { code: 'EWR', label: '纽瓦克自由国际机场' }],
@@ -99,10 +101,12 @@ export async function loadDashboardConfig() {
       dataset: DatasetDefinition;
       panels: PanelConfig[];
       panelTemplates: PanelConfig[];
+      panelLibrary: PanelConfig[];
       facets: { airports: FacetOption[]; carriers: string[] };
     } & { error?: string };
     if (!response.ok || payload.error) throw new Error(payload.error || `Dashboard 配置请求失败（${response.status}）。`);
     dashboardState.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: payload.panels.map((panel) => clone(panel)) };
+    dashboardState.panelLibrary = payload.panelLibrary.map((panel) => clone(panel));
     dashboardState.defaultPanels = payload.panels.map((panel) => clone(panel));
     dashboardState.panelTemplates = payload.panelTemplates.map((panel) => clone(panel));
     dashboardState.airports = payload.facets.airports;
@@ -128,17 +132,22 @@ export async function savePanelConfig(panel: PanelConfig) {
   const payload = await response.json() as {
     panels?: PanelConfig[];
     panelTemplates?: PanelConfig[];
+    panelLibrary?: PanelConfig[];
     error?: string;
   };
-  if (!response.ok || payload.error || !payload.panels || !payload.panelTemplates) {
+  if (!response.ok || payload.error || !payload.panels || !payload.panelTemplates || !payload.panelLibrary) {
     throw new Error(payload.error || `Panel 保存失败（${response.status}）。`);
   }
+  const activeDashboardChanged = JSON.stringify(dashboardState.config.panels) !== JSON.stringify(payload.panels);
   dashboardState.config.panels = payload.panels.map((item) => clone(item));
+  dashboardState.panelLibrary = payload.panelLibrary.map((item) => clone(item));
   dashboardState.defaultPanels = payload.panels.map((item) => clone(item));
   dashboardState.panelTemplates = payload.panelTemplates.map((item) => clone(item));
-  dashboardState.panelResults.clear();
   setAction(`已保存 Panel：${panel.title}`);
-  await refreshDashboardData();
+  if (activeDashboardChanged) {
+    dashboardState.panelResults.clear();
+    await refreshDashboardData();
+  }
   return dashboardState.config.panels.find((item) => item.id === panel.id) ?? panel;
 }
 
@@ -193,12 +202,12 @@ export function selectAirport(airport: string) {
 }
 
 export function addPanel(templateId: string) {
-  const template = dashboardState.panelTemplates.find((panel) => panel.id === templateId);
-  if (!template) throw new Error(`未知 Panel 模板：${templateId}。`);
-  const count = dashboardState.config.panels.filter((panel) => panel.id.startsWith(template.id)).length;
-  const panel = clone(template);
-  panel.id = `${template.id}-${count + 1}`;
-  panel.title = `${template.title} / AI ${count + 1}`;
+  const source = dashboardState.panelLibrary.find((panel) => panel.id === templateId);
+  if (!source) throw new Error(`Panel Library 中不存在：${templateId}。`);
+  const count = dashboardState.config.panels.filter((panel) => panel.id.startsWith(source.id)).length;
+  const panel = clone(source);
+  panel.id = `${source.id}-${count + 1}`;
+  panel.title = `${source.title} / AI ${count + 1}`;
   dashboardState.config.panels.push(panel);
   setAction(`已添加 Panel：${panel.title}`);
   void refreshDashboardData();
@@ -264,6 +273,7 @@ export function dashboardContext() {
     filters: dashboardState.filters,
     panels: dashboardState.config.panels.map((panel) => ({ id: panel.id, title: panel.title, type: panel.type })),
     dataset: dashboardState.dataset.id,
+    panelLibrary: dashboardState.panelLibrary.map((panel) => ({ id: panel.id, title: panel.title, type: panel.type, metrics: panel.query.metrics.map((metric) => metric.metricId), dimensions: panel.query.dimensions.map((dimension) => dimension.dimensionId) })),
     highlightedPanelIds: dashboardState.highlightedPanelIds,
     selectedAirport: dashboardState.selectedAirport,
     lastAction: dashboardState.lastAction
