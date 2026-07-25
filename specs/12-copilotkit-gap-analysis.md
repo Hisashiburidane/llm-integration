@@ -185,18 +185,18 @@ registry digest
 启用。CopilotKit 的 Agent Context 默认跟随数据动态更新，但没有发现针对当前 UI
 语义的惰性 capture、registry digest 和 snapshot retention 策略。
 
-### 4.7 Snapshot 绑定执行
+### 4.7 Snapshot 与执行边界
 
-EnchantForge 在一次运行中使用带版本的 snapshot，并在执行前验证：
+EnchantForge 在一次运行中使用 snapshot 生成规划上下文和 debug 记录，执行前按 capability 即时验证：
 
-- capability 是否属于本次 snapshot；
+- capability 是否出现在本次规划工具集合；
 - 对应 registration 是否仍然存活；
 - 当前 exposure 和 policy 是否仍允许执行；
-- 页面 registry 是否已发生变化。
+- 当前 capability 合约是否仍与规划时一致。
 
-这用于处理路由切换、KeepAlive、Modal、Drawer、动态表单和异步 Tool Call。
-CopilotKit 会在 Tool 所属组件卸载时注销 Tool，也支持 Tool availability，但当前没有
-发现“执行必须绑定到生成计划时的页面 snapshot version”这一公共抽象。
+这用于处理路由切换、KeepAlive、Modal、Drawer、动态表单和异步 Tool Call；无关 UI 挂载只改变 registry version 时，不会自动使整份计划失效。
+CopilotKit 会在 Tool 所属组件卸载时注销 Tool，也支持 Tool availability；EnchantForge
+在此基础上把 snapshot 限定为规划和 debug 上下文，并在执行时重新校验 capability 合约。
 
 ### 4.8 UI 生命周期与暴露范围
 

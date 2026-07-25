@@ -253,6 +253,21 @@ function isCapabilityResult(value: unknown): value is EnchantCapabilityResult {
   return ['success', 'partial', 'failed'].includes(String((value as EnchantCapabilityResult).status));
 }
 
+function capabilityContract(value: Pick<EnchantCapability, 'id' | 'enchantmentId' | 'owner' | 'provider' | 'name' | 'label' | 'description' | 'target' | 'effect' | 'inputSchema'> | Pick<EnchantTool, 'id' | 'capabilityId' | 'enchantmentId' | 'owner' | 'provider' | 'name' | 'label' | 'description' | 'target' | 'effect' | 'inputSchema'>) {
+  return JSON.stringify({
+    id: 'capabilityId' in value ? value.capabilityId : value.id,
+    enchantmentId: value.enchantmentId,
+    owner: value.owner,
+    provider: value.provider,
+    name: value.name,
+    label: value.label,
+    description: value.description,
+    target: value.target,
+    effect: value.effect,
+    inputSchema: value.inputSchema
+  });
+}
+
 function createFinalMessage(plan: EnchantPlan, results: EnchantExecutionResult[]) {
   const failures = results.filter((result) => !result.ok);
   if (failures.length) {
@@ -491,24 +506,20 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       trace({ source: call.capabilityId, kind: 'error', title: 'Capability cancelled', detail: error });
       return { capabilityId: call.capabilityId, ok: false, status: 'failed', error };
     }
-    if (registry.version.value !== executeOptions.snapshot.version) {
-      const error = `Snapshot 已失效（${executeOptions.snapshot.version} -> ${registry.version.value}），拒绝执行。`;
-      trace({ source: call.capabilityId, kind: 'error', title: 'Stale snapshot rejected', detail: error });
-      return { capabilityId: call.capabilityId, ok: false, status: 'failed', error };
-    }
+    const plannedTool = executeOptions.snapshot.tools.find((tool) => tool.capabilityId === call.capabilityId);
     const capability = registry.getCapability(call.capabilityId);
-    const snapshotEnchantment = capability
+    const snapshotEnchantment = plannedTool && capability
       ? executeOptions.snapshot.enchantments.find((item) => item.id === capability.enchantmentId)
       : undefined;
     const registration = capability ? registry.getRegistration(capability.enchantmentId) : undefined;
     const enchantment = snapshotEnchantment && registration
       ? { ...snapshotEnchantment, status: registration.getStatus() }
       : undefined;
-    const exposed = executeOptions.snapshot.tools.some((tool) => tool.capabilityId === call.capabilityId);
+    const contractMatches = Boolean(plannedTool && capability && capabilityContract(plannedTool) === capabilityContract(capability));
 
-    if (!capability || !enchantment || !exposed) {
-      const error = 'Capability 不属于本次 snapshot 或已失效。';
-      trace({ source: call.capabilityId, kind: 'error', title: 'Capability rejected', detail: error });
+    if (!capability || !plannedTool || !enchantment || !contractMatches) {
+      const error = 'Capability 当前未注册、未暴露或合约已变化，拒绝执行。';
+      trace({ source: call.capabilityId, kind: 'error', title: 'Capability contract rejected', detail: error });
       return { capabilityId: call.capabilityId, ok: false, status: 'failed', error };
     }
 
@@ -554,16 +565,13 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         }
       });
       const normalized = isCapabilityResult(value) ? value : undefined;
-      const warning = registry.version.value !== executeOptions.snapshot.version
-        ? '执行期间页面 registry 已变化；结果基于调用时仍有效的 capability。'
-        : undefined;
       const result: EnchantExecutionResult = {
         capabilityId: call.capabilityId,
         ok: normalized?.status !== 'failed',
         status: normalized?.status ?? 'success',
         summary: normalized?.summary,
         value: normalized?.data ?? value,
-        warning: normalized?.warnings?.join('\n') || warning
+        warning: normalized?.warnings?.join('\n')
       };
       trace({
         source: call.capabilityId,
@@ -594,35 +602,14 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       };
       let current = capture(captureOptions);
       trace({ source: current.pageId, kind: 'request', title: 'Agent request', detail: { input: request.input, snapshotId: current.id } });
-      let plan: EnchantPlan | undefined;
-      for (let planningAttempt = 0; planningAttempt < 2; planningAttempt += 1) {
-        emitProgress(runId, 'planning', request.onProgress);
-        plan = await (request.agent ?? agent).plan({
-          input: request.input,
-          snapshot: current,
-          instruction: request.prompt,
-          signal: request.signal
-        });
-        throwIfAborted(request.signal);
-        if (plan.snapshotVersion !== current.version) {
-          throw new Error(`Agent 计划的 snapshot version 无效，应为 ${current.version}。`);
-        }
-        if (registry.version.value === current.version) break;
-        if (planningAttempt === 1) {
-          throw new Error(`页面在 LLM 规划期间持续变化（${current.version} -> ${registry.version.value}），请稍后重试。`);
-        }
-        trace({
-          source: current.pageId,
-          kind: 'info',
-          title: 'Snapshot changed during planning',
-          detail: { from: current.version, to: registry.version.value }
-        });
-        emitProgress(runId, 'capturing', request.onProgress, {
-          detail: '页面仍在挂载或更新，正在重新生成当前 snapshot。'
-        });
-        current = capture(captureOptions);
-      }
-      if (!plan) throw new Error('未生成有效的 LLM 计划。');
+      emitProgress(runId, 'planning', request.onProgress);
+      const plan = await (request.agent ?? agent).plan({
+        input: request.input,
+        snapshot: current,
+        instruction: request.prompt,
+        signal: request.signal
+      });
+      throwIfAborted(request.signal);
       if (plan.calls.length > maxPlanCalls) {
         throw new Error(`Agent 计划包含 ${plan.calls.length} 个调用，超过上限 ${maxPlanCalls}。`);
       }

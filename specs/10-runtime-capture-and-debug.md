@@ -69,7 +69,7 @@ createEnchantForge({
 
 自动观察只产生 invalidate 信号。Forge 对同一时间窗口内的变化进行 debounce，再统一 capture。snapshot history 使用固定容量 ring buffer。
 
-规划完成后如果 registry 仍然变化，执行器继续拒绝 stale snapshot；重规划不是绕过执行前校验的方式。
+规划完成后 registry 发生变化不会自动让整份计划失效。每个 capability 执行前都会重新读取当前 registration 和 capability，并校验目标仍存在、仍暴露且合约未改变；只有目标本身被移除或替换时才拒绝该步骤。
 
 等价的 registration update 不会递增 registry version。只有 registration contract、metadata/capability 暴露范围或显式 invalidate 发生变化时，版本才会变化。
 

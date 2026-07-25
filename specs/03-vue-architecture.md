@@ -217,7 +217,7 @@ onDeactivated  -> mark inactive
 onUnmounted    -> unregister
 ```
 
-默认不扫描或观察 DOM。配置 `scan="marked"` 或 `scan="auto"` 后，模型调用或显式 capture 才执行扫描；自动 snapshot 配置或 debug 插件可以进一步开启 DOM 观察。只有 metadata/capability 合约变化才产生 invalidate 信号；业务 state 和图表数据刷新不改变 snapshot version，实时数据应通过显式 read capability 在执行阶段读取。模型调用使用带版本号的临时 snapshot；执行前需要确认目标仍属于当前 registry。
+默认不扫描或观察 DOM。配置 `scan="marked"` 或 `scan="auto"` 后，模型调用或显式 capture 才执行扫描；自动 snapshot 配置或 debug 插件可以进一步开启 DOM 观察。只有 metadata/capability 合约变化才产生 invalidate 信号；业务 state 和图表数据刷新不改变 snapshot version，实时数据应通过显式 read capability 在执行阶段读取。模型调用使用带版本号的临时 snapshot；执行前按 capability 重新定位当前 registration，并确认目标仍暴露且合约未改变。无关弹框或动态子树的挂载不应单独使整份计划失效。
 
 ## 9. Metadata 提取顺序
 

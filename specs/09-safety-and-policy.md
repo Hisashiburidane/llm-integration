@@ -59,12 +59,11 @@ policy 可以在 Forge、页面、Enchant 和 capability 四个层级定义。�
 
 1. Enchantment 仍然 alive、active 且 enabled；
 2. target 仍属于当前 registry；
-3. snapshot version 未失效，或目标能够被安全地重新解析；
-4. capability 当前仍然可用；
-5. 输入通过 schema 校验；
-6. effect 被当前 policy 允许；
-7. 需要确认时已经获得对应本次参数的确认；
-8. executor 返回的实际结果与预期目标一致。
+3. capability 当前仍然存在、暴露且合约未改变；
+4. 输入通过 schema 校验；
+5. effect 被当前 policy 允许；
+6. 需要确认时已经获得对应本次参数的确认；
+7. executor 返回的实际结果与预期目标一致。
 
 任何检查失败都必须停止该步骤并写入 trace。模型不能通过重新措辞自动重试被 policy 拒绝的同一操作。
 
@@ -107,7 +106,7 @@ scanner 和 adapter 需要识别或允许应用声明以下敏感字段：
 本次操作不会提交工单或发送通知。
 ```
 
-确认必须绑定 capability、target、参数摘要和 snapshot version。页面或参数变化后不能复用旧确认。
+确认必须绑定 capability、target 和参数摘要。capability 合约或参数变化后不能复用旧确认；无关页面注册变化不影响该确认。
 
 ## 9. Trace 与审计
 

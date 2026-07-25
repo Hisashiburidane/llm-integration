@@ -78,7 +78,7 @@ sub app -> main app
 - 敏感字段在跨边界前删除或脱敏；
 - 子应用收到调用后重新执行本地 policy；
 - 主应用的计划不能覆盖子应用 policy；
-- snapshot version 不一致时拒绝执行或要求重新规划。
+- snapshot version 只作为规划和 trace provenance；子应用执行前重新校验 capability、registration 和本地 policy，不能仅因无关 UI 挂载导致的 version 变化拒绝调用。
 
 ## 6. 为什么由子应用执行
 

@@ -233,7 +233,8 @@ export interface EnchantPlanCall {
 
 export interface EnchantPlan {
   message: string;
-  snapshotVersion: number;
+  /** Planning context provenance; it is not an execution lock. */
+  snapshotVersion?: number;
   calls: EnchantPlanCall[];
 }
 

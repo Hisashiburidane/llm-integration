@@ -152,7 +152,7 @@ EnchantForge 内部不能直接使用某一家模型厂商的 tool calling schem
 
 ### 4.3 Metadata 必须反映实时页面
 
-registry 不能只在进入路由时生成静态快照。组件 mount/unmount、动态表单、弹窗、字段状态、路由、标签页、权限、策略和微应用状态变化都必须更新 metadata 或 capability。模型规划时使用某一版本的 snapshot；执行前必须确认目标仍存在且允许调用。
+registry 不能只在进入路由时生成静态快照。组件 mount/unmount、动态表单、弹窗、字段状态、路由、标签页、权限、策略和微应用状态变化都必须更新 metadata 或 capability。模型规划时使用某一版本的 snapshot；执行前必须重新确认目标仍存在、允许调用且 capability 合约未改变。
 
 ### 4.4 稳定结构优先，DOM 扫描显式启用
 
@@ -165,7 +165,7 @@ registry 不能只在进入路由时生成静态快照。组件 mount/unmount、
 
 ### 4.5 规划与执行分离
 
-模型负责将自然语言转换为结构化计划；executor 负责校验并执行操作。模型不能获得任意 DOM 脚本执行权限。每个步骤至少记录 capability id、scope、实例标识、参数、snapshot version、policy 结果和执行结果。
+模型负责将自然语言转换为结构化计划；executor 负责校验并执行操作。模型不能获得任意 DOM 脚本执行权限。每个步骤至少记录 capability id、scope、实例标识、参数、规划 snapshot provenance、policy 结果和执行结果。
 
 ## 5. 总体架构
 
@@ -346,7 +346,7 @@ interface EnchantMetadataNode {
 }
 ```
 
-第一阶段不必实现全部字段，但必须保证节点具有唯一实例标识、来源、状态和 capability 引用。同一组件可能重复渲染，执行目标不能只依赖组件名或字段名，而应组合 runtime id、page id、scope id、node id 和 snapshot version。
+第一阶段不必实现全部字段，但必须保证节点具有唯一实例标识、来源、状态和 capability 引用。同一组件可能重复渲染，执行目标不能只依赖组件名或字段名，而应组合 runtime id、page id、scope id、node id 和 capability contract。
 
 ### 7.2 Capability
 
@@ -434,7 +434,7 @@ registry 至少维护：
 
 树结构表达页面语义，扁平索引用于按 id 定位和导出 tools，两者同时维护。
 
-模型调用前由 registry 生成不可变 snapshot。计划引用 snapshot version；如果执行前结构已变化，runtime 应重新定位或拒绝执行。
+模型调用前由 registry 生成不可变 snapshot。snapshot version 只标识本次规划上下文；执行时 runtime 重新定位 capability，目标移除或合约改变才拒绝该步骤。
 
 应用可显式注入 Pinia 或领域状态，但不能默认序列化整个 store：
 

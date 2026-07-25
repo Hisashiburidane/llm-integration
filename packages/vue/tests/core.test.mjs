@@ -186,7 +186,7 @@ test('LLM client sends native function tools and normalizes tool calls', async (
   assert.deepEqual(result.toolCalls[0], { id: 'call-1', name: 'enchant_tool_0', arguments: '{"value":"ok"}' });
 });
 
-test('forge rejects stale snapshots before executing a capability', async () => {
+test('forge rejects a capability removed after planning', async () => {
   const { forge, getExecutionCount } = createTestForge();
   const snapshot = forge.capture();
   forge.registry.invalidate('scope:test');
@@ -197,7 +197,7 @@ test('forge rejects stale snapshots before executing a capability', async () => 
   );
 
   assert.equal(result.ok, false);
-  assert.match(result.error, /Snapshot 已失效/);
+  assert.match(result.error, /未注册、未暴露或合约已变化/);
   assert.equal(getExecutionCount(), 0);
 });
 
@@ -277,20 +277,19 @@ test('forge instances keep registry, navigation and policy state isolated', () =
 
 test('forge policy modes can be changed without replacing the runtime', async () => {
   const { forge, getExecutionCount } = createTestForge({ effect: 'draft' });
+  const snapshot = forge.capture();
   forge.configurePolicy({ mode: 'read-only' });
-  const readOnlySnapshot = forge.capture();
   const readOnly = await forge.execute(
     { capabilityId: 'capability:test', input: { value: 'valid' } },
-    { snapshot: readOnlySnapshot, confirmed: true }
+    { snapshot, confirmed: true }
   );
   assert.equal(readOnly.ok, false);
-  assert.match(readOnly.error, /不属于本次 snapshot/);
+  assert.match(readOnly.error, /read-only 模式/);
 
   forge.configurePolicy({ mode: 'draft-only' });
-  const draftSnapshot = forge.capture();
   const draft = await forge.execute(
     { capabilityId: 'capability:test', input: { value: 'valid' } },
-    { snapshot: draftSnapshot, confirmed: true }
+    { snapshot, confirmed: true }
   );
   assert.equal(draft.ok, true);
   assert.equal(getExecutionCount(), 1);
@@ -394,14 +393,29 @@ test('capture and agent run add trace events without changing registry version',
   assert.ok(forge.events.length > initialTraceCount);
 });
 
-test('forge replans once when the registry changes during planning', async () => {
+test('plan snapshot version is provenance and does not block execution', async () => {
+  const forge = createEnchantForge({
+    agent: {
+      async plan() {
+        return { message: 'accepted', snapshotVersion: 1, calls: [] };
+      }
+    }
+  });
+  forge.registry.register(createRegistration());
+
+  const result = await forge.run({ input: 'inspect' });
+
+  assert.equal(result.message, 'accepted');
+});
+
+test('forge keeps a plan when an unrelated registry change occurs during planning', async () => {
   let forge;
   let attempts = 0;
   forge = createEnchantForge({
     agent: {
       async plan({ snapshot }) {
         attempts += 1;
-        if (attempts === 1) forge.registry.invalidate('scope:test');
+        if (attempts === 1) forge.registry.touch();
         return {
           message: 'replanned',
           snapshotVersion: snapshot.version,
@@ -414,8 +428,39 @@ test('forge replans once when the registry changes during planning', async () =>
 
   const result = await forge.run({ input: 'run after mount' });
 
-  assert.equal(attempts, 2);
+  assert.equal(attempts, 1);
   assert.equal(result.results[0].ok, true);
+});
+
+test('forge keeps later calls when an unrelated registry change occurs during execution', async () => {
+  let forge;
+  let executions = 0;
+  forge = createEnchantForge({
+    agent: {
+      async plan({ snapshot }) {
+        return {
+          message: 'continued',
+          snapshotVersion: snapshot.version,
+          calls: [
+            { capabilityId: 'capability:test', input: { value: 'first' } },
+            { capabilityId: 'capability:test', input: { value: 'second' } }
+          ]
+        };
+      }
+    }
+  });
+  forge.registry.register(createRegistration({
+    execute(input) {
+      executions += 1;
+      if (executions === 1) forge.registry.touch();
+      return { status: 'success', data: input };
+    }
+  }));
+
+  const result = await forge.run({ input: 'continue after modal mount' });
+
+  assert.equal(executions, 2);
+  assert.deepEqual(result.results.map((item) => item.ok), [true, true]);
 });
 
 test('registry filters route-scoped registrations for the active snapshot', () => {

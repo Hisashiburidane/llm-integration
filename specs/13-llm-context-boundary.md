@@ -73,13 +73,13 @@ LLM 返回 tool call 后，Core 使用请求内的 name-to-capability 映射恢�
 完整 snapshot 仍然保留在 `EnchantAgentRequest` 和 Forge 内部，供以下流程使用：
 
 - capture、retention 和 trace；
-- snapshot/registry 版本检查；
-- capability 是否属于本次 snapshot；
+- snapshot provenance 和 debug trace；
+- capability 是否出现在本次规划上下文，以及当前 registration/capability 合约是否仍匹配；
 - policy 和确认决策；
 - inputSchema 校验；
 - executor 调用和结果归一化。
 
-任何 LLM Context 字段都不能替代这些执行前检查。自定义 agent 可以直接读取 `EnchantAgentRequest.snapshot`，但默认 agent 和官方 provider 必须通过显式 Context/Tool exporter 构造请求。
+任何 LLM Context 字段都不能替代这些执行前检查。snapshot 是本次规划和 debug 的上下文，不是整个执行过程的全局锁；弹框、drawer 或其他无关 Enchant 的挂载不会因为 registry version 改变而使既有 capability 自动失效。自定义 agent 可以直接读取 `EnchantAgentRequest.snapshot`，但默认 agent 和官方 provider 必须通过显式 Context/Tool exporter 构造请求。
 
 ## 5. 设计准则
 
