@@ -19,6 +19,7 @@ const props = withDefaults(defineProps<{
   orb?: Component;
   title?: string;
   prompt?: string;
+  suggestions?: string[];
   progressMessages?: AuraProgressMessages;
   model?: string;
   endpoint?: string;
@@ -31,6 +32,7 @@ const props = withDefaults(defineProps<{
   orb: undefined,
   title: 'Aura',
   prompt: '',
+  suggestions: () => [],
   progressMessages: () => ({}),
   model: '',
   endpoint: '/api/llm/chat/completions',
@@ -334,9 +336,14 @@ onBeforeUnmount(() => {
       </header>
 
       <div class="aura-messages">
-        <p v-if="!conversation.length" class="aura-empty">
-          当前页面包含 {{ digest.activeEnchantments }} 个可用 Enchantment。
-        </p>
+        <div v-if="!conversation.length" class="aura-empty">
+          <p>当前页面包含 {{ digest.activeEnchantments }} 个可用 Enchantment。</p>
+          <div v-if="suggestions.length" class="aura-suggestions" aria-label="快捷提问">
+            <button v-for="suggestion in suggestions" :key="suggestion" type="button" :disabled="loading" @click="submit(suggestion)">
+              {{ suggestion }}
+            </button>
+          </div>
+        </div>
         <template v-for="item in conversation" :key="item.id">
           <Bubble
             v-if="item.type === 'message'"
@@ -413,7 +420,12 @@ onBeforeUnmount(() => {
 .aura-header small { margin-top: 3px; overflow: hidden; color: #64748b; font: 10px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
 .aura-header button { margin-left: auto; border: 0; color: #64748b; background: transparent; font-size: 24px; cursor: pointer; }
 .aura-messages { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 8px; padding: 14px; overflow-y: auto; }
-.aura-empty { margin: auto 8px; color: #64748b; font-size: 12px; line-height: 1.7; }
+.aura-empty { display: flex; margin: auto 8px; flex-direction: column; gap: 12px; color: #64748b; font-size: 12px; line-height: 1.7; }
+.aura-empty p { margin: 0; }
+.aura-suggestions { display: flex; flex-wrap: wrap; gap: 7px; }
+.aura-suggestions button { padding: 6px 8px; border: 1px solid #dbe3ec; border-radius: 5px; color: #36516f; background: #f8fafc; cursor: pointer; font: 11px/1.4 inherit; text-align: left; transition: border-color 140ms ease, color 140ms ease, background 140ms ease; }
+.aura-suggestions button:hover:not(:disabled) { border-color: #91b8ec; color: #165dba; background: #eff6ff; }
+.aura-suggestions button:disabled { cursor: not-allowed; opacity: .55; }
 .aura-chat-bubble { width: 100%; font-size: 12px; }
 .aura-activity-bubble { margin: -4px 0; }
 .aura-progress-collapse { width: min(100%, 340px); }

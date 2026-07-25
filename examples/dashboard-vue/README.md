@@ -50,4 +50,6 @@ pnpm --filter @enchantforge/data-sources data:download -- --dataset aviation-ont
 - `把调查范围切换到 18 点到 21 点，并高亮趋势和延误原因 Panel`
 - `添加一个航空公司平均延误排名 Panel，并保存当前视图`
 
+`Flight Ops Assistant` 的提示中还内置了机场 P95、航空公司比较、延误原因构成、出港/到港比较等可直接尝试的问题。助手会先读取相关 Panel 数据，再使用已注册的筛选、高亮、添加模板 Panel 和保存视图能力；它不会对当前数据没有覆盖的原因做推断。
+
 如果没有可用 LLM，页面仍可使用筛选、Panel 联动、保存视图和 Debug trace；Aura 会显示配置或请求错误，不伪造分析结果。

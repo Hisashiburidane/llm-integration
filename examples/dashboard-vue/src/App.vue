@@ -31,6 +31,24 @@ const rootMetadata = computed(() => dashboardMetadata(dashboardState.config));
 const panelResults = computed(() => new Map(dashboardState.config.panels.map((panel) => [panel.id, resultForPanel(panel)])));
 const filteredEvents = computed(() => traceEvents.value.slice(0, 80));
 const savedViews = computed(() => dashboardState.savedViews);
+const flightOpsAssistantQuestions = [
+  '当前哪个机场的平均延误最高？',
+  '比较各航空公司的准点率。',
+  '哪些小时的严重延误最多？',
+  '当前延误主要由哪些原因构成？',
+  '分析 JFK 18:00-21:00 的延误。',
+  '比较出港和到港的准点率。',
+  '添加航空公司平均延误排名。',
+  '保存当前调查视图。'
+];
+const flightOpsAssistantPrompt = `你是 Flight Ops Assistant，负责协助完成当前航班延误调查。
+
+可直接回答的问题包括：
+${flightOpsAssistantQuestions.map((question, index) => `${index + 1}. ${question}`).join('\n')}
+
+还可以询问机场 P95 延误、晚高峰风险和延误原因贡献，并要求高亮相关 Panel。
+
+分析规则：先读取相关 Panel 数据和当前筛选，再给出基于结果的结论；需要改变范围时使用已注册的筛选能力，需要强调证据时高亮相关 Panel。只能使用当前数据和已注册能力，不要编造航班、原因或因果关系；如果当前 Panel 不足以回答问题，应明确说明数据缺口。`;
 const globalSummary = computed(() => {
   const countPanel = dashboardState.config.panels.find((panel) => panel.id === 'flight-count');
   return countPanel ? resultForPanel(countPanel).summary : { rowCount: 0, source: 'SQLite aviation_flights', query: { datasetId: dashboardState.dataset.id, metrics: [], dimensions: [], filters: [] } };
@@ -123,7 +141,7 @@ function resultFor(id: string) {
 
       <a-alert v-if="dashboardState.dataError" type="error" show-icon :message="dashboardState.dataError" class="data-alert" />
 
-      <Enchant name="aviation-dashboard" page="aviation-dashboard" :metadata="rootMetadata" :capabilities="dashboardCapabilities" prompt="根据当前航班 Dashboard 回答分析请求。先读取相关 Panel 数据，再用最少的已注册能力完成筛选、高亮、添加模板 Panel 或保存视图。不要猜测数据因果关系。">
+      <Enchant name="aviation-dashboard" page="aviation-dashboard" :metadata="rootMetadata" :capabilities="dashboardCapabilities" :prompt="flightOpsAssistantPrompt">
         <section class="dashboard-grid">
           <Enchant
             v-for="panel in dashboardState.config.panels"
@@ -187,7 +205,7 @@ function resultFor(id: string) {
       </a-collapse>
     </a-drawer>
 
-    <Aura page="aviation-dashboard" title="Flight Ops Assistant" />
+    <Aura page="aviation-dashboard" title="Flight Ops Assistant" :prompt="flightOpsAssistantPrompt" :suggestions="flightOpsAssistantQuestions" />
   </div>
 </template>
 
