@@ -201,9 +201,9 @@ export function selectAirport(airport: string) {
   highlightPanels(['airport-status', 'airport-ranking', 'hourly-on-time']);
 }
 
-export function addPanel(templateId: string) {
-  const source = dashboardState.panelLibrary.find((panel) => panel.id === templateId);
-  if (!source) throw new Error(`Panel Library 中不存在：${templateId}。`);
+export function addPanel(panelId: string) {
+  const source = dashboardState.panelLibrary.find((panel) => panel.id === panelId);
+  if (!source) throw new Error(`Panel Library 中不存在：${panelId}。`);
   const count = dashboardState.config.panels.filter((panel) => panel.id.startsWith(source.id)).length;
   const panel = clone(source);
   panel.id = `${source.id}-${count + 1}`;

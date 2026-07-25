@@ -132,13 +132,13 @@ export const dashboardCapabilities: EnchantCapabilityDefinition[] = [
     effect: 'visual',
     inputSchema: {
       type: 'object',
-      required: ['templateId'],
-      properties: { templateId: { type: 'string', minLength: 1, description: 'Panel Library 中的 Panel ID。' } }
+      required: ['panelId'],
+      properties: { panelId: { type: 'string', minLength: 1, description: 'Panel Library 中的 Panel ID。' } }
     },
     execute(input) {
-      const templateId = input && typeof input === 'object' ? String((input as { templateId?: unknown }).templateId ?? '') : '';
-      const panelId = addPanel(templateId);
-      return { status: 'success', summary: `已添加 Panel：${panelId}。`, data: { panelId } };
+      const sourcePanelId = input && typeof input === 'object' ? String((input as { panelId?: unknown }).panelId ?? '') : '';
+      const addedPanelId = addPanel(sourcePanelId);
+      return { status: 'success', summary: `已添加 Panel：${addedPanelId}。`, data: { panelId: addedPanelId } };
     }
   },
   {
