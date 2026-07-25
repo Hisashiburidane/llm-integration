@@ -14,4 +14,10 @@ The command writes:
 - `download-urls.txt`: one BTS archive URL per line;
 - `download-plan.json`: source metadata, target paths, planned transformations, and limitations.
 
-Download the archives yourself and place them under `data/raw/`, then record the SHA-256 checksum in the manifest. Processing those archives into the dashboard fixture is a separate task; until then, the example does not claim to use live or downloaded data.
+If you want the workspace to download the files directly, run:
+
+```bash
+pnpm --filter @enchantforge/dashboard-vue data:download
+```
+
+This reads the generated plan, stores archives under `data/raw/`, and writes checksums to the ignored `data/manifests/download-manifest.json`. You can also download the URLs manually. Processing those archives into the dashboard fixture is a separate task; until then, the example does not claim to use live or downloaded data.

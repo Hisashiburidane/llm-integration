@@ -26,9 +26,10 @@ Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；�
 ```bash
 pnpm --filter @enchantforge/dashboard-vue data:plan
 pnpm --filter @enchantforge/dashboard-vue exec node scripts/generate-aviation-data-plan.mjs --from 2025-07 --to 2025-09
+pnpm --filter @enchantforge/dashboard-vue data:download
 ```
 
-地址清单和 manifest 会写入 `data/download-urls.txt` 与 `data/download-plan.json`。请将手动下载的压缩包放到 `data/raw/`；原始数据接入和清洗仍是后续任务，当前页面不会把下载文件冒充为实时数据。
+地址清单和计划 manifest 会写入 `data/download-urls.txt` 与 `data/download-plan.json`。`data:download` 会按计划下载到 `data/raw/` 并写入 SHA-256 清单；原始数据接入和清洗仍是后续任务，当前页面不会把下载文件冒充为实时数据。
 
 ## Example requests
 
