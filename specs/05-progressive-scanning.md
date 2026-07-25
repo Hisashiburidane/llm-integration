@@ -190,7 +190,7 @@ element.dispatchEvent(new Event('blur', { bubbles: true }));
 - tab changes
 - disabled state changes
 
-主动观察只在 `snapshots.autoCapture` 或 Enchant debug 插件启用时开启。实现选项：
+主动观察只在 `snapshots.autoCapture` 或 Enchant debug 插件启用，且该边界显式启用 DOM scanner 时开启。`scan="none"` 的边界不观察 DOM；这可以避免 ECharts 等可视化组件的内部渲染 mutation 被误判为页面语义变化。实现选项：
 
 - Vue lifecycle hooks
 - MutationObserver within scope root

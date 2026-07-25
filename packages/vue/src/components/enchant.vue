@@ -230,7 +230,9 @@ function configureObservation(enabled: boolean) {
   stopStateWatch = undefined;
   if (!enabled || !rootEl.value) return;
 
-  if (globalThis.MutationObserver) {
+  // Do not observe arbitrary visualization DOM when this boundary has no scanner.
+  const scanMode = typeof props.scan === 'string' ? props.scan : (props.scan?.mode ?? 'none');
+  if (scanMode !== 'none' && globalThis.MutationObserver) {
     observer = new MutationObserver(invalidate);
     observer.observe(rootEl.value, {
       childList: true,
@@ -244,7 +246,6 @@ function configureObservation(enabled: boolean) {
         'readonly',
         'required',
         'value',
-        'class',
         'data-enchant-node',
         'data-enchant-ignore'
       ]
