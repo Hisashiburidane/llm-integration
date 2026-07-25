@@ -98,6 +98,8 @@ forge.use(createEnchantDebug({
 
 插件安装到 Vue app 后会自动在页面右下角显示 Debug 控件。点击后可以查看当前 digest、navigation、policy、snapshot、capability exporter 和 execution trace；`overlay: false` 只启用 snapshot 观察，不挂载页面控件。该控件是诊断入口，不参与 Aura 会话和业务执行。
 
+控件徽标显示的是 trace event 数量，不是 registry version。一次 agent run 会记录 capture、request、planning、execution 和 completed 等运行事件，因此该数字会增长；页面合约版本只看 drawer 中的 `version` 字段。
+
 ## 6. 嵌套边界
 
 父 Enchant 的 DOM scanner 遇到子 `[data-enchant]` 时停止向下采集。父 snapshot 通过 registration 父子关系表达层级，不复制子边界的字段和文字。

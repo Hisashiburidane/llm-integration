@@ -42,7 +42,7 @@ function stringify(value: unknown) {
     >
       <span class="debug-glyph">&gt;_</span>
       <span>Debug</span>
-      <span class="debug-count">{{ events.length }}</span>
+      <span class="debug-count" :title="`${events.length} trace events`">trace {{ events.length }}</span>
     </button>
 
     <Transition name="debug-fade">

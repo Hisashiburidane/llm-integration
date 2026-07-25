@@ -371,6 +371,29 @@ test('default agent maps native function calls back to capabilities', async () =
   assert.equal(result.results[0].ok, true);
 });
 
+test('capture and agent run add trace events without changing registry version', async () => {
+  const forge = createEnchantForge({
+    agent: {
+      async plan({ snapshot }) {
+        return {
+          message: 'stable contract',
+          snapshotVersion: snapshot.version,
+          calls: []
+        };
+      }
+    }
+  });
+  forge.registry.register(createRegistration());
+  const initialVersion = forge.registry.version.value;
+  const initialTraceCount = forge.events.length;
+
+  forge.capture();
+  await forge.run({ input: 'inspect' });
+
+  assert.equal(forge.registry.version.value, initialVersion);
+  assert.ok(forge.events.length > initialTraceCount);
+});
+
 test('forge replans once when the registry changes during planning', async () => {
   let forge;
   let attempts = 0;
