@@ -1,0 +1,27 @@
+{
+  "datasetId": "online-retail-ii",
+  "name": "Online Retail II",
+  "topic": "ecommerce",
+  "status": "ready",
+  "provider": "UCI Machine Learning Repository",
+  "sourcePage": "https://archive.ics.uci.edu/dataset/502/online%2Bretail%2Bii",
+  "license": "CC BY 4.0",
+  "files": [
+    {
+      "name": "online_retail_ii.zip",
+      "url": "https://archive.ics.uci.edu/static/public/502/online%2Bretail%2Bii.zip",
+      "downloadTo": "data/online-retail-ii/raw/online_retail_ii.zip",
+      "checksum": "pending: calculate SHA-256 after download"
+    }
+  ],
+  "commands": [],
+  "transformations": [
+    "read online_retail_II.xlsx",
+    "derive lineAmount = Quantity * UnitPrice",
+    "flag cancellations from InvoiceNo"
+  ],
+  "limitations": [
+    "transaction history covers 2009-12-01 through 2011-12-09",
+    "does not contain browsing, advertising, inventory, or logistics events"
+  ]
+}

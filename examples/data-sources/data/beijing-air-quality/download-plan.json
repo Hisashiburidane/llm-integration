@@ -1,0 +1,27 @@
+{
+  "datasetId": "beijing-air-quality",
+  "name": "Beijing Multi-Site Air Quality",
+  "topic": "air-quality",
+  "status": "ready",
+  "provider": "UCI Machine Learning Repository",
+  "sourcePage": "https://archive.ics.uci.edu/dataset/501/beijingmultisiteairqualitydata",
+  "license": "CC BY 4.0",
+  "files": [
+    {
+      "name": "beijing_multi_site_air_quality.zip",
+      "url": "https://archive.ics.uci.edu/static/public/501/beijing%2Bmulti%2Bsite%2Bair%2Bquality%2Bdata.zip",
+      "downloadTo": "data/beijing-air-quality/raw/beijing_multi_site_air_quality.zip",
+      "checksum": "pending: calculate SHA-256 after download"
+    }
+  ],
+  "commands": [],
+  "transformations": [
+    "unpack station CSV files",
+    "parse year/month/day/hour into timestamp",
+    "preserve NA as missing values"
+  ],
+  "limitations": [
+    "hourly historical observations cover 2013-03-01 through 2017-02-28",
+    "missing values are present in the source data"
+  ]
+}

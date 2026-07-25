@@ -1,0 +1,33 @@
+{
+  "datasetId": "nyc-taxi",
+  "name": "NYC TLC Yellow Taxi Trips",
+  "topic": "urban-mobility",
+  "status": "ready",
+  "provider": "New York City Taxi and Limousine Commission",
+  "sourcePage": "https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page",
+  "license": "Provider terms; verify before redistribution",
+  "files": [
+    {
+      "name": "yellow_tripdata_2025-01.parquet",
+      "url": "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2025-01.parquet",
+      "downloadTo": "data/nyc-taxi/raw/yellow_tripdata_2025-01.parquet",
+      "checksum": "pending: calculate SHA-256 after download"
+    },
+    {
+      "name": "taxi_zone_lookup.csv",
+      "url": "https://d37ci6vzurychx.cloudfront.net/misc/taxi_zone_lookup.csv",
+      "downloadTo": "data/nyc-taxi/raw/taxi_zone_lookup.csv",
+      "checksum": "pending: calculate SHA-256 after download"
+    }
+  ],
+  "commands": [],
+  "transformations": [
+    "join pickup/drop-off location IDs with taxi_zone_lookup.csv",
+    "derive trip duration and pickup hour",
+    "validate fare and distance ranges"
+  ],
+  "limitations": [
+    "TLC notes that trip records are supplied by technology providers and may not be complete or fully accurate",
+    "Parquet schema can change across periods"
+  ]
+}

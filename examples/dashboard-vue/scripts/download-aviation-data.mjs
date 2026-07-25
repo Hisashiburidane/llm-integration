@@ -28,6 +28,7 @@ Options:
 function parseArgs(argv) {
   const options = { force: false }
   for (const argument of argv) {
+    if (argument === '--') continue
     if (argument === '--help') {
       usage()
       process.exit(0)

@@ -1,0 +1,24 @@
+{
+  "datasetId": "otel-demo",
+  "name": "OpenTelemetry Demo Observability",
+  "topic": "cloud-observability",
+  "status": "collect",
+  "provider": "OpenTelemetry project",
+  "sourcePage": "https://opentelemetry.io/docs/demo/",
+  "license": "See the OpenTelemetry Demo repository license",
+  "files": [],
+  "commands": [
+    "git clone https://github.com/open-telemetry/opentelemetry-demo.git",
+    "cd opentelemetry-demo && make start",
+    "capture metrics, logs, and traces from the running demo before creating a fixture"
+  ],
+  "transformations": [
+    "export telemetry from the running demo",
+    "record fault injection and recovery windows",
+    "preserve service, instance, node, and trace relationships"
+  ],
+  "limitations": [
+    "this is a reproducible collection workflow, not a static download",
+    "do not present synthetic demo telemetry as production data"
+  ]
+}

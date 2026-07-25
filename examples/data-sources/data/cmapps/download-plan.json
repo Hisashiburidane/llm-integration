@@ -1,0 +1,16 @@
+{
+  "datasetId": "cmapps",
+  "name": "NASA C-MAPSS Engine Health",
+  "topic": "predictive-maintenance",
+  "status": "unavailable",
+  "provider": "NASA Open Data Portal",
+  "sourcePage": "https://data.nasa.gov/dataset/c-mapss-aircraft-engine-simulator-data",
+  "license": "Not specified by the provider",
+  "files": [],
+  "commands": [],
+  "transformations": [],
+  "limitations": [
+    "NASA currently marks C-MAPSS and C-MAPSS40K as unavailable for download",
+    "do not substitute an unverified mirror and call it NASA data"
+  ]
+}

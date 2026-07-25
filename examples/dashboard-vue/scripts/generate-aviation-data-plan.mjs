@@ -60,6 +60,7 @@ function parseArgs(argv) {
   const options = { from: DEFAULT_FROM, to: DEFAULT_TO }
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]
+    if (argument === '--') continue
     if (argument === '--help') {
       usage()
       process.exit(0)

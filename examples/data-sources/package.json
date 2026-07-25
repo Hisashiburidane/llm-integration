@@ -1,0 +1,10 @@
+{
+  "name": "@enchantforge/data-sources",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "data:plan": "node scripts/generate-data-plans.mjs",
+    "data:download": "node scripts/download-data-plans.mjs"
+  }
+}
