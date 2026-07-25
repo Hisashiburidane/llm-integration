@@ -1,0 +1,246 @@
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { aviationDashboard } from './dashboard-config.mjs';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const defaultDatabase = path.resolve(here, '../../data-sources/data/dashboard.sqlite');
+const database = path.resolve(process.env.DASHBOARD_DB || defaultDatabase);
+const port = Number(process.env.DASHBOARD_DATA_PORT || 5176);
+const maxBodySize = 1024 * 1024;
+
+const dimensions = {
+  date: 'flight_date',
+  hour: 'hour',
+  airport: 'origin',
+  destination: 'destination',
+  carrier: 'carrier',
+  direction: 'direction',
+  delayCause: 'delay_cause',
+  flightId: 'flight_id'
+};
+
+const metricSql = {
+  flightCount: 'COUNT(*)',
+  onTimeRate: 'AVG(on_time)',
+  averageDepartureDelay: 'AVG(dep_delay)',
+  cancellationRate: 'AVG(cancelled)',
+  severeDelayCount: 'SUM(severe_delay)',
+  delayMinutes: 'SUM(delay_minutes)'
+};
+
+function sendJson(response, status, body) {
+  const payload = JSON.stringify(body);
+  response.writeHead(status, {
+    'content-type': 'application/json; charset=utf-8',
+    'access-control-allow-origin': '*',
+    'cache-control': 'no-store'
+  });
+  response.end(payload);
+}
+
+function sqlString(value) {
+  return `'${String(value).replaceAll("'", "''")}'`;
+}
+
+function sqlValue(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  if (typeof value === 'boolean') return value ? '1' : '0';
+  return sqlString(value);
+}
+
+function validateQuery(query) {
+  if (!query || query.datasetId !== 'aviation_ontime_demo') throw new Error('不支持的数据集。');
+  if (!Array.isArray(query.metrics) || query.metrics.length === 0) throw new Error('QuerySpec 至少需要一个指标。');
+  if (!Array.isArray(query.dimensions) || !Array.isArray(query.filters)) throw new Error('QuerySpec 结构无效。');
+  for (const item of query.metrics) {
+    if (!metricSql[item.metricId] && item.metricId !== 'p95DepartureDelay') throw new Error(`未知指标：${item.metricId}。`);
+  }
+  for (const item of query.dimensions) {
+    if (!dimensions[item.dimensionId]) throw new Error(`未知维度：${item.dimensionId}。`);
+  }
+  if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
+    throw new Error('QuerySpec limit 必须是 1 到 100 的整数。');
+  }
+  if (query.timeRange && (!Number.isInteger(query.timeRange.startHour) || !Number.isInteger(query.timeRange.endHour)
+    || query.timeRange.startHour < 0 || query.timeRange.endHour > 23 || query.timeRange.startHour > query.timeRange.endHour)) {
+    throw new Error('时间范围必须位于 0-23 小时之间。');
+  }
+}
+
+function whereClause(query) {
+  const clauses = [];
+  for (const filter of query.filters) {
+    const field = dimensions[filter.dimensionId];
+    if (!field) throw new Error(`未知过滤维度：${filter.dimensionId}。`);
+    if (filter.operator === 'eq' || filter.operator === 'neq' || filter.operator === 'gte' || filter.operator === 'lte') {
+      clauses.push(`${field} ${filter.operator === 'eq' ? '=' : filter.operator === 'neq' ? '!=' : filter.operator === 'gte' ? '>=' : '<='} ${sqlValue(filter.value)}`);
+    } else if (filter.operator === 'in' && Array.isArray(filter.value) && filter.value.length) {
+      clauses.push(`${field} IN (${filter.value.map(sqlValue).join(', ')})`);
+    } else if (filter.operator === 'between' && Array.isArray(filter.value) && filter.value.length === 2) {
+      clauses.push(`${field} BETWEEN ${sqlValue(filter.value[0])} AND ${sqlValue(filter.value[1])}`);
+    } else if (filter.operator === 'neq' && filter.value === undefined) {
+      throw new Error('过滤条件值无效。');
+    } else {
+      throw new Error(`不支持的过滤条件：${filter.operator}。`);
+    }
+  }
+  if (query.timeRange) clauses.push(`hour BETWEEN ${query.timeRange.startHour} AND ${query.timeRange.endHour}`);
+  return clauses.length ? clauses.join(' AND ') : '1 = 1';
+}
+
+function buildSql(query) {
+  validateQuery(query);
+  const groupFields = query.dimensions.map((item) => dimensions[item.dimensionId]);
+  const groupAliases = query.dimensions.map((item) => item.alias || item.dimensionId);
+  const groupSql = groupFields.length ? groupFields.join(', ') : '';
+  const partitionSql = groupFields.length ? groupFields.join(', ') : '1';
+  const hasP95 = query.metrics.some((item) => item.metricId === 'p95DepartureDelay');
+  const base = `SELECT *, COUNT(*) OVER() AS __row_count FROM aviation_flights WHERE ${whereClause(query)}`;
+  const source = hasP95
+    ? `ranked AS (SELECT base.*, ROW_NUMBER() OVER (PARTITION BY ${partitionSql} ORDER BY dep_delay) AS __rank, COUNT(*) OVER (PARTITION BY ${partitionSql}) AS __group_count FROM base)`
+    : 'ranked AS (SELECT * FROM base)';
+  const selections = [
+    ...groupFields.map((field, index) => `${field} AS ${groupAliases[index]}`),
+    ...query.metrics.map((item) => {
+      if (item.metricId === 'p95DepartureDelay') return `MAX(CASE WHEN __rank = CAST((__group_count * 95 + 99) / 100 AS INTEGER) THEN dep_delay END) AS ${item.alias || item.metricId}`;
+      return `${metricSql[item.metricId]} AS ${item.alias || item.metricId}`;
+    }),
+    'MAX(__row_count) AS __row_count'
+  ];
+  const grouping = groupSql ? ` GROUP BY ${groupSql} ORDER BY ${groupSql}` : '';
+  return `WITH base AS (${base}), ${source} SELECT ${selections.join(', ')} FROM ranked${grouping} LIMIT ${query.limit || 100}`;
+}
+
+function runSql(sql, { readonly = true } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!existsSync(database)) {
+      reject(new Error(`SQLite 数据库不存在：${database}。请先运行 data:process。`));
+      return;
+    }
+    const child = spawn('sqlite3', [...(readonly ? ['-readonly'] : []), '-json', database], { stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', (error) => reject(new Error(`无法启动 sqlite3：${error.message}`)));
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || `sqlite3 退出码：${code}`));
+        return;
+      }
+      try {
+        resolve(stdout.trim() ? JSON.parse(stdout) : []);
+      } catch (error) {
+        reject(new Error(`SQLite 返回了无效 JSON：${error instanceof Error ? error.message : String(error)}`));
+      }
+    });
+    child.stdin.end(`${sql};\n`);
+  });
+}
+
+async function ensureDashboardConfig() {
+  if (!existsSync(database)) return;
+  const statements = [
+    'CREATE TABLE IF NOT EXISTS dashboard_configs (id TEXT PRIMARY KEY, topic_id TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, source_manifest_json TEXT NOT NULL, dataset_json TEXT NOT NULL)',
+    'CREATE TABLE IF NOT EXISTS dashboard_panels (id TEXT PRIMARY KEY, dashboard_id TEXT NOT NULL, template_id TEXT, is_template INTEGER NOT NULL DEFAULT 0, sort_order INTEGER NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, query_json TEXT NOT NULL, visualization_json TEXT, layout_json TEXT NOT NULL, FOREIGN KEY (dashboard_id) REFERENCES dashboard_configs(id))',
+    'CREATE INDEX IF NOT EXISTS idx_dashboard_panels_dashboard ON dashboard_panels(dashboard_id, is_template, sort_order)'
+  ];
+  const config = aviationDashboard;
+  try {
+    await runSql("ALTER TABLE dashboard_configs ADD COLUMN dataset_json TEXT NOT NULL DEFAULT '{}'", { readonly: false });
+  } catch (error) {
+    if (!String(error).includes('duplicate column name')) throw error;
+  }
+  const insertConfig = `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json) VALUES (${sqlString(config.id)}, ${sqlString(config.topicId)}, ${sqlString(config.title)}, ${sqlString(config.description)}, ${sqlString(JSON.stringify(config.sourceManifest))}, ${sqlString(JSON.stringify(config.dataset))}) ON CONFLICT(id) DO UPDATE SET topic_id = excluded.topic_id, title = excluded.title, description = excluded.description, source_manifest_json = excluded.source_manifest_json, dataset_json = excluded.dataset_json`;
+  const allPanels = [
+    ...config.panels.map((panel, index) => ({ ...panel, sortOrder: index, isTemplate: 0, templateId: null })),
+    ...config.panelTemplates.map((panel, index) => ({ ...panel, sortOrder: index, isTemplate: 1, templateId: panel.id }))
+  ];
+  const inserts = allPanels.map((panel) => `INSERT OR IGNORE INTO dashboard_panels (id, dashboard_id, template_id, is_template, sort_order, type, title, description, query_json, visualization_json, layout_json) VALUES (${sqlString(panel.id)}, ${sqlString(config.id)}, ${panel.templateId ? sqlString(panel.templateId) : 'NULL'}, ${panel.isTemplate}, ${panel.sortOrder}, ${sqlString(panel.type)}, ${sqlString(panel.title)}, ${sqlString(panel.description)}, ${sqlString(JSON.stringify(panel.query))}, ${panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL'}, ${sqlString(JSON.stringify(panel.layout))})`);
+  await runSql(`${statements.join(';')}; ${insertConfig}; ${inserts.join(';')}`, { readonly: false });
+}
+
+async function readConfig() {
+  const configs = await runSql('SELECT id, topic_id, title, description, source_manifest_json, dataset_json FROM dashboard_configs LIMIT 1');
+  if (!configs.length) throw new Error('Dashboard 配置尚未初始化。');
+  const config = configs[0];
+  const panels = await runSql(`SELECT id, type, title, description, query_json, visualization_json, layout_json FROM dashboard_panels WHERE dashboard_id = ${sqlString(config.id)} AND is_template = 0 ORDER BY sort_order`);
+  const templates = await runSql(`SELECT id, type, title, description, query_json, visualization_json, layout_json FROM dashboard_panels WHERE dashboard_id = ${sqlString(config.id)} AND is_template = 1 ORDER BY sort_order`);
+  const airports = await runSql('SELECT DISTINCT origin AS value FROM aviation_flights WHERE origin <> \'\' ORDER BY origin');
+  const carriers = await runSql('SELECT DISTINCT carrier AS value FROM aviation_flights WHERE carrier <> \'\' ORDER BY carrier');
+  const parsePanel = (panel) => ({ id: panel.id, type: panel.type, title: panel.title, description: panel.description, query: JSON.parse(panel.query_json), ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: JSON.parse(panel.layout_json) });
+  return {
+    id: config.id,
+    topicId: config.topic_id,
+    title: config.title,
+    description: config.description,
+    sourceManifest: JSON.parse(config.source_manifest_json),
+    dataset: JSON.parse(config.dataset_json),
+    panels: panels.map(parsePanel),
+    panelTemplates: templates.map(parsePanel),
+    facets: { airports: airports.map((item) => item.value), carriers: carriers.map((item) => item.value) }
+  };
+}
+
+async function readBody(request) {
+  let body = '';
+  for await (const chunk of request) {
+    body += chunk;
+    if (body.length > maxBodySize) throw new Error('请求体过大。');
+  }
+  return JSON.parse(body || '{}');
+}
+
+const server = createServer(async (request, response) => {
+  if (request.method === 'OPTIONS') {
+    response.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'content-type' });
+    response.end();
+    return;
+  }
+  if (request.method === 'GET' && request.url === '/api/dashboard/health') {
+    try {
+      const rows = await runSql('SELECT COUNT(*) AS flight_count FROM aviation_flights');
+      sendJson(response, 200, { status: 'ok', database, flightCount: rows[0]?.flight_count ?? 0 });
+    } catch (error) {
+      sendJson(response, 503, { status: 'error', error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+  if (request.method === 'GET' && request.url === '/api/dashboard/config') {
+    try {
+      sendJson(response, 200, await readConfig());
+    } catch (error) {
+      sendJson(response, 503, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+  if (request.method === 'POST' && request.url === '/api/dashboard/query') {
+    try {
+      const query = await readBody(request);
+      const rows = await runSql(buildSql(query));
+      const rowCount = Number(rows[0]?.__row_count ?? 0);
+      rows.forEach((row) => { delete row.__row_count; });
+      sendJson(response, 200, {
+        columns: [...query.dimensions.map((item) => item.alias || item.dimensionId), ...query.metrics.map((item) => item.alias || item.metricId)],
+        rows,
+        summary: { rowCount, source: 'SQLite aviation_flights', query }
+      });
+    } catch (error) {
+      sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+  sendJson(response, 404, { error: 'Not found' });
+});
+
+ensureDashboardConfig()
+  .then(() => server.listen(port, '127.0.0.1', () => {
+    console.log(`[dashboard-data] http://127.0.0.1:${port} -> ${database}`);
+  }))
+  .catch((error) => {
+    console.error(`[dashboard-data] ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  });

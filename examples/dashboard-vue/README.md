@@ -1,6 +1,6 @@
 # Dashboard Vue
 
-这是一个独立的 Vue Dashboard 示例，当前实现航班运行与延误分析专题。它使用固定、确定性的演示 fixture，不代表实时机场数据；来源和限制见页面底部及 `src/data/aviation.ts`。
+这是一个独立的 Vue Dashboard 示例，当前实现航班运行与延误分析专题。开发服务从 `examples/data-sources/data/dashboard.sqlite` 查询已清洗的 BTS 航班数据；来源和限制由 Node 配置服务返回。
 
 ## Run
 
@@ -8,6 +8,20 @@
 cp .env.example .env
 pnpm --filter @enchantforge/dashboard-vue dev
 ```
+
+`dev` 会同时启动 Vite 和 Node 数据查询服务。先准备 SQLite：
+
+```bash
+pnpm --filter @enchantforge/data-sources data:process -- --dataset aviation-ontime
+```
+
+也可以单独启动查询服务：
+
+```bash
+pnpm --filter @enchantforge/dashboard-vue data:serve
+```
+
+默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把航班明细打包进浏览器。
 
 LLM 配置使用 OpenAI-compatible Chat Completions endpoint：
 
@@ -21,14 +35,14 @@ Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；�
 
 ## BTS data
 
-示例默认使用 `src/data/aviation.ts` 中的固定 fixture。航班原始数据由统一的 `@enchantforge/data-sources` 工具管理：
+航班原始数据由统一的 `@enchantforge/data-sources` 工具管理：
 
 ```bash
 pnpm --filter @enchantforge/data-sources data:plan -- --dataset aviation-ontime
 pnpm --filter @enchantforge/data-sources data:download -- --dataset aviation-ontime
 ```
 
-地址清单和计划 manifest 会写入 `examples/data-sources/data/aviation-ontime/`。原始数据接入和清洗仍是后续任务，当前页面不会把下载文件冒充为实时数据。
+地址清单、下载文件和清洗后的 SQLite 会写入 `examples/data-sources/data/`。如果数据库不存在，Node 服务会返回明确错误，不会回退到伪造的分析结果。
 
 ## Example requests
 

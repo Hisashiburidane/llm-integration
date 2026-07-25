@@ -9,14 +9,16 @@
 - [x] 实现全局筛选、Panel 选择联动和视图保存/恢复。
 - [x] 为 Dashboard 与 Panel 注册 Enchant metadata/capability。
 - [x] 接入 Aura、Debug overlay 和页面内 Trace 抽屉。
-- [x] 提供固定、可审计的航班演示 fixture 与来源说明。
+- [x] 提供可审计的航班数据来源、清洗结果和来源说明。
 - [x] 在统一 `examples/data-sources` 中登记 BTS 月度地址、目标目录和数据治理 manifest 模板。
 - [x] 通过统一数据源下载器下载 BTS 原始压缩包并生成 SHA-256 manifest。
+- [x] 使用 uv/Typer 清洗 BTS 航班数据并写入 SQLite `aviation_flights`。
+- [x] 通过 Node 开发服务从 SQLite 提供 Dashboard 配置、Panel、QuerySpec 和聚合查询结果。
 
 ## 下一步
 
-- [ ] 手动下载并固化一份 BTS/公开航班准点数据，补充真实 checksum、许可和清洗脚本。
-- [ ] 将 QuerySpec 编译到 DuckDB 或轻量 FastAPI 查询服务；保留本地 fixture fallback。
+- [ ] 补充更多月份的 BTS 数据并完善真实 checksum、许可和清洗覆盖范围。
+- [ ] 将 Node 查询服务扩展为可替换的生产查询适配器；不回退到本地 fixture。
 - [ ] 增加航班明细抽屉、航线下钻和可逆的 Panel 删除/撤销操作。
 - [ ] 增加操作 Trace 的 state before/after、耗时、失败码和撤销入口。
 - [ ] 为 AI 创建 Panel 增加 QuerySpec/PanelConfig 双重校验和模板白名单。
@@ -29,6 +31,6 @@
 ## 明确不做
 
 - [ ] 不在示例中生成或执行任意 SQL/JavaScript。
-- [ ] 不把固定 fixture 描述为实时生产数据。
+- [x] 不把清洗后的快照描述为实时生产数据。
 - [ ] 不在 Core 中加入 Dataset、Panel、Dashboard 或航班判断。
 - [ ] 不在首个增量实现完整 BI 权限、多租户、拖拽低代码和实时流处理。

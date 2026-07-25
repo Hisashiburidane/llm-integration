@@ -1,7 +1,7 @@
 import { reactive, toRaw } from 'vue';
-import { aviationDataset, aviationPanelTemplates, defaultAviationPanels } from '../data/aviation';
-import { runQuery } from '../query/engine';
-import type { DashboardConfig, DashboardFilters, DashboardView, PanelConfig, QueryResult, QuerySpec } from '../model/types';
+import { aviationDataset, aviationPanelTemplates, aviationSourceManifest, defaultAviationPanels, metricById } from '../data/aviation';
+import { queryDashboard } from '../query/client';
+import type { DashboardConfig, DashboardFilters, DashboardView, DatasetDefinition, PanelConfig, QueryResult, QuerySpec } from '../model/types';
 
 const defaultFilters: DashboardFilters = {
   airport: 'ALL',
@@ -16,6 +16,15 @@ function clone<T>(value: T): T {
 
 export const dashboardState = reactive<{
   config: DashboardConfig;
+  defaultPanels: PanelConfig[];
+  panelTemplates: PanelConfig[];
+  airports: string[];
+  carriers: string[];
+  dataset: DatasetDefinition;
+  sourceManifest: typeof aviationSourceManifest;
+  panelResults: Map<string, QueryResult>;
+  dataLoading: boolean;
+  dataError: string;
   filters: DashboardFilters;
   highlightedPanelIds: string[];
   selectedPanelId: string;
@@ -27,9 +36,18 @@ export const dashboardState = reactive<{
     id: 'aviation-operations',
     topicId: 'aviation',
     title: 'Flight Operations / Delay Analysis',
-    description: '固定航班运行演示数据上的可寻址、可联动 Dashboard。',
+    description: '基于 BTS 航班运行数据的可寻址、可联动 Dashboard。',
     panels: defaultAviationPanels.map((panel) => clone(panel))
   },
+  defaultPanels: defaultAviationPanels.map((panel) => clone(panel)),
+  panelTemplates: aviationPanelTemplates.map((panel) => clone(panel)),
+  airports: ['JFK', 'LGA', 'EWR'],
+  carriers: ['AA', 'DL', 'UA', 'B6'],
+  dataset: aviationDataset,
+  sourceManifest: aviationSourceManifest,
+  panelResults: new Map(),
+  dataLoading: false,
+  dataError: '',
   filters: clone(defaultFilters),
   highlightedPanelIds: [],
   selectedPanelId: '',
@@ -56,16 +74,63 @@ export function queryForPanel(panel: PanelConfig): QuerySpec {
 
 export function resultForPanel(panel: PanelConfig): QueryResult {
   const query = queryForPanel(panel);
+  return dashboardState.panelResults.get(panel.id) ?? {
+    columns: [],
+    rows: [],
+    error: dashboardState.dataError || (dashboardState.dataLoading ? '正在从 SQLite 加载数据。' : '数据尚未加载。'),
+    summary: { rowCount: 0, source: 'SQLite aviation_flights', query }
+  };
+}
+
+export async function loadDashboardConfig() {
+  dashboardState.dataLoading = true;
+  dashboardState.dataError = '';
   try {
-    return runQuery(query);
+    const response = await fetch('/api/dashboard/config');
+    const payload = await response.json() as {
+      id: string;
+      topicId: string;
+      title: string;
+      description: string;
+      sourceManifest: typeof aviationSourceManifest;
+      dataset: DatasetDefinition;
+      panels: PanelConfig[];
+      panelTemplates: PanelConfig[];
+      facets: { airports: string[]; carriers: string[] };
+    } & { error?: string };
+    if (!response.ok || payload.error) throw new Error(payload.error || `Dashboard 配置请求失败（${response.status}）。`);
+    dashboardState.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: payload.panels.map((panel) => clone(panel)) };
+    dashboardState.defaultPanels = payload.panels.map((panel) => clone(panel));
+    dashboardState.panelTemplates = payload.panelTemplates.map((panel) => clone(panel));
+    dashboardState.airports = payload.facets.airports;
+    dashboardState.carriers = payload.facets.carriers;
+    dashboardState.dataset = payload.dataset;
+    metricById.clear();
+    payload.dataset.metrics.forEach((metric) => metricById.set(metric.id, metric));
+    dashboardState.sourceManifest = payload.sourceManifest;
+    await refreshDashboardData();
   } catch (error) {
-    return {
-      columns: [],
-      rows: [],
-      error: error instanceof Error ? error.message : '查询执行失败。',
-      summary: { rowCount: 0, source: 'query validation failed', query }
-    };
+    dashboardState.dataError = error instanceof Error ? error.message : 'Dashboard 配置加载失败。';
+  } finally {
+    dashboardState.dataLoading = false;
   }
+}
+
+export async function refreshDashboardData() {
+  const panels = dashboardState.config.panels.map((panel) => clone(panel));
+  dashboardState.dataLoading = true;
+  const results = await Promise.all(panels.map(async (panel) => {
+    try {
+      return [panel.id, await queryDashboard(queryForPanel(panel))] as const;
+    } catch (error) {
+      const query = queryForPanel(panel);
+      const result: QueryResult = { columns: [], rows: [], error: error instanceof Error ? error.message : '查询执行失败。', summary: { rowCount: 0, source: 'SQLite aviation_flights', query } };
+      return [panel.id, result] as const;
+    }
+  }));
+  dashboardState.panelResults.clear();
+  results.forEach(([id, result]) => dashboardState.panelResults.set(id, result));
+  dashboardState.dataLoading = false;
 }
 
 export function setGlobalFilter(field: 'airport' | 'carrier' | 'direction', value: string) {
@@ -93,14 +158,14 @@ export function highlightPanels(panelIds: string[]) {
 }
 
 export function selectAirport(airport: string) {
-  if (!['JFK', 'LGA', 'EWR'].includes(airport)) throw new Error(`未知机场：${airport}。`);
+  if (!dashboardState.airports.includes(airport)) throw new Error(`未知机场：${airport}。`);
   dashboardState.selectedAirport = airport;
   setGlobalFilter('airport', airport);
   highlightPanels(['airport-status', 'airport-ranking', 'hourly-on-time']);
 }
 
 export function addPanel(templateId: string) {
-  const template = aviationPanelTemplates.find((panel) => panel.id === templateId);
+  const template = dashboardState.panelTemplates.find((panel) => panel.id === templateId);
   if (!template) throw new Error(`未知 Panel 模板：${templateId}。`);
   const count = dashboardState.config.panels.filter((panel) => panel.id.startsWith(template.id)).length;
   const panel = clone(template);
@@ -113,7 +178,7 @@ export function addPanel(templateId: string) {
 
 export function resetDashboard() {
   dashboardState.filters = clone(defaultFilters);
-  dashboardState.config.panels = defaultAviationPanels.map((panel) => clone(panel));
+  dashboardState.config.panels = dashboardState.defaultPanels.map((panel) => clone(panel));
   dashboardState.highlightedPanelIds = [];
   dashboardState.selectedPanelId = '';
   dashboardState.selectedAirport = '';
@@ -152,7 +217,7 @@ export function panelContext(panelId: string) {
     title: panel.title,
     description: panel.description,
     type: panel.type,
-    datasetId: aviationDataset.id,
+    datasetId: dashboardState.dataset.id,
     metrics: panel.query.metrics.map((metric) => metric.metricId),
     dimensions: panel.query.dimensions.map((dimension) => dimension.dimensionId),
     filters: queryForPanel(panel).filters,
@@ -168,6 +233,7 @@ export function dashboardContext() {
     topicId: dashboardState.config.topicId,
     filters: dashboardState.filters,
     panels: dashboardState.config.panels.map((panel) => ({ id: panel.id, title: panel.title, type: panel.type })),
+    dataset: dashboardState.dataset.id,
     highlightedPanelIds: dashboardState.highlightedPanelIds,
     selectedAirport: dashboardState.selectedAirport,
     lastAction: dashboardState.lastAction

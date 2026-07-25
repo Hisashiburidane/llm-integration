@@ -1,13 +1,14 @@
 # Aviation data directory
 
-The dashboard currently runs with the deterministic fixture in `src/data/aviation.ts`.
-This directory is reserved for the public BTS data workflow.
+The dashboard reads its panel configuration and query results from the Node data service backed by `examples/data-sources/data/dashboard.sqlite`.
+`src/data/aviation.ts` is retained only as a typed migration fallback; it is not used as the page data source after the service starts.
 
 这里有三种不同状态，不要混为一谈：
 
-- `src/data/aviation.ts`：页面当前实际使用的固定演示 fixture；
+- `src/data/aviation.ts`：迁移期间的类型和默认值兜底，不作为页面数据源；
 - `examples/data-sources/data/aviation-ontime/raw/*.zip`：通过下面命令下载的 BTS 原始压缩包；
-- 原始压缩包接入查询引擎：尚未完成，当前页面不会自动读取原始压缩包。
+- `examples/data-sources/data/dashboard.sqlite`：清洗后的 `aviation_flights` 及 Node 服务写入的 Dashboard 配置表；
+- `scripts/query-server.mjs`：从 SQLite 读取配置、Panel、QuerySpec 和聚合结果。
 
 ## 可直接下载
 
@@ -51,7 +52,13 @@ To download the files directly, run:
 pnpm --filter @enchantforge/data-sources data:download -- --dataset aviation-ontime
 ```
 
-This reads the generated plan, stores archives under the unified `data-sources` directory, and writes a checksum file. Processing those archives into the dashboard fixture is a separate task; until then, the example does not claim to use live or downloaded data.
+This reads the generated plan, stores archives under the unified `data-sources` directory, and writes a checksum file. Processing those archives into SQLite is a separate command:
+
+```bash
+pnpm --filter @enchantforge/data-sources data:process -- --dataset aviation-ontime
+```
+
+The dashboard does not claim to be a live operational feed; it reads the downloaded and cleaned snapshot selected by the local SQLite database.
 
 The unified `data:download` supports:
 

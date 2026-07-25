@@ -3,8 +3,8 @@ import type { DatasetDefinition, FlightRecord, MetricDefinition, PanelConfig, Qu
 export const aviationDataset: DatasetDefinition = {
   id: 'aviation_ontime_demo',
   name: 'Flight operations delay analysis',
-  description: 'A fixed, deterministic flight-delay fixture shaped after public on-time performance fields.',
-  sourceLabel: 'Deterministic demo fixture; not live operations data',
+  description: 'BTS 航班运行数据清洗后的出港和到港记录。',
+  sourceLabel: 'SQLite aviation_flights; BTS On-Time Performance',
   entities: [
     { id: 'flight', label: '航班', description: '单个航班运行记录。', idField: 'flightId', displayField: 'flightId' },
     { id: 'airport', label: '机场', description: '出发机场和到达机场。', idField: 'origin', displayField: 'origin' },
@@ -176,11 +176,11 @@ export const defaultAviationPanels: PanelConfig[] = [
 
 export const aviationSourceManifest = {
   datasetId: aviationDataset.id,
-  sourceType: 'curated_demo_fixture',
-  provider: 'EnchantForge example project',
-  license: 'Fixture values are committed for demonstration; not a live operational feed.',
-  retrievedAt: '2026-07-25',
-  limitations: ['The fixture is deterministic and intentionally small.', 'It does not represent current airport operations.', 'BTS archive processing and checksum workflow remains TODO.']
+  sourceType: 'sqlite',
+  provider: 'Bureau of Transportation Statistics',
+  license: 'BTS On-Time Performance data; see the download plan for source and terms.',
+  retrievedAt: '2025-07',
+  limitations: ['当前下载计划按月提供原始数据。', '指标来自已清洗的 aviation_flights 表。']
 };
 
 export const metricById = new Map<string, MetricDefinition>(aviationDataset.metrics.map((metric) => [metric.id, metric]));

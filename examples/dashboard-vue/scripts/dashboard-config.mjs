@@ -1,0 +1,65 @@
+export const aviationDashboard = {
+  id: 'aviation-operations',
+  topicId: 'aviation',
+  title: 'Flight Operations / Delay Analysis',
+  description: '基于 BTS 航班运行数据的可寻址、可联动 Dashboard。',
+  sourceManifest: {
+    datasetId: 'aviation_ontime_demo',
+    sourceType: 'sqlite',
+    provider: 'Bureau of Transportation Statistics',
+    license: 'BTS On-Time Performance data; see the download plan for source and terms.',
+    retrievedAt: '2025-07',
+    limitations: ['当前下载计划按月提供原始数据。', '指标来自已清洗的 aviation_flights 表。']
+  },
+  dataset: {
+    id: 'aviation_ontime_demo',
+    name: 'Flight operations delay analysis',
+    description: 'BTS 航班运行数据清洗后的出港和到港记录。',
+    sourceLabel: 'SQLite aviation_flights; BTS On-Time Performance',
+    entities: [
+      { id: 'flight', label: '航班', description: '单个航班运行记录。', idField: 'flightId', displayField: 'flightId' },
+      { id: 'airport', label: '机场', description: '出发机场和到达机场。', idField: 'origin', displayField: 'origin' },
+      { id: 'airline', label: '航空公司', description: '承运航空公司。', idField: 'carrier', displayField: 'carrier' }
+    ],
+    dimensions: [
+      { id: 'date', label: '日期', description: '航班运行日期。', field: 'date', dataType: 'date', semanticType: 'time' },
+      { id: 'hour', label: '出港小时', description: '计划出港小时。', field: 'hour', dataType: 'number', semanticType: 'time' },
+      { id: 'airport', label: '出发机场', description: '航班出发机场。', field: 'origin', dataType: 'string', semanticType: 'entity' },
+      { id: 'destination', label: '到达机场', description: '航班到达机场。', field: 'destination', dataType: 'string', semanticType: 'entity' },
+      { id: 'carrier', label: '航空公司', description: '承运航空公司代码。', field: 'carrier', dataType: 'string', semanticType: 'entity' },
+      { id: 'direction', label: '航班方向', description: '出港或到港视角。', field: 'direction', dataType: 'string', semanticType: 'category' },
+      { id: 'delayCause', label: '延误原因', description: '主延误原因分类。', field: 'delayCause', dataType: 'string', semanticType: 'category' },
+      { id: 'flightId', label: '航班编号', description: '航班唯一编号。', field: 'flightId', dataType: 'string', semanticType: 'entity' }
+    ],
+    metrics: [
+      { id: 'flightCount', label: '航班数量', description: '筛选范围内航班记录数。', aggregation: 'count', format: 'integer', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'delayCause', 'flightId'] },
+      { id: 'onTimeRate', label: '准点率', description: '出港延误不超过 15 分钟的航班占比。', aggregation: 'ratio', format: 'percentage', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },
+      { id: 'averageDepartureDelay', label: '平均出港延误', description: '出港延误分钟数的平均值。', aggregation: 'avg', unit: 'min', format: 'minutes', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'delayCause', 'flightId'] },
+      { id: 'p95DepartureDelay', label: 'P95 出港延误', description: '出港延误分钟数的 P95。', aggregation: 'p95', unit: 'min', format: 'minutes', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },
+      { id: 'cancellationRate', label: '取消率', description: '取消航班占筛选范围内航班的比例。', aggregation: 'ratio', format: 'percentage', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'direction', 'flightId'] },
+      { id: 'severeDelayCount', label: '严重延误', description: '出港延误至少 60 分钟的航班数量。', aggregation: 'count', format: 'integer', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },
+      { id: 'delayMinutes', label: '延误分钟数', description: '按主原因汇总的延误分钟数。', aggregation: 'sum', unit: 'min', format: 'minutes', supportedDimensions: ['delayCause', 'airport', 'carrier', 'date'] }
+    ],
+    relations: [
+      { id: 'flight-origin', label: '航班出发于机场', description: '航班与出发机场的关系。', sourceEntity: 'flight', targetEntity: 'airport', sourceField: 'origin', targetField: 'origin' },
+      { id: 'flight-carrier', label: '航班由航空公司承运', description: '航班与承运航空公司的关系。', sourceEntity: 'flight', targetEntity: 'airline', sourceField: 'carrier', targetField: 'carrier' }
+    ]
+  },
+  panelTemplates: [
+    { id: 'carrier-delay-template', type: 'bar', title: '航空公司平均出港延误', description: '比较当前筛选范围内不同航空公司的平均出港延误。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'averageDepartureDelay' }], dimensions: [{ dimensionId: 'carrier' }], filters: [] }, visualization: { showLabels: true }, layout: { width: 6, minHeight: 300 } },
+    { id: 'airport-p95-template', type: 'bar', title: '机场 P95 延误排名', description: '比较机场尾部延误风险。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'p95DepartureDelay' }], dimensions: [{ dimensionId: 'airport' }], filters: [] }, visualization: { showLabels: true }, layout: { width: 6, minHeight: 300 } }
+  ],
+  panels: [
+    { id: 'flight-count', type: 'metric', title: '航班数量', description: '当前筛选范围内的航班数量。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'flightCount' }], dimensions: [], filters: [] }, layout: { width: 3, minHeight: 148 } },
+    { id: 'on-time-rate', type: 'metric', title: '准点率', description: '出港延误不超过 15 分钟的航班占比。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'onTimeRate' }], dimensions: [], filters: [] }, layout: { width: 3, minHeight: 148 } },
+    { id: 'average-delay', type: 'metric', title: '平均出港延误', description: '当前筛选范围内的平均出港延误分钟数。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'averageDepartureDelay' }], dimensions: [], filters: [] }, layout: { width: 3, minHeight: 148 } },
+    { id: 'cancellation-rate', type: 'metric', title: '取消率', description: '当前筛选范围内的取消航班比例。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'cancellationRate' }], dimensions: [], filters: [] }, layout: { width: 3, minHeight: 148 } },
+    { id: 'airport-status', type: 'airport-status', title: '机场运行状态', description: '按机场比较当前准点率和平均延误。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'onTimeRate' }, { metricId: 'averageDepartureDelay' }], dimensions: [{ dimensionId: 'airport' }], filters: [] }, layout: { width: 6, minHeight: 330 } },
+    { id: 'hourly-on-time', type: 'line', title: '每小时准点率趋势', description: '识别晚高峰准点率变化和异常时间段。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'onTimeRate' }], dimensions: [{ dimensionId: 'hour' }], filters: [] }, layout: { width: 6, minHeight: 330 } },
+    { id: 'airport-ranking', type: 'bar', title: '机场平均延误排名', description: '按机场比较平均出港延误。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'averageDepartureDelay' }], dimensions: [{ dimensionId: 'airport' }], filters: [] }, visualization: { showLabels: true }, layout: { width: 4, minHeight: 300 } },
+    { id: 'delay-causes', type: 'donut', title: '延误原因构成', description: '查看当前范围内不同原因贡献的延误分钟数。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'delayMinutes' }], dimensions: [{ dimensionId: 'delayCause' }], filters: [{ dimensionId: 'delayCause', operator: 'neq', value: 'none' }] }, layout: { width: 4, minHeight: 300 } },
+    { id: 'carrier-ranking', type: 'bar', title: '航空公司准点率', description: '比较航空公司在当前筛选范围内的准点率。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'onTimeRate' }], dimensions: [{ dimensionId: 'carrier' }], filters: [] }, visualization: { showLabels: true }, layout: { width: 4, minHeight: 300 } },
+    { id: 'delay-timeline', type: 'timeline', title: '严重延误时间线', description: '按小时显示严重延误航班数量。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'severeDelayCount' }], dimensions: [{ dimensionId: 'hour' }], filters: [] }, layout: { width: 6, minHeight: 300 } },
+    { id: 'flight-details', type: 'table', title: '航班明细', description: '列出当前筛选范围内的代表性航班记录。', query: { datasetId: 'aviation_ontime_demo', metrics: [{ metricId: 'averageDepartureDelay' }], dimensions: [{ dimensionId: 'flightId' }, { dimensionId: 'airport' }, { dimensionId: 'destination' }, { dimensionId: 'carrier' }, { dimensionId: 'hour' }, { dimensionId: 'delayCause' }], filters: [], limit: 12 }, layout: { width: 12, minHeight: 340 } }
+  ]
+};

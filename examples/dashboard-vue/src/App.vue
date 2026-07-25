@@ -1,10 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { Aura, Enchant, useEnchantForge, useLlmDebugEvents } from '@enchantforge/vue';
 import { ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons-vue';
 import DashboardPanel from './components/DashboardPanel.vue';
-import { aviationDataset, aviationPanelTemplates, aviationSourceManifest } from './data/aviation';
-import { runQuery } from './query/engine';
 import { dashboardMetadata, panelMetadata } from './runtime/metadata';
 import { dashboardCapabilities, panelCapabilities } from './runtime/capabilities';
 import {
@@ -18,7 +16,9 @@ import {
   saveView,
   selectAirport,
   setGlobalFilter,
-  setTimeRange
+  setTimeRange,
+  loadDashboardConfig,
+  refreshDashboardData
 } from './runtime/dashboard-store';
 
 const forge = useEnchantForge();
@@ -32,13 +32,23 @@ const panelResults = computed(() => new Map(dashboardState.config.panels.map((pa
 const filteredEvents = computed(() => traceEvents.value.slice(0, 80));
 const savedViews = computed(() => dashboardState.savedViews);
 const globalSummary = computed(() => {
-  const query = { datasetId: aviationDataset.id, metrics: [{ metricId: 'flightCount' }], dimensions: [], filters: [], timeRange: dashboardState.filters.timeRange };
-  return runQuery({ ...query, filters: [
-    ...(dashboardState.filters.airport === 'ALL' ? [] : [{ dimensionId: 'airport', operator: 'eq' as const, value: dashboardState.filters.airport }]),
-    ...(dashboardState.filters.carrier === 'ALL' ? [] : [{ dimensionId: 'carrier', operator: 'eq' as const, value: dashboardState.filters.carrier }]),
-    { dimensionId: 'direction', operator: 'eq', value: dashboardState.filters.direction }
-  ] }).summary;
+  const countPanel = dashboardState.config.panels.find((panel) => panel.id === 'flight-count');
+  return countPanel ? resultForPanel(countPanel).summary : { rowCount: 0, source: 'SQLite aviation_flights', query: { datasetId: dashboardState.dataset.id, metrics: [], dimensions: [], filters: [] } };
 });
+
+watch(
+  [
+    () => dashboardState.filters.airport,
+    () => dashboardState.filters.carrier,
+    () => dashboardState.filters.direction,
+    () => dashboardState.filters.timeRange.startHour,
+    () => dashboardState.filters.timeRange.endHour,
+    () => dashboardState.config.panels.map((panel) => panel.id).join('|')
+  ],
+  () => { void refreshDashboardData(); }
+);
+
+onMounted(() => { void loadDashboardConfig(); });
 
 function selectPanel(panelId: string) {
   dashboardState.selectedPanelId = panelId;
@@ -95,7 +105,7 @@ function resultFor(id: string) {
         <div>
           <p class="eyebrow">AVIATION / ON-TIME PERFORMANCE</p>
           <h1>Delay investigation workspace</h1>
-          <p class="heading-copy">用结构化 QuerySpec 连接当前筛选、Panel 语义和受约束的页面能力。数据是固定演示 fixture，不代表实时机场运行状态。</p>
+          <p class="heading-copy">用结构化 QuerySpec 连接当前筛选、Panel 语义和受约束的页面能力。Panel 配置和查询结果由 Node 开发服务从 SQLite 提供。</p>
         </div>
         <div class="heading-actions">
           <a-button size="small" @click="saveCurrentView"><SaveOutlined />保存视图</a-button>
@@ -105,12 +115,14 @@ function resultFor(id: string) {
       </section>
 
       <section class="filter-bar" aria-label="全局筛选">
-        <div class="filter-item"><span>机场</span><a-select :value="dashboardState.filters.airport" size="small" @change="(value: string) => setGlobalFilter('airport', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option value="JFK">JFK</a-select-option><a-select-option value="LGA">LGA</a-select-option><a-select-option value="EWR">EWR</a-select-option></a-select></div>
-        <div class="filter-item"><span>航空公司</span><a-select :value="dashboardState.filters.carrier" size="small" @change="(value: string) => setGlobalFilter('carrier', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option value="AA">AA</a-select-option><a-select-option value="DL">DL</a-select-option><a-select-option value="UA">UA</a-select-option><a-select-option value="B6">B6</a-select-option></a-select></div>
+        <div class="filter-item"><span>机场</span><a-select :value="dashboardState.filters.airport" size="small" @change="(value: string) => setGlobalFilter('airport', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option v-for="airport in dashboardState.airports" :key="airport" :value="airport">{{ airport }}</a-select-option></a-select></div>
+        <div class="filter-item"><span>航空公司</span><a-select :value="dashboardState.filters.carrier" size="small" @change="(value: string) => setGlobalFilter('carrier', value)"><a-select-option value="ALL">全部</a-select-option><a-select-option v-for="carrier in dashboardState.carriers" :key="carrier" :value="carrier">{{ carrier }}</a-select-option></a-select></div>
         <div class="filter-item"><span>方向</span><a-segmented v-model:value="dashboardState.filters.direction" :options="[{ label: '出港', value: 'departure' }, { label: '到港', value: 'arrival' }]" @change="(value: string) => setGlobalFilter('direction', value)" /></div>
         <div class="filter-item time-filter"><span>小时 {{ dashboardState.filters.timeRange.startHour }}:00 - {{ dashboardState.filters.timeRange.endHour }}:00</span><a-slider :value="[dashboardState.filters.timeRange.startHour, dashboardState.filters.timeRange.endHour]" range :min="0" :max="23" :tooltip-open="false" @change="(value: number[]) => setTimeRange(value[0] ?? 0, value[1] ?? 23)" /></div>
         <div class="filter-summary"><strong>{{ globalSummary.rowCount }}</strong><span>records in query scope</span></div>
       </section>
+
+      <a-alert v-if="dashboardState.dataError" type="error" show-icon :message="dashboardState.dataError" class="data-alert" />
 
       <Enchant name="aviation-dashboard" page="aviation-dashboard" :metadata="rootMetadata" :capabilities="dashboardCapabilities" prompt="根据当前航班 Dashboard 回答分析请求。先读取相关 Panel 数据，再用最少的已注册能力完成筛选、高亮、添加模板 Panel 或保存视图。不要猜测数据因果关系。">
         <section class="dashboard-grid">
@@ -143,7 +155,7 @@ function resultFor(id: string) {
         </div>
         <div>
           <span class="footer-label">SOURCE</span>
-          <strong>{{ aviationSourceManifest.license }}</strong>
+          <strong>{{ dashboardState.sourceManifest.license }}</strong>
         </div>
       </section>
     </main>
@@ -210,6 +222,7 @@ button, input, textarea, select { font: inherit; }
 .filter-summary strong, .filter-summary span { display: block; }
 .filter-summary strong { color: #0f3d75; font: 600 18px/1 "IBM Plex Mono", monospace; }
 .filter-summary span { margin-top: 4px; color: #94a3b8; font: 9px/1 "IBM Plex Mono", monospace; }
+.data-alert { margin-bottom: 18px; }
 .dashboard-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
 .dashboard-grid > .llm-scope { display: contents; }
 .dashboard-grid > .llm-scope > .dashboard-panel { min-width: 0; }
