@@ -39,6 +39,7 @@ class DatasetName(str, Enum):
 MISSING = {"", "NA", "N/A", "NULL", "NONE", "-", "NAN"}
 
 AIRPORT_NAMES_ZH = {
+    "ABE": ("利哈伊谷国际机场（阿伦敦）", "Lehigh Valley International Airport"),
     "ACT": ("韦科地区机场", "Waco Regional Airport"),
     "JFK": ("约翰·肯尼迪国际机场", "John F. Kennedy International Airport"),
     "LGA": ("拉瓜迪亚机场", "LaGuardia Airport"),
@@ -178,6 +179,7 @@ def create_schema(connection: sqlite3.Connection) -> None:
           code TEXT PRIMARY KEY,
           name_zh TEXT NOT NULL,
           name_en TEXT NOT NULL,
+          city_en TEXT NOT NULL DEFAULT '',
           source TEXT NOT NULL
         );
 
@@ -265,6 +267,11 @@ def create_schema(connection: sqlite3.Connection) -> None:
         );
         """
     )
+    try:
+        connection.execute("ALTER TABLE aviation_airport_dictionary ADD COLUMN city_en TEXT NOT NULL DEFAULT ''")
+    except sqlite3.OperationalError as error:
+        if "duplicate column name" not in str(error):
+            raise
 
 
 def reset_table(connection: sqlite3.Connection, table: str) -> None:
@@ -292,21 +299,36 @@ def build_aviation_rollup(connection: sqlite3.Connection) -> int:
     return int(connection.execute("SELECT COUNT(*) FROM aviation_dashboard_rollup").fetchone()[0])
 
 
-def build_aviation_dictionaries(connection: sqlite3.Connection) -> None:
+def build_aviation_dictionaries(connection: sqlite3.Connection, reference_file: Path) -> None:
     connection.executemany(
         "INSERT OR REPLACE INTO aviation_delay_cause_dictionary (code, label_zh, description) VALUES (?, ?, ?)",
         DELAY_CAUSES,
     )
+    reference: dict[str, tuple[str, str, str]] = {}
+    if reference_file.exists():
+        with reference_file.open(newline="", encoding="utf-8") as stream:
+            for row in csv.DictReader(stream):
+                code = clean_key(row.get("code"))
+                if code:
+                    reference[code] = (text_value(row.get("name_en")) or "", text_value(row.get("city_en")) or "", text_value(row.get("source")) or "reference")
     codes = connection.execute(
         "SELECT code FROM (SELECT origin AS code FROM aviation_flights UNION SELECT destination AS code FROM aviation_flights) WHERE code IS NOT NULL AND code <> '' ORDER BY code"
     ).fetchall()
     rows = []
     for (code,) in codes:
-        name_zh, name_en = AIRPORT_NAMES_ZH.get(code, (f"机场（{code}）", f"Airport ({code})"))
-        source = "curated" if code in AIRPORT_NAMES_ZH else "code-fallback"
-        rows.append((code, name_zh, name_en, source))
+        if code in AIRPORT_NAMES_ZH:
+            name_zh, name_en = AIRPORT_NAMES_ZH[code]
+            city_en = reference.get(code, ("", "", ""))[1]
+            source = "curated"
+        elif code in reference:
+            name_en, city_en, source = reference[code]
+            name_zh = f"{name_en}（{city_en}）" if city_en else name_en
+            source = "reference-en"
+        else:
+            name_zh, name_en, city_en, source = f"机场（{code}）", f"Airport ({code})", "", "code-fallback"
+        rows.append((code, name_zh, name_en, city_en, source))
     connection.executemany(
-        "INSERT OR REPLACE INTO aviation_airport_dictionary (code, name_zh, name_en, source) VALUES (?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO aviation_airport_dictionary (code, name_zh, name_en, city_en, source) VALUES (?, ?, ?, ?, ?)",
         rows,
     )
 
@@ -374,7 +396,7 @@ def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Pa
         connection.executemany(insert_sql, batch)
         count += len(batch)
     rollup_count = build_aviation_rollup(connection)
-    build_aviation_dictionaries(connection)
+    build_aviation_dictionaries(connection, data_dir / "aviation-ontime" / "airport-reference.csv")
     print(f"aviation-ontime: built {rollup_count} dashboard aggregate rows", flush=True)
     return archive, count
 

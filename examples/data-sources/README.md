@@ -90,6 +90,8 @@ If a previous download left a `.part` file and the server does not support byte-
 
 The source choices follow the planned topics: BTS On-Time Performance for aviation, UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.
 
+航空数据目录中的 `data/aviation-ontime/airport-reference.csv` 是从 OpenFlights/OurAirports 公开机场名称数据整理出的 IATA 代码、官方英文名和城市参考。清洗时人工中文字典优先；其余机场使用官方英文名和城市，不再退化为只有 `机场（CODE）` 的标签。机场参考源：`https://github.com/jpatokal/openflights/blob/master/data/airports.dat`。
+
 ## 写入 SQLite
 
 安装 XLSX 和 Parquet 读取依赖：

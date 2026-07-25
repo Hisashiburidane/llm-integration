@@ -248,8 +248,13 @@ async function detectRollup() {
 
 async function loadDictionaries() {
   try {
-    const airports = await runSql('SELECT code, name_zh FROM aviation_airport_dictionary');
-    airports.forEach((item) => airportLabels.set(item.code, item.name_zh));
+    const airports = await runSql('SELECT code, name_zh, name_en, city_en, source FROM aviation_airport_dictionary');
+    airports.forEach((item) => {
+      const label = item.source === 'curated'
+        ? item.name_zh
+        : `${item.name_en || item.name_zh || `机场（${item.code}）`}${item.city_en ? `（${item.city_en}）` : ''}`;
+      airportLabels.set(item.code, label);
+    });
   } catch {
     // Older snapshots continue to work with code-based fallback labels.
   }
