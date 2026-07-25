@@ -2,6 +2,7 @@ import { createLlmClient, parseLlmJson, type LlmClientOptions, type LlmFunctionT
 import type {
   EnchantMetadataNode,
   EnchantMetadataTreeNode,
+  EnchantExecutionResult,
   EnchantPlan,
   EnchantPlanCall,
   EnchantSnapshot
@@ -16,6 +17,16 @@ export interface EnchantAgentRequest {
 
 export interface EnchantAgent {
   plan(request: EnchantAgentRequest): Promise<EnchantPlan>;
+  respond?(request: EnchantAgentResponseRequest): Promise<string>;
+}
+
+export interface EnchantAgentResponseRequest {
+  input: string;
+  snapshot: EnchantSnapshot;
+  plan: EnchantPlan;
+  results: EnchantExecutionResult[];
+  instruction?: string;
+  signal?: AbortSignal;
 }
 
 export interface EnchantLlmContext {
@@ -96,6 +107,7 @@ const DEFAULT_AGENT_PROMPT = [
   '页面 structure 只用于解析用户提到的区域、字段、图表或面板；它不是可执行工具。',
   '只能调用请求中提供的 function tools，不得假设其他页面、权限或业务事实。',
   '优先使用 function tool 完成请求；没有匹配工具时不要猜测执行动作。',
+  '如果用户要求分析、比较、解释或查找数据，必须调用能返回实际数据的 read capability；读取页面上下文只能发现结构，不能作为数据答案。',
   '多个 capability 都能满足请求时，选择效果范围最小且调用次数最少的方案。',
   '使用最少调用完成任务。不要提交、审批、支付、删除或调用未授权动作。',
   '无法完成时 calls 返回空数组并说明原因。',
@@ -172,6 +184,41 @@ export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client
         signal: request.signal
       });
       return planFromToolCalls(plan, request.snapshot, bindings) ?? validatePlan(plan, request.snapshot);
+    },
+    async respond(request) {
+      const resultContext = request.results.map((result) => {
+        const tool = request.snapshot.tools.find((item) => item.capabilityId === result.capabilityId);
+        return {
+          capabilityId: result.capabilityId,
+          name: tool?.name,
+          label: tool?.label,
+          effect: tool?.effect,
+          ok: result.ok,
+          status: result.status,
+          summary: result.summary,
+          error: result.error,
+          value: result.value
+        };
+      });
+      const response = await client.run({
+        prompt: [
+          '你负责根据用户问题和已执行 capability 结果生成最终回答。',
+          '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的面板结果。',
+          '如果结果不足以回答问题，明确说明缺少什么数据；如果执行了视觉操作，简要说明已完成的界面变化。',
+          '直接回答用户问题，使用简洁的中文，可列出关键指标和证据。',
+          request.instruction
+        ].filter(Boolean).join('\n'),
+        input: request.input,
+        context: {
+          page: buildEnchantLlmContext(request.snapshot),
+          plan: request.plan,
+          executionResults: resultContext
+        },
+        signal: request.signal,
+        toolChoice: 'none'
+      });
+      if (!response.content.trim()) throw new Error('LLM 没有生成最终分析回答。');
+      return response.content.trim();
     }
   };
 }

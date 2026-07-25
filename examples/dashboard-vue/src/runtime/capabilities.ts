@@ -29,6 +29,30 @@ export const dashboardCapabilities: EnchantCapabilityDefinition[] = [
     execute: () => ({ status: 'success', data: dashboardContext() })
   },
   {
+    id: 'aviation:dashboard:read-data',
+    owner: 'application',
+    provider: 'aviation-dashboard',
+    name: 'dashboard.read_data',
+    label: '读取 Dashboard 数据',
+    description: '读取指定 Panel 的当前 QuerySpec、筛选条件和真实聚合结果。仅用于回答数据分析问题；读取上下文本身不会返回指标值。',
+    effect: 'read',
+    inputSchema: {
+      type: 'object',
+      required: ['panelIds'],
+      properties: { panelIds: { type: 'array', minItems: 1, maxItems: 6, items: { type: 'string' } } }
+    },
+    execute(input) {
+      const panelIds = input && typeof input === 'object' && Array.isArray((input as { panelIds?: unknown }).panelIds)
+        ? (input as { panelIds: unknown[] }).panelIds.map(String)
+        : [];
+      if (!panelIds.length) throw new Error('panelIds 不能为空。');
+      return {
+        status: 'success',
+        data: { panels: [...new Set(panelIds)].map((panelId) => panelContext(panelId)) }
+      };
+    }
+  },
+  {
     id: 'aviation:dashboard:set-filter',
     owner: 'application',
     provider: 'aviation-dashboard',

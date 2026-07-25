@@ -280,6 +280,11 @@ function createFinalMessage(plan: EnchantPlan, results: EnchantExecutionResult[]
     || (results.length ? `已完成 ${results.length} 项操作。` : '当前页面没有可执行的匹配操作。');
 }
 
+function hasReadableResult(snapshot: EnchantSnapshot, results: EnchantExecutionResult[]) {
+  const effects = new Map(snapshot.tools.map((tool) => [tool.capabilityId, tool.effect]));
+  return results.some((result) => result.ok && effects.get(result.capabilityId) === 'read');
+}
+
 export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantForge {
   const registry = createEnchantRegistry();
   const policyState = shallowReactive(resolveEnchantPolicy(options.policy));
@@ -627,7 +632,25 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
           onProgress: request.onProgress
         }));
       }
-      const message = createFinalMessage(plan, results);
+      let message = createFinalMessage(plan, results);
+      const responder = (request.agent ?? agent).respond;
+      if (responder && hasReadableResult(current, results)) {
+        emitProgress(runId, 'responding', request.onProgress);
+        try {
+          message = await responder({
+            input: request.input,
+            snapshot: current,
+            plan,
+            results,
+            instruction: request.prompt,
+            signal: request.signal
+          });
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : 'LLM 最终回答生成失败。';
+          trace({ source: current.pageId, kind: 'error', title: 'Response synthesis failed', detail });
+          message = `已读取数据，但无法生成最终分析回答：${detail}`;
+        }
+      }
       emitProgress(
         runId,
         results.some((result) => !result.ok) ? 'failed' : 'completed',

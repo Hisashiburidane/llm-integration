@@ -238,7 +238,7 @@ export interface EnchantPlan {
   calls: EnchantPlanCall[];
 }
 
-export type EnchantRunPhase = 'capturing' | 'planning' | 'authorizing' | 'executing' | 'completed' | 'failed';
+export type EnchantRunPhase = 'capturing' | 'planning' | 'authorizing' | 'executing' | 'responding' | 'completed' | 'failed';
 
 export interface EnchantProgressEvent {
   id: string;

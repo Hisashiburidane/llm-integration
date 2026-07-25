@@ -370,6 +370,36 @@ test('default agent maps native function calls back to capabilities', async () =
   assert.equal(result.results[0].ok, true);
 });
 
+test('forge synthesizes a response from successful read capability results', async () => {
+  let responseRequest;
+  const forge = createEnchantForge({
+    agent: {
+      async plan({ snapshot }) {
+        return {
+          message: 'planned',
+          snapshotVersion: snapshot.version,
+          calls: [{ capabilityId: 'capability:test', input: { value: 'valid' } }]
+        };
+      },
+      async respond(request) {
+        responseRequest = request;
+        return 'JFK 的平均延误最高。';
+      }
+    }
+  });
+  forge.registry.register(createRegistration({
+    effect: 'read',
+    execute: () => ({ status: 'success', data: { airport: 'JFK', averageDelay: 31 } })
+  }));
+
+  const result = await forge.run({ input: '当前哪个机场的平均延误最高？' });
+
+  assert.equal(result.message, 'JFK 的平均延误最高。');
+  assert.equal(responseRequest.input, '当前哪个机场的平均延误最高？');
+  assert.equal(responseRequest.results[0].ok, true);
+  assert.deepEqual(responseRequest.results[0].value, { airport: 'JFK', averageDelay: 31 });
+});
+
 test('capture and agent run add trace events without changing registry version', async () => {
   const forge = createEnchantForge({
     agent: {

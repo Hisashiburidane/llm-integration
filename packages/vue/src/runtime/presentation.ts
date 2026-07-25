@@ -26,6 +26,7 @@ export const defaultAuraProgressMessages: Record<EnchantRunPhase, AuraProgressMe
     : '正在检查可执行操作',
   executing: ({ event }) => event.detail
     || (event.capabilityLabel ? `正在执行：${event.capabilityLabel}` : '正在执行操作'),
+  responding: '正在整理分析结果',
   completed: '操作已完成',
   failed: ({ event }) => event.detail || '操作未完成'
 };
