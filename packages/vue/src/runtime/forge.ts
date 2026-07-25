@@ -423,6 +423,50 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     };
   }
 
+  function waitForRegistryStable(signal: AbortSignal | undefined, quietMs = 80, maxMs = 1000) {
+    return new Promise<void>((resolve, reject) => {
+      let quietTimer: ReturnType<typeof setTimeout> | undefined;
+      let maxTimer: ReturnType<typeof setTimeout> | undefined;
+      let settled = false;
+
+      const cleanup = () => {
+        if (quietTimer) clearTimeout(quietTimer);
+        if (maxTimer) clearTimeout(maxTimer);
+        unsubscribe();
+        signal?.removeEventListener('abort', onAbort);
+      };
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve();
+      };
+      const onAbort = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try {
+          throwIfAborted(signal);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const scheduleQuietFinish = () => {
+        if (quietTimer) clearTimeout(quietTimer);
+        quietTimer = setTimeout(finish, quietMs);
+      };
+      const unsubscribe = registry.subscribe(scheduleQuietFinish);
+
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      signal?.addEventListener('abort', onAbort, { once: true });
+      maxTimer = setTimeout(finish, maxMs);
+      scheduleQuietFinish();
+    });
+  }
+
   function emitProgress(
     runId: string,
     phase: EnchantProgressEvent['phase'],
@@ -536,11 +580,13 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   }
 
   async function run(value: EnchantRunOptions | string): Promise<EnchantRunResult> {
-    const request = typeof value === 'string' ? { input: value } : value;
-    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const request = typeof value === 'string' ? { input: value } : value;
+      const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     try {
       throwIfAborted(request.signal);
       emitProgress(runId, 'capturing', request.onProgress);
+      await waitForRegistryStable(request.signal);
+      throwIfAborted(request.signal);
       const captureOptions = {
         page: request.page,
         enchantmentIds: request.enchantmentId ? [request.enchantmentId] : undefined,

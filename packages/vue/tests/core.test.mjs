@@ -108,6 +108,19 @@ test('registry preserves nested metadata tree nodes', () => {
   assert.equal(region.children[0].id, 'field:test');
 });
 
+test('registry ignores equivalent registration updates', () => {
+  const registry = createEnchantRegistry();
+  const registration = createRegistration();
+  registry.register(registration);
+  const initialVersion = registry.version.value;
+
+  registry.update(createRegistration());
+  assert.equal(registry.version.value, initialVersion);
+
+  registry.update({ ...createRegistration(), tags: ['changed'] });
+  assert.equal(registry.version.value, initialVersion + 1);
+});
+
 test('policy blocks hidden enchantments and DOM writes', () => {
   const capability = {
     id: 'dom:fill',

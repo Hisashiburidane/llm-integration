@@ -45,6 +45,7 @@ createEnchantForge({
 
 - Aura 常驻时只读取 registry digest；
 - agent run 开始时生成临时 snapshot；
+- agent run 在 capture 前等待一个短暂的 registry quiet window，避免页面挂载中的注册竞态；
 - 如果 registry 在 LLM 规划期间变化，Forge 会丢弃旧计划并重新 capture/replan 一次；
 - executor 使用该临时 snapshot 和实时 registration status；
 - 执行结束后不将 snapshot 保存到 history；
@@ -67,6 +68,8 @@ createEnchantForge({
 自动观察只产生 invalidate 信号。Forge 对同一时间窗口内的变化进行 debounce，再统一 capture。snapshot history 使用固定容量 ring buffer。
 
 规划完成后如果 registry 仍然变化，执行器继续拒绝 stale snapshot；重规划不是绕过执行前校验的方式。
+
+等价的 registration update 不会递增 registry version。只有 registration contract、metadata/capability 暴露范围或显式 invalidate 发生变化时，版本才会变化。
 
 ## 5. Debug 插件
 

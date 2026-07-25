@@ -87,3 +87,5 @@ LLM 返回 tool call 后，Core 使用请求内的 name-to-capability 映射恢�
 2. 只有用户目标无法从 tool 契约解析时，才补充页面结构 metadata；
 3. 业务状态、后端数据和持久化效果必须由 Application capability 提供；
 4. 不把完整 snapshot、业务 store 或页面对象直接 JSON 序列化给模型。
+
+Registry 对等价 registration update 做去重，Forge 在规划前等待短暂稳定窗口；这些机制用于消除组件挂载和重渲染竞态，不会把业务数据刷新变成 metadata 变化。

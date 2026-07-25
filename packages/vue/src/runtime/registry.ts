@@ -87,11 +87,24 @@ function toTool(capability: EnchantCapability, enchantment: Enchantment): Enchan
   };
 }
 
+function registrationSignature(registration: EnchantRegistration) {
+  return JSON.stringify({
+    id: registration.id,
+    name: registration.name,
+    page: registration.page,
+    route: registration.route,
+    tags: registration.tags,
+    exposure: registration.exposure,
+    parentEnchantmentId: registration.parentEnchantmentId
+  });
+}
+
 export function createEnchantRegistry(): EnchantRegistry {
   const registrations = shallowReactive(new Map<string, EnchantRegistration>());
   const capabilities = new Map<string, EnchantCapability>();
   const capabilityOwners = new Map<string, Set<string>>();
   const registrationTokens = new Map<string, symbol>();
+  const registrationSignatures = new Map<string, string>();
   const listeners = new Set<() => void>();
   const version = ref(0);
 
@@ -118,10 +131,13 @@ export function createEnchantRegistry(): EnchantRegistry {
 
   function register(registration: EnchantRegistration) {
     const token = Symbol(registration.id);
+    const signature = registrationSignature(registration);
+    const changed = registrationSignatures.get(registration.id) !== signature;
     clearCapabilities(registration.id);
     registrationTokens.set(registration.id, token);
     registrations.set(registration.id, registration);
-    touch();
+    registrationSignatures.set(registration.id, signature);
+    if (changed) touch();
     return () => {
       if (registrationTokens.get(registration.id) === token) unregister(registration.id);
     };
@@ -132,9 +148,12 @@ export function createEnchantRegistry(): EnchantRegistry {
       register(registration);
       return;
     }
+    const signature = registrationSignature(registration);
+    const changed = registrationSignatures.get(registration.id) !== signature;
     clearCapabilities(registration.id);
     registrations.set(registration.id, registration);
-    touch();
+    registrationSignatures.set(registration.id, signature);
+    if (changed) touch();
   }
 
   function invalidate(enchantmentId: string) {
@@ -145,6 +164,7 @@ export function createEnchantRegistry(): EnchantRegistry {
   function unregister(enchantmentId: string) {
     if (!registrations.delete(enchantmentId)) return;
     registrationTokens.delete(enchantmentId);
+    registrationSignatures.delete(enchantmentId);
     clearCapabilities(enchantmentId);
     touch();
   }
@@ -203,6 +223,7 @@ export function createEnchantRegistry(): EnchantRegistry {
     capabilities.clear();
     capabilityOwners.clear();
     registrationTokens.clear();
+    registrationSignatures.clear();
     touch();
   }
 

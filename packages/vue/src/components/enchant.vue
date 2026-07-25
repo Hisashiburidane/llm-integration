@@ -292,8 +292,12 @@ watch(() => [
   props.enabled,
   JSON.stringify(props.scan),
   JSON.stringify(props.metadata),
+  JSON.stringify(props.capabilities),
   JSON.stringify(props.tags)
-], publishRegistration, { flush: 'post' });
+], () => {
+  publishRegistration();
+  forge.registry.invalidate(enchantmentId);
+}, { flush: 'post' });
 
 onBeforeUnmount(() => {
   mounted.value = false;
