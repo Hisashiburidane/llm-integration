@@ -55,3 +55,5 @@ This reads the generated plan, stores archives under `data/raw/`, and writes che
 The `--` after the pnpm script name separates pnpm arguments from script arguments; it is required when passing options through pnpm. The downloader requires Bash, `curl`, and either `shasum` or `sha256sum`.
 
 The shell downloader delegates networking to `curl`, so it honors `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, their lowercase variants, and `NO_PROXY`.
+
+If a previous download left a `.part` file and the server does not support byte-range resume, the script automatically removes the partial file and retries from the beginning.

@@ -37,7 +37,15 @@ while IFS= read -r url || [[ -n "$url" ]]; do
     echo "skip $name (use --force to replace)"
   else
     echo "download $url"
-    curl --fail --location --retry 3 --retry-all-errors --continue-at - --output "$temporary" "$url"
+    if [[ -s "$temporary" ]]; then
+      if ! curl --fail --location --retry 3 --retry-all-errors --continue-at - --output "$temporary" "$url"; then
+        echo "server does not support resume; restarting $name"
+        rm -f "$temporary"
+        curl --fail --location --retry 3 --retry-all-errors --output "$temporary" "$url"
+      fi
+    else
+      curl --fail --location --retry 3 --retry-all-errors --output "$temporary" "$url"
+    fi
     mv "$temporary" "$destination"
   fi
   printf '%s  %s\n' "$(sha256 "$destination")" "$name" >> "$PROJECT_DIR/data/checksums.sha256"

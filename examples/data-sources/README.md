@@ -87,4 +87,6 @@ HTTPS_PROXY=http://127.0.0.1:7890 \
   pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi
 ```
 
+If a previous download left a `.part` file and the server does not support byte-range resume, the script automatically removes the partial file and retries from the beginning.
+
 The source choices follow the planned topics: UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.
