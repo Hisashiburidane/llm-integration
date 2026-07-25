@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { DatasetDefinition, PanelConfig, PanelType } from '../model/types';
+import DashboardPanel from './DashboardPanel.vue';
+import { queryDashboard } from '../query/client';
+import type { DatasetDefinition, PanelConfig, PanelType, QueryResult } from '../model/types';
 
 const props = defineProps<{
   panels: PanelConfig[];
@@ -39,7 +41,9 @@ const editorOpen = ref(false);
 const editing = ref(false);
 const formError = ref('');
 const detailPanel = ref<PanelConfig | null>(null);
+const previewResult = ref<QueryResult | undefined>();
 const draft = ref<PanelDraft>(emptyDraft());
+let previewSequence = 0;
 
 const filteredPanels = computed(() => {
   const needle = search.value.trim().toLowerCase();
@@ -132,6 +136,35 @@ function openDetails(panel: PanelConfig) {
   detailPanel.value = panel;
 }
 
+function loadingResult(panel: PanelConfig): QueryResult {
+  return {
+    columns: [],
+    rows: [],
+    loading: true,
+    summary: { rowCount: 0, source: 'SQLite aviation_flights', query: panel.query }
+  };
+}
+
+watch(detailPanel, (panel) => {
+  const sequence = ++previewSequence;
+  if (!panel) {
+    previewResult.value = undefined;
+    return;
+  }
+  previewResult.value = loadingResult(panel);
+  void queryDashboard(panel.query).then((result) => {
+    if (sequence === previewSequence) previewResult.value = result;
+  }).catch((error) => {
+    if (sequence !== previewSequence) return;
+    previewResult.value = {
+      columns: [],
+      rows: [],
+      error: error instanceof Error ? error.message : 'Panel 预览查询失败。',
+      summary: { rowCount: 0, source: 'SQLite aviation_flights', query: panel.query }
+    };
+  });
+});
+
 function submit() {
   const panel = toPanel(draft.value);
   if (!/^[a-z0-9][a-z0-9-]*$/.test(panel.id)) {
@@ -212,6 +245,8 @@ function submit() {
 
     <a-drawer :open="Boolean(detailPanel)" title="Panel Definition" width="min(560px, 94vw)" @close="detailPanel = null">
       <template v-if="detailPanel">
+        <DashboardPanel :panel="detailPanel" :result="previewResult ?? loadingResult(detailPanel)" :highlighted="false" :lowlight="false" :selected="false" />
+        <a-divider />
         <a-descriptions :column="1" size="small" bordered>
           <a-descriptions-item label="Panel ID">{{ detailPanel.id }}</a-descriptions-item>
           <a-descriptions-item label="类型">{{ typeLabel(detailPanel.type) }}</a-descriptions-item>

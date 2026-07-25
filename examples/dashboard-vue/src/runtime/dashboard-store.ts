@@ -14,6 +14,20 @@ function clone<T>(value: T): T {
   return structuredClone(toRaw(value));
 }
 
+function normalizePanel(panel: PanelConfig): PanelConfig {
+  const raw = panel as PanelConfig & { query?: Partial<QuerySpec> };
+  const query = raw.query ?? {};
+  return {
+    ...panel,
+    query: {
+      ...query,
+      metrics: Array.isArray(query.metrics) ? query.metrics : [],
+      dimensions: Array.isArray(query.dimensions) ? query.dimensions : [],
+      filters: Array.isArray(query.filters) ? query.filters : []
+    }
+  } as PanelConfig;
+}
+
 export const dashboardState = reactive<{
   config: DashboardConfig;
   panelLibrary: PanelConfig[];
@@ -105,10 +119,10 @@ export async function loadDashboardConfig() {
       facets: { airports: FacetOption[]; carriers: string[] };
     } & { error?: string };
     if (!response.ok || payload.error) throw new Error(payload.error || `Dashboard 配置请求失败（${response.status}）。`);
-    dashboardState.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: payload.panels.map((panel) => clone(panel)) };
-    dashboardState.panelLibrary = payload.panelLibrary.map((panel) => clone(panel));
-    dashboardState.defaultPanels = payload.panels.map((panel) => clone(panel));
-    dashboardState.panelTemplates = payload.panelTemplates.map((panel) => clone(panel));
+    dashboardState.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: payload.panels.map((panel) => clone(normalizePanel(panel))) };
+    dashboardState.panelLibrary = payload.panelLibrary.map((panel) => clone(normalizePanel(panel)));
+    dashboardState.defaultPanels = payload.panels.map((panel) => clone(normalizePanel(panel)));
+    dashboardState.panelTemplates = payload.panelTemplates.map((panel) => clone(normalizePanel(panel)));
     dashboardState.airports = payload.facets.airports;
     dashboardState.carriers = payload.facets.carriers;
     dashboardState.dataset = payload.dataset;
@@ -139,10 +153,10 @@ export async function savePanelConfig(panel: PanelConfig) {
     throw new Error(payload.error || `Panel 保存失败（${response.status}）。`);
   }
   const activeDashboardChanged = JSON.stringify(dashboardState.config.panels) !== JSON.stringify(payload.panels);
-  dashboardState.config.panels = payload.panels.map((item) => clone(item));
-  dashboardState.panelLibrary = payload.panelLibrary.map((item) => clone(item));
-  dashboardState.defaultPanels = payload.panels.map((item) => clone(item));
-  dashboardState.panelTemplates = payload.panelTemplates.map((item) => clone(item));
+  dashboardState.config.panels = payload.panels.map((item) => clone(normalizePanel(item)));
+  dashboardState.panelLibrary = payload.panelLibrary.map((item) => clone(normalizePanel(item)));
+  dashboardState.defaultPanels = payload.panels.map((item) => clone(normalizePanel(item)));
+  dashboardState.panelTemplates = payload.panelTemplates.map((item) => clone(normalizePanel(item)));
   setAction(`已保存 Panel：${panel.title}`);
   if (activeDashboardChanged) {
     dashboardState.panelResults.clear();

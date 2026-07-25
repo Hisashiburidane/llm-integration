@@ -269,7 +269,16 @@ async function readConfig() {
   const panelLibrary = await runSql('SELECT id, type, title, description, query_json, visualization_json, default_width AS width, default_min_height AS min_height FROM panel_definitions ORDER BY title, id');
   const airports = await runSql("SELECT DISTINCT f.origin AS code, COALESCE(d.name_zh, '机场（' || f.origin || '）') AS label FROM aviation_flights AS f LEFT JOIN aviation_airport_dictionary AS d ON d.code = f.origin WHERE f.origin <> '' ORDER BY f.origin").catch(() => runSql("SELECT DISTINCT origin AS code, '机场（' || origin || '）' AS label FROM aviation_flights WHERE origin <> '' ORDER BY origin"));
   const carriers = await runSql('SELECT DISTINCT carrier AS value FROM aviation_flights WHERE carrier <> \'\' ORDER BY carrier');
-  const parsePanel = (panel) => ({ id: panel.id, type: panel.type, title: panel.title, description: panel.description, query: JSON.parse(panel.query_json), ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: { width: Number(panel.width), minHeight: Number(panel.min_height) } });
+  const parsePanel = (panel) => {
+    const parsedQuery = JSON.parse(panel.query_json || '{}');
+    const query = {
+      ...parsedQuery,
+      metrics: Array.isArray(parsedQuery.metrics) ? parsedQuery.metrics : [],
+      dimensions: Array.isArray(parsedQuery.dimensions) ? parsedQuery.dimensions : [],
+      filters: Array.isArray(parsedQuery.filters) ? parsedQuery.filters : []
+    };
+    return { id: panel.id, type: panel.type, title: panel.title, description: panel.description, query, ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: { width: Number(panel.width), minHeight: Number(panel.min_height) } };
+  };
   return {
     id: config.id,
     topicId: config.topic_id,
@@ -279,7 +288,7 @@ async function readConfig() {
     dataset: JSON.parse(config.dataset_json),
     panels: panels.map(parsePanel),
     panelLibrary: panelLibrary.map(parsePanel),
-    panelTemplates: config.panelTemplates,
+    panelTemplates: aviationDashboard.panelTemplates,
     facets: { airports: airports.map((item) => ({ code: item.code, label: item.label })), carriers: carriers.map((item) => item.value) }
   };
 }

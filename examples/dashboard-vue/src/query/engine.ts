@@ -45,6 +45,7 @@ function metricValue(metricId: string, records: FlightRecord[]): number {
 }
 
 export function validateQuery(query: QuerySpec, dataset: DatasetDefinition = aviationDataset) {
+  if (!query || !Array.isArray(query.metrics) || !Array.isArray(query.dimensions) || !Array.isArray(query.filters)) throw new Error('QuerySpec 结构无效：metrics、dimensions、filters 必须是数组。');
   if (query.datasetId !== dataset.id) throw new Error(`不支持的数据集：${query.datasetId}。`);
   if (!query.metrics.length) throw new Error('QuerySpec 至少需要一个指标。');
   const dimensions = query.dimensions.map((item) => {
