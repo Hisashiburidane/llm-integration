@@ -23,7 +23,7 @@ export const aviationDataset: DatasetDefinition = {
   metrics: [
     { id: 'flightCount', label: '航班数量', description: '筛选范围内航班记录数。', aggregation: 'count', format: 'integer', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'delayCause', 'flightId'] },
     { id: 'onTimeRate', label: '准点率', description: '出港延误不超过 15 分钟的航班占比。', aggregation: 'ratio', format: 'percentage', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },
-    { id: 'averageDepartureDelay', label: '平均出港延误', description: '出港延误分钟数的平均值。', aggregation: 'avg', unit: 'min', format: 'minutes', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },
+    { id: 'averageDepartureDelay', label: '平均出港延误', description: '出港延误分钟数的平均值。', aggregation: 'avg', unit: 'min', format: 'minutes', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'delayCause', 'flightId'] },
     { id: 'p95DepartureDelay', label: 'P95 出港延误', description: '出港延误分钟数的 P95。', aggregation: 'p95', unit: 'min', format: 'minutes', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },
     { id: 'cancellationRate', label: '取消率', description: '取消航班占筛选范围内航班的比例。', aggregation: 'ratio', format: 'percentage', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'direction', 'flightId'] },
     { id: 'severeDelayCount', label: '严重延误', description: '出港延误至少 60 分钟的航班数量。', aggregation: 'count', format: 'integer', supportedDimensions: ['date', 'hour', 'airport', 'carrier', 'destination', 'direction', 'flightId'] },

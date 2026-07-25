@@ -64,7 +64,11 @@ function airportRows() {
     </header>
     <p class="panel-description">{{ panel.description }}</p>
 
-    <div v-if="panel.type === 'metric'" class="metric-value">
+    <div v-if="result.error" class="panel-error">
+      <strong>QuerySpec 无效</strong>
+      <span>{{ result.error }}</span>
+    </div>
+    <div v-else-if="panel.type === 'metric'" class="metric-value">
       <strong>{{ displayValue(primaryValue) }}</strong>
       <span>{{ metricId }}</span>
     </div>
@@ -112,6 +116,8 @@ h3 { margin: 0; color: #1e293b; font-size: 14px; }
 .airport-rate { color: #0f766e; font: 600 13px/1 'IBM Plex Mono', monospace; }
 .airport-delay { color: #b45309; font: 11px/1 'IBM Plex Mono', monospace; text-align: right; }
 .panel-empty { display: grid; height: 180px; place-items: center; color: #94a3b8; font-size: 12px; }
+.panel-error { display: flex; min-height: 180px; flex-direction: column; justify-content: center; gap: 8px; color: #b42318; font-size: 11px; line-height: 1.5; }
+.panel-error strong { font-size: 12px; }
 .table-wrap { max-height: 240px; overflow: auto; }
 table { width: 100%; border-collapse: collapse; color: #475569; font: 10px/1.4 'IBM Plex Mono', monospace; }
 th, td { padding: 7px 8px; border-bottom: 1px solid #edf1f5; text-align: left; white-space: nowrap; }

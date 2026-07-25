@@ -55,7 +55,17 @@ export function queryForPanel(panel: PanelConfig): QuerySpec {
 }
 
 export function resultForPanel(panel: PanelConfig): QueryResult {
-  return runQuery(queryForPanel(panel));
+  const query = queryForPanel(panel);
+  try {
+    return runQuery(query);
+  } catch (error) {
+    return {
+      columns: [],
+      rows: [],
+      error: error instanceof Error ? error.message : '查询执行失败。',
+      summary: { rowCount: 0, source: 'query validation failed', query }
+    };
+  }
 }
 
 export function setGlobalFilter(field: 'airport' | 'carrier' | 'direction', value: string) {
@@ -136,6 +146,7 @@ export function panelContext(panelId: string) {
   const panel = dashboardState.config.panels.find((item) => item.id === panelId);
   if (!panel) throw new Error(`Panel 不存在：${panelId}。`);
   const result = resultForPanel(panel);
+  if (result.error) throw new Error(result.error);
   return {
     panelId: panel.id,
     title: panel.title,
