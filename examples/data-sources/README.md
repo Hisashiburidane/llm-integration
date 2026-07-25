@@ -2,6 +2,25 @@
 
 This package contains source plans for future Dashboard topics. It does not add domain models or claim that these topics are implemented.
 
+## 可直接下载
+
+当前有三个数据集提供稳定直链：
+
+| 数据集 | 命令 | 本地目录 |
+| --- | --- | --- |
+| Online Retail II | `pnpm --filter @enchantforge/data-sources data:download -- --dataset online-retail-ii` | `data/online-retail-ii/raw/` |
+| 北京多站点空气质量 | `pnpm --filter @enchantforge/data-sources data:download -- --dataset beijing-air-quality` | `data/beijing-air-quality/raw/` |
+| NYC Yellow Taxi | `pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi` | `data/nyc-taxi/raw/` |
+
+下载全部三个数据集：
+
+```bash
+pnpm --filter @enchantforge/data-sources data:plan
+pnpm --filter @enchantforge/data-sources data:download
+```
+
+`data:download` 不会下载 `otel-demo`、`cicids2017` 或 `cmapps`：它们分别需要运行采集流程、手动下载，或当前不可用。
+
 Generate all plans and URL lists without making network requests:
 
 ```bash

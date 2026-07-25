@@ -3,6 +3,17 @@
 The dashboard currently runs with the deterministic fixture in `src/data/aviation.ts`.
 This directory is reserved for the public BTS data workflow.
 
+## 可直接下载
+
+航班 BTS 数据使用以下两步：
+
+```bash
+pnpm --filter @enchantforge/dashboard-vue data:plan
+pnpm --filter @enchantforge/dashboard-vue data:download
+```
+
+默认下载 2025 年 7 月数据。压缩包写入 `data/raw/`，校验文件写入 `data/checksums.sha256`。要下载其他月份，先用 `data:plan -- --from YYYY-MM --to YYYY-MM` 重新生成计划。
+
 Generate the official monthly URL list without making a network request:
 
 ```bash
