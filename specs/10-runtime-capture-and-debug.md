@@ -77,7 +77,7 @@ forge.use(createEnchantDebug({
 }))
 ```
 
-显式 Enchant debug 插件可以开启 DOM observer、响应式 state watch、自动 capture 和 snapshot history。不能因为浏览器安装了通用 Vue Devtools 就隐式开启这些成本。
+显式 Enchant debug 插件可以提供 DOM observer、响应式 state watch、自动 capture 和 snapshot history 的配置入口，但默认不打开 `autoCapture`。不能因为浏览器安装了通用 Vue Devtools 或 debug overlay 就隐式开启这些成本；需要主动传入 `snapshots.autoCapture: true`。
 
 Debug 插件同时提供轻量页面内调试控件，不依赖独立 Devtools 应用：
 

@@ -412,6 +412,11 @@ test('debug plugin enables the lightweight in-page debug surface by default', ()
   assert.equal(forge.debug.enabled, true);
   assert.equal(forge.debug.title, 'Runtime Debug');
   assert.equal(forge.debug.position, 'bottom-left');
+  assert.equal(forge.observationEnabled.value, false);
+
+  const observing = createEnchantForge();
+  observing.use(createEnchantDebug({ snapshots: { autoCapture: true } }));
+  assert.equal(observing.observationEnabled.value, true);
 
   const disabled = createEnchantForge();
   disabled.use(createEnchantDebug({ overlay: false }));

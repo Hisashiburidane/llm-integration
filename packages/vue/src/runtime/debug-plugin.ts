@@ -14,7 +14,7 @@ export function createEnchantDebug(options: EnchantDebugOptions = {}): EnchantFo
     name: 'enchant-debug',
     setup(forge) {
       forge.configureSnapshots({
-        autoCapture: options.snapshots?.autoCapture ?? true,
+        autoCapture: options.snapshots?.autoCapture ?? false,
         retention: options.snapshots?.retention ?? 30,
         throttle: options.snapshots?.throttle ?? 160
       });
