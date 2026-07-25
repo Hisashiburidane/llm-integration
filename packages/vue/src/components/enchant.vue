@@ -96,7 +96,7 @@ if (!installedForge) provide(enchantForgeKey, forge);
 const rootEl = ref<HTMLElement>();
 const mounted = ref(false);
 const activated = ref(true);
-const captureVersion = ref(0);
+let captureVersion = 0;
 const enchantment = ref<Enchantment>();
 const contributions = new Map<string, { token: symbol; contribution: EnchantContribution }>();
 const initialScopeId = props.name || props.id || `component-${instance?.uid ?? Math.random().toString(36).slice(2, 8)}`;
@@ -157,7 +157,7 @@ function capture() {
     ...scanned.capabilities.filter((capability) => !explicitNames.has(capability.name)),
     ...explicitCapabilities
   ];
-  captureVersion.value += 1;
+  captureVersion += 1;
   const next: Enchantment = {
     id: enchantmentId,
     name: props.name,
@@ -178,9 +178,8 @@ function capture() {
         ? String(instance.type.name || 'Enchant')
         : 'Enchant'
     },
-    version: captureVersion.value
+    version: captureVersion
   };
-  enchantment.value = next;
   return { enchantment: next, capabilities };
 }
 
@@ -251,6 +250,7 @@ function configureObservation(enabled: boolean) {
 
 function refresh() {
   const snapshot = forge.capture({ enchantmentIds: [enchantmentId], includeLocal: true });
+  enchantment.value = snapshot.enchantments.find((item) => item.id === enchantmentId);
   return snapshot;
 }
 

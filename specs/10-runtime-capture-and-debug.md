@@ -17,6 +17,8 @@ Snapshot
 
 registry 保存 registration，不保存持续更新的 metadata tree。默认 Enchant mount 只注册边界和显式 contribution；只有配置 `scan="marked"` 或 `scan="auto"` 时，DOM scanner 才会在调用时运行。
 
+`registration.capture()` 是只读的 invocation-time capture：它可以读取当前 props、contribution 和 state source，但不能写入组件响应式 ref、触发重新渲染或重新注册。组件对外暴露的 `refresh()` 才是显式状态更新入口。这样，Aura 或 agent 在生成 snapshot 时不会因为 capture 本身改变 registry version。
+
 ## 2. 响应式 State
 
 ```vue
