@@ -21,3 +21,5 @@ pnpm --filter @enchantforge/dashboard-vue data:download
 ```
 
 This reads the generated plan, stores archives under `data/raw/`, and writes checksums to the ignored `data/manifests/download-manifest.json`. You can also download the URLs manually. Processing those archives into the dashboard fixture is a separate task; until then, the example does not claim to use live or downloaded data.
+
+The shell downloader delegates networking to `curl`, so it honors `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, their lowercase variants, and `NO_PROXY`.

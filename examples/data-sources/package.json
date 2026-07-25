@@ -5,6 +5,6 @@
   "type": "module",
   "scripts": {
     "data:plan": "node scripts/generate-data-plans.mjs",
-    "data:download": "node scripts/download-data-plans.mjs"
+    "data:download": "bash scripts/download-data-plans.sh"
   }
 }
