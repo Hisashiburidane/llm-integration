@@ -7,17 +7,18 @@ import { airQualityDashboardMetadata, airQualityPanelMetadata } from './runtime/
 import {
   airQualityDashboardContext,
   airQualityState,
-  highlightAirQualityPanels,
+  airQualityRuntime,
   loadAirQualityConfig,
   queryForAirPanel,
   refreshAirQualityData,
   resultForAirPanel,
   setAirQualityFilters
-} from './runtime/air-quality-store';
+} from './runtime/air-quality-runtime';
 
 const selectedPanelId = ref('');
 const contextOpen = ref(false);
 const panels = computed(() => airQualityState.config.panels);
+const stations = computed(() => (airQualityState.facets.stations ?? []) as Array<{ code: string; label: string }>);
 const rootMetadata = computed(() => airQualityDashboardMetadata(airQualityState.config));
 const globalSummary = computed(() => {
   const panel = panels.value.find((item) => item.id === 'aq-observation-count');
@@ -54,7 +55,7 @@ function applyStation(value: string) {
 }
 
 function clearHighlight() {
-  highlightAirQualityPanels([]);
+  airQualityRuntime.highlightPanels([]);
 }
 
 function openFlightOperations() {
@@ -89,7 +90,7 @@ function openFlightOperations() {
       <section class="filter-bar" aria-label="空气质量筛选">
         <label class="date-filter"><span>开始日期</span><input type="date" :value="airQualityState.filters.startDate" @change="(event) => applyDateRange(event, 'startDate')" /></label>
         <label class="date-filter"><span>结束日期</span><input type="date" :value="airQualityState.filters.endDate" @change="(event) => applyDateRange(event, 'endDate')" /></label>
-        <label class="filter-item"><span>监测站</span><select :value="airQualityState.filters.station" @change="(event) => applyStation((event.target as HTMLSelectElement).value)"><option value="ALL">全部监测站</option><option v-for="station in airQualityState.stations" :key="station.code" :value="station.code">{{ station.label }}</option></select></label>
+        <label class="filter-item"><span>监测站</span><select :value="airQualityState.filters.station" @change="(event) => applyStation((event.target as HTMLSelectElement).value)"><option value="ALL">全部监测站</option><option v-for="station in stations" :key="station.code" :value="station.code">{{ station.label }}</option></select></label>
         <div class="filter-summary"><strong>{{ globalSummary.rowCount }}</strong><span>rows in query scope</span></div>
       </section>
 

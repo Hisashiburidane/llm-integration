@@ -3,7 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Aura, Enchant, useEnchantForge, useLlmDebugEvents } from '@enchantforge/vue';
 import { ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons-vue';
 import DashboardPanel from './components/DashboardPanel.vue';
-import PanelCatalog from './components/PanelCatalog.vue';
+import PlatformMenu from './components/PlatformMenu.vue';
+import GlobalPanelLibrary from './components/GlobalPanelLibrary.vue';
 import AirQualityDashboard from './AirQualityDashboard.vue';
 import { dashboardMetadata, panelMetadata } from './runtime/metadata';
 import { dashboardCapabilities, panelCapabilities } from './runtime/capabilities';
@@ -20,18 +21,15 @@ import {
   setGlobalFilter,
   setTimeRange,
   loadDashboardConfig,
-  refreshDashboardData,
-  savePanelConfig
+  refreshDashboardData
 } from './runtime/dashboard-store';
 
 const forge = useEnchantForge();
 const traceEvents = useLlmDebugEvents();
 const traceOpen = ref(false);
 const contextOpen = ref(false);
-const activeView = ref<'dashboard' | 'panels'>('dashboard');
-const panelSaveError = ref('');
-const panelSaving = ref(false);
 const isAirQuality = ref(window.location.hash === '#air-quality');
+const isPanelLibrary = ref(window.location.hash === '#panels');
 const selectedPanelId = computed(() => dashboardState.selectedPanelId);
 const activePanel = computed(() => dashboardState.config.panels.find((panel) => panel.id === selectedPanelId.value));
 const rootMetadata = computed(() => dashboardMetadata(dashboardState.config));
@@ -63,7 +61,10 @@ const globalSummary = computed(() => {
   return countPanel ? resultForPanel(countPanel).summary : { rowCount: 0, source: 'SQLite aviation_flights', query: { datasetId: dashboardState.dataset.id, metrics: [], dimensions: [], filters: [] } };
 });
 
-window.addEventListener('hashchange', () => { isAirQuality.value = window.location.hash === '#air-quality'; });
+window.addEventListener('hashchange', () => {
+  isAirQuality.value = window.location.hash === '#air-quality';
+  isPanelLibrary.value = window.location.hash === '#panels';
+});
 
 watch(
   [
@@ -106,6 +107,10 @@ function openAirQuality() {
   window.location.hash = 'air-quality';
 }
 
+function openPanelLibrary() {
+  window.location.hash = 'panels';
+}
+
 function stringify(value: unknown) {
   return JSON.stringify(value, null, 2) ?? '';
 }
@@ -114,22 +119,12 @@ function resultFor(id: string) {
   return panelResults.value.get(id);
 }
 
-async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
-  panelSaving.value = true;
-  panelSaveError.value = '';
-  try {
-    await savePanelConfig(panel);
-  } catch (error) {
-    panelSaveError.value = error instanceof Error ? error.message : 'Panel 保存失败。';
-  } finally {
-    panelSaving.value = false;
-  }
-}
-
 </script>
 
 <template>
-  <AirQualityDashboard v-if="isAirQuality" />
+  <PlatformMenu :active="isPanelLibrary ? 'panels' : isAirQuality ? 'air-quality' : 'aviation'" />
+  <GlobalPanelLibrary v-if="isPanelLibrary" />
+  <AirQualityDashboard v-else-if="isAirQuality" />
   <div v-else class="dashboard-app">
     <header class="topbar">
       <div class="brand-lockup">
@@ -141,7 +136,7 @@ async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
       </div>
       <div class="topbar-actions">
         <a-tag color="blue">{{ dashboardState.config.panels.length }} panels</a-tag>
-        <a-button size="small" @click="activeView = activeView === 'dashboard' ? 'panels' : 'dashboard'">{{ activeView === 'dashboard' ? 'Panel Library' : 'Dashboard' }}</a-button>
+        <a-button size="small" @click="openPanelLibrary">Panel Library</a-button>
         <a-button size="small" @click="openAirQuality">Air Quality</a-button>
         <a-button size="small" @click="contextOpen = true"><SettingOutlined />上下文</a-button>
         <a-button size="small" @click="traceOpen = true">Trace ({{ filteredEvents.length }})</a-button>
@@ -149,16 +144,6 @@ async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
     </header>
 
     <main class="dashboard-main">
-      <PanelCatalog
-        v-if="activeView === 'panels'"
-        :panels="dashboardState.panelLibrary"
-        :dataset="dashboardState.dataset"
-        :saving="panelSaving"
-        :error="panelSaveError"
-        @save="savePanel"
-      />
-
-      <template v-else>
       <section class="dashboard-heading">
         <div>
           <p class="eyebrow">AVIATION / ON-TIME PERFORMANCE</p>
@@ -217,7 +202,6 @@ async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
           <strong>{{ dashboardState.sourceManifest.license }}</strong>
         </div>
       </section>
-      </template>
     </main>
 
     <a-drawer :open="Boolean(activePanel)" :title="activePanel?.title" width="min(520px, 94vw)" @close="clearSelection">
