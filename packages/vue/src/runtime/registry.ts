@@ -150,6 +150,10 @@ export function createEnchantRegistry(): EnchantRegistry {
     }
     const signature = registrationSignature(registration);
     const changed = registrationSignatures.get(registration.id) !== signature;
+    if (!changed) {
+      registrations.set(registration.id, registration);
+      return;
+    }
     clearCapabilities(registration.id);
     registrations.set(registration.id, registration);
     registrationSignatures.set(registration.id, signature);

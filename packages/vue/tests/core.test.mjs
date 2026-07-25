@@ -112,10 +112,12 @@ test('registry ignores equivalent registration updates', () => {
   const registry = createEnchantRegistry();
   const registration = createRegistration();
   registry.register(registration);
+  registry.capture();
   const initialVersion = registry.version.value;
 
   registry.update(createRegistration());
   assert.equal(registry.version.value, initialVersion);
+  assert.ok(registry.getCapability('capability:test'));
 
   registry.update({ ...createRegistration(), tags: ['changed'] });
   assert.equal(registry.version.value, initialVersion + 1);
