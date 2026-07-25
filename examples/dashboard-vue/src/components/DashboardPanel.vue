@@ -25,6 +25,7 @@ const option = computed(() => {
   const rows = props.result.rows;
   const x = rows.map((row) => displayDimensionValue(row, dimensionKey.value));
   const values = rows.map((row) => Number(row[metricKey.value] ?? 0));
+  const metricKeys = props.panel.query.metrics.map((metric) => metric.alias ?? metric.metricId);
   const common = {
     animation: false,
     color: ['#3b82f6', '#f59e0b', '#ef4444', '#14b8a6', '#8b5cf6'],
@@ -32,6 +33,13 @@ const option = computed(() => {
     textStyle: { fontFamily: 'IBM Plex Mono, monospace', fontSize: 10 }
   };
   if (props.panel.type === 'donut') return { ...common, legend: { bottom: 0, textStyle: { fontSize: 10 } }, series: [{ type: 'pie', radius: ['46%', '72%'], center: ['50%', '45%'], data: rows.map((row) => ({ name: String(row[dimensionKey.value] ?? '-'), value: Number(row[metricKey.value] ?? 0) })) }] };
+  if (metricKeys.length > 1) {
+    const category = props.panel.query.dimensions.length ? x : metricKeys;
+    const series = props.panel.query.dimensions.length
+      ? metricKeys.map((key) => ({ name: key, type: props.panel.type === 'bar' ? 'bar' : 'line', smooth: props.panel.type !== 'timeline', data: rows.map((row) => Number(row[key] ?? 0)), barMaxWidth: 28 }))
+      : [{ name: metricKeys[0], type: 'bar', data: metricKeys.map((key) => Number(rows[0]?.[key] ?? 0)), barMaxWidth: 28 }];
+    return { ...common, legend: { top: 0, textStyle: { fontSize: 9 } }, grid: { top: 32, right: 16, bottom: 34, left: 42 }, xAxis: { type: 'category', data: category, axisLabel: { color: '#64748b', fontSize: 10 }, axisLine: { lineStyle: { color: '#cbd5e1' } } }, yAxis: { type: 'value', axisLabel: { color: '#64748b', fontSize: 10 }, splitLine: { lineStyle: { color: '#edf1f5' } } }, series };
+  }
   return {
     ...common,
     grid: { top: 20, right: 16, bottom: 34, left: 42 },
@@ -51,8 +59,8 @@ function displayDimensionValue(row: Record<string, unknown>, dimension: string) 
 
 function airportRows() {
   return props.result.rows.map((row) => ({
-    airport: String(row.airport ?? '-'),
-    label: displayDimensionValue(row, 'airport'),
+    airport: String(row.airportCode ?? row.airport ?? '-'),
+    label: String(row.airport ?? row.airportLabel ?? '-'),
     onTimeRate: formatMetricValue('onTimeRate', row.onTimeRate),
     delay: formatMetricValue('averageDepartureDelay', row.averageDepartureDelay)
   }));

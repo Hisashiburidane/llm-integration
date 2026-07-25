@@ -240,6 +240,26 @@ def create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_air_quality_time ON air_quality_observations(observed_at);
         CREATE INDEX IF NOT EXISTS idx_air_quality_station ON air_quality_observations(station);
 
+        CREATE TABLE IF NOT EXISTS air_quality_dashboard_rollup (
+          observed_date TEXT NOT NULL,
+          station TEXT NOT NULL,
+          observation_count INTEGER NOT NULL,
+          pm25_avg REAL,
+          pm25_max REAL,
+          pm10_avg REAL,
+          pm10_max REAL,
+          so2_avg REAL,
+          no2_avg REAL,
+          co_avg REAL,
+          o3_avg REAL,
+          temperature_avg REAL,
+          pressure_avg REAL,
+          rain_total REAL,
+          PRIMARY KEY (observed_date, station)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_air_quality_rollup_station ON air_quality_dashboard_rollup(station, observed_date);
+        CREATE INDEX IF NOT EXISTS idx_air_quality_rollup_date ON air_quality_dashboard_rollup(observed_date);
+
         CREATE TABLE IF NOT EXISTS nyc_taxi_trips (
           vendor_id TEXT,
           pickup_at TEXT,
@@ -331,6 +351,26 @@ def build_aviation_dictionaries(connection: sqlite3.Connection, reference_file: 
         "INSERT OR REPLACE INTO aviation_airport_dictionary (code, name_zh, name_en, city_en, source) VALUES (?, ?, ?, ?, ?)",
         rows,
     )
+
+
+def build_air_quality_rollup(connection: sqlite3.Connection) -> int:
+    """Materialize daily station statistics used by the air-quality dashboard."""
+    reset_table(connection, "air_quality_dashboard_rollup")
+    connection.execute(
+        """
+        INSERT INTO air_quality_dashboard_rollup
+        (observed_date, station, observation_count, pm25_avg, pm25_max,
+         pm10_avg, pm10_max, so2_avg, no2_avg, co_avg, o3_avg,
+         temperature_avg, pressure_avg, rain_total)
+        SELECT substr(observed_at, 1, 10), station, COUNT(*),
+               AVG(pm25), MAX(pm25), AVG(pm10), MAX(pm10), AVG(so2),
+               AVG(no2), AVG(co), AVG(o3), AVG(temperature), AVG(pressure),
+               SUM(COALESCE(rain, 0))
+        FROM air_quality_observations
+        GROUP BY substr(observed_at, 1, 10), station
+        """
+    )
+    return int(connection.execute("SELECT COUNT(*) FROM air_quality_dashboard_rollup").fetchone()[0])
 
 
 def process_aviation(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, int]:
@@ -461,6 +501,8 @@ def process_air_quality(data_dir: Path, connection: sqlite3.Connection) -> tuple
     if batch:
         connection.executemany(sql, batch)
         count += len(batch)
+    rollup_count = build_air_quality_rollup(connection)
+    print(f"beijing-air-quality: built {rollup_count} daily station aggregate rows", flush=True)
     return archive, count
 
 

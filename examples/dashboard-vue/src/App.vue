@@ -4,6 +4,7 @@ import { Aura, Enchant, useEnchantForge, useLlmDebugEvents } from '@enchantforge
 import { ReloadOutlined, SaveOutlined, SettingOutlined } from '@ant-design/icons-vue';
 import DashboardPanel from './components/DashboardPanel.vue';
 import PanelCatalog from './components/PanelCatalog.vue';
+import AirQualityDashboard from './AirQualityDashboard.vue';
 import { dashboardMetadata, panelMetadata } from './runtime/metadata';
 import { dashboardCapabilities, panelCapabilities } from './runtime/capabilities';
 import {
@@ -30,6 +31,7 @@ const contextOpen = ref(false);
 const activeView = ref<'dashboard' | 'panels'>('dashboard');
 const panelSaveError = ref('');
 const panelSaving = ref(false);
+const isAirQuality = ref(window.location.hash === '#air-quality');
 const selectedPanelId = computed(() => dashboardState.selectedPanelId);
 const activePanel = computed(() => dashboardState.config.panels.find((panel) => panel.id === selectedPanelId.value));
 const rootMetadata = computed(() => dashboardMetadata(dashboardState.config));
@@ -55,11 +57,13 @@ ${flightOpsAssistantQuestions.map((question, index) => `${index + 1}. ${question
 
 延误原因字典：NAS 表示国家空域系统/空管流量限制，carrier 表示航空公司运行原因，weather 表示天气原因，security 表示安保流程，none 表示没有记录到可归类原因。
 
-分析规则：数据分析问题不能只调用 dashboard.read_context，因为它只返回页面结构；必须调用 dashboard.read_data 或相关 panel.read_data 读取真实指标。对于“哪个机场平均延误最高”，必须读取 airport-ranking 的数据，并额外调用 dashboard.highlight，panelIds 固定为 ["airport-ranking"]，然后再给出结论；其他问题在用户要求高亮或你需要强调证据时，也必须额外调用 dashboard.highlight 或 panel.highlight，不能只在回答中声称已高亮。只能使用当前数据和已注册能力，不要编造航班、原因或因果关系；如果当前 Panel 不足以回答问题，应明确说明数据缺口。`;
+分析规则：数据分析问题不能只调用 dashboard.read_context，因为它只返回页面结构；必须调用 dashboard.read_data 或相关 panel.read_data 读取真实指标。查询结果中的 airport、destination 和 delayCause 字段已经由 SQLite JOIN dictionary 表转换为中文可读名称，*Code 字段仅用于筛选和追溯，不要把机场代码单独当作结论。对于“哪个机场平均延误最高”，必须读取 airport-ranking 的数据，并额外调用 dashboard.highlight，panelIds 固定为 ["airport-ranking"]，然后再给出结论；其他问题在用户要求高亮或你需要强调证据时，也必须额外调用 dashboard.highlight 或 panel.highlight，不能只在回答中声称已高亮。只能使用当前数据和已注册能力，不要编造航班、原因或因果关系；如果当前 Panel 不足以回答问题，应明确说明数据缺口。`;
 const globalSummary = computed(() => {
   const countPanel = dashboardState.config.panels.find((panel) => panel.id === 'flight-count');
   return countPanel ? resultForPanel(countPanel).summary : { rowCount: 0, source: 'SQLite aviation_flights', query: { datasetId: dashboardState.dataset.id, metrics: [], dimensions: [], filters: [] } };
 });
+
+window.addEventListener('hashchange', () => { isAirQuality.value = window.location.hash === '#air-quality'; });
 
 watch(
   [
@@ -98,6 +102,10 @@ function clearTrace() {
   forge.clearTrace();
 }
 
+function openAirQuality() {
+  window.location.hash = 'air-quality';
+}
+
 function stringify(value: unknown) {
   return JSON.stringify(value, null, 2) ?? '';
 }
@@ -121,7 +129,8 @@ async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
 </script>
 
 <template>
-  <div class="dashboard-app">
+  <AirQualityDashboard v-if="isAirQuality" />
+  <div v-else class="dashboard-app">
     <header class="topbar">
       <div class="brand-lockup">
         <span class="brand-mark">EF / OPS</span>
@@ -133,6 +142,7 @@ async function savePanel(panel: Parameters<typeof savePanelConfig>[0]) {
       <div class="topbar-actions">
         <a-tag color="blue">{{ dashboardState.config.panels.length }} panels</a-tag>
         <a-button size="small" @click="activeView = activeView === 'dashboard' ? 'panels' : 'dashboard'">{{ activeView === 'dashboard' ? 'Panel Library' : 'Dashboard' }}</a-button>
+        <a-button size="small" @click="openAirQuality">Air Quality</a-button>
         <a-button size="small" @click="contextOpen = true"><SettingOutlined />上下文</a-button>
         <a-button size="small" @click="traceOpen = true">Trace ({{ filteredEvents.length }})</a-button>
       </div>

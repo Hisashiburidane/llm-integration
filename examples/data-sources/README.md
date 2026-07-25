@@ -1,6 +1,6 @@
 # Example data sources
 
-This package contains source plans for future Dashboard topics. It does not add domain models or claim that these topics are implemented.
+This package contains source plans and deterministic SQLite processing for the Dashboard examples.
 
 航班 Dashboard 也已纳入本统一数据源工具。所有原始下载包统一写入本目录的 `data/<dataset>/raw/`，清洗后的航班明细和分析结果统一写入 SQLite。
 
@@ -121,4 +121,4 @@ pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi --db
 uv run python scripts/process-data.py --help
 ```
 
-生成的表包括 `aviation_flights`、`aviation_dashboard_rollup`、`aviation_airport_dictionary`、`aviation_delay_cause_dictionary`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。其中 `aviation_dashboard_rollup` 按机场、航空公司、方向、小时和延误原因预聚合 Dashboard 指标，两个 dictionary 表负责中文显示标签；Node 查询服务会优先使用 rollup，航班明细和 P95 查询仍读取 `aviation_flights`。
+生成的表包括 `aviation_flights`、`aviation_dashboard_rollup`、`aviation_airport_dictionary`、`aviation_delay_cause_dictionary`、`retail_transactions`、`air_quality_observations`、`air_quality_dashboard_rollup`、`nyc_taxi_trips`、`nyc_taxi_zones` 和 `dataset_runs`。其中 `aviation_dashboard_rollup` 按机场、航空公司、方向、小时和延误原因预聚合航班指标；`air_quality_dashboard_rollup` 按日期和监测站预聚合污染物、气象和观测覆盖指标。Node 查询服务会优先使用对应 rollup，航班明细和 P95 查询仍读取 `aviation_flights`。

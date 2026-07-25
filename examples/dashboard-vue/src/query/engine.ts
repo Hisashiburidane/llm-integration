@@ -109,7 +109,11 @@ export function runQuery(query: QuerySpec): QueryResult {
 export function formatMetricValue(metricId: string, value: unknown) {
   const metric = metricById.get(metricId);
   const number = typeof value === 'number' ? value : Number(value ?? 0);
-  if (!metric) return String(value ?? '-');
+  if (!metric) {
+    if (metricId === 'observationCount' || metricId === 'stationCount') return Math.round(number).toLocaleString('en-US');
+    if (metricId.endsWith('Average') || metricId === 'pm25Peak' || metricId === 'rainTotal') return Number.isFinite(number) ? number.toFixed(1) : '-';
+    return String(value ?? '-');
+  }
   if (metric.format === 'percentage') return `${(number * 100).toFixed(1)}%`;
   if (metric.format === 'minutes') return `${number.toFixed(1)} min`;
   if (metric.format === 'decimal') return number.toFixed(1);
