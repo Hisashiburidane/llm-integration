@@ -541,23 +541,42 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     try {
       throwIfAborted(request.signal);
       emitProgress(runId, 'capturing', request.onProgress);
-      const current = capture({
+      const captureOptions = {
         page: request.page,
         enchantmentIds: request.enchantmentId ? [request.enchantmentId] : undefined,
         includeLocal: Boolean(request.enchantmentId)
-      });
+      };
+      let current = capture(captureOptions);
       trace({ source: current.pageId, kind: 'request', title: 'Agent request', detail: { input: request.input, snapshotId: current.id } });
-      emitProgress(runId, 'planning', request.onProgress);
-      const plan = await (request.agent ?? agent).plan({
-        input: request.input,
-        snapshot: current,
-        instruction: request.prompt,
-        signal: request.signal
-      });
-      throwIfAborted(request.signal);
-      if (plan.snapshotVersion !== current.version) {
-        throw new Error(`Agent 计划的 snapshot version 无效，应为 ${current.version}。`);
+      let plan: EnchantPlan | undefined;
+      for (let planningAttempt = 0; planningAttempt < 2; planningAttempt += 1) {
+        emitProgress(runId, 'planning', request.onProgress);
+        plan = await (request.agent ?? agent).plan({
+          input: request.input,
+          snapshot: current,
+          instruction: request.prompt,
+          signal: request.signal
+        });
+        throwIfAborted(request.signal);
+        if (plan.snapshotVersion !== current.version) {
+          throw new Error(`Agent 计划的 snapshot version 无效，应为 ${current.version}。`);
+        }
+        if (registry.version.value === current.version) break;
+        if (planningAttempt === 1) {
+          throw new Error(`页面在 LLM 规划期间持续变化（${current.version} -> ${registry.version.value}），请稍后重试。`);
+        }
+        trace({
+          source: current.pageId,
+          kind: 'info',
+          title: 'Snapshot changed during planning',
+          detail: { from: current.version, to: registry.version.value }
+        });
+        emitProgress(runId, 'capturing', request.onProgress, {
+          detail: '页面仍在挂载或更新，正在重新生成当前 snapshot。'
+        });
+        current = capture(captureOptions);
       }
+      if (!plan) throw new Error('未生成有效的 LLM 计划。');
       if (plan.calls.length > maxPlanCalls) {
         throw new Error(`Agent 计划包含 ${plan.calls.length} 个调用，超过上限 ${maxPlanCalls}。`);
       }

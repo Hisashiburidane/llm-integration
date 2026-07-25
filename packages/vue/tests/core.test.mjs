@@ -356,6 +356,30 @@ test('default agent maps native function calls back to capabilities', async () =
   assert.equal(result.results[0].ok, true);
 });
 
+test('forge replans once when the registry changes during planning', async () => {
+  let forge;
+  let attempts = 0;
+  forge = createEnchantForge({
+    agent: {
+      async plan({ snapshot }) {
+        attempts += 1;
+        if (attempts === 1) forge.registry.invalidate('scope:test');
+        return {
+          message: 'replanned',
+          snapshotVersion: snapshot.version,
+          calls: [{ capabilityId: 'capability:test', input: { value: 'valid' } }]
+        };
+      }
+    }
+  });
+  forge.registry.register(createRegistration());
+
+  const result = await forge.run({ input: 'run after mount' });
+
+  assert.equal(attempts, 2);
+  assert.equal(result.results[0].ok, true);
+});
+
 test('registry filters route-scoped registrations for the active snapshot', () => {
   const registry = createEnchantRegistry();
   const createRouteRegistration = (id, route) => ({
