@@ -248,7 +248,14 @@ async function detectRollup() {
 
 async function loadDictionaries() {
   try {
-    const airports = await runSql('SELECT code, name_zh, name_en, city_en, source FROM aviation_airport_dictionary');
+    let airports;
+    try {
+      airports = await runSql('SELECT code, name_zh, name_en, city_en, source FROM aviation_airport_dictionary');
+    } catch {
+      // Databases generated before city_en was introduced still contain the curated labels.
+      airports = (await runSql('SELECT code, name_zh, name_en, source FROM aviation_airport_dictionary'))
+        .map((item) => ({ ...item, city_en: '' }));
+    }
     airports.forEach((item) => {
       const label = item.source === 'curated'
         ? item.name_zh
