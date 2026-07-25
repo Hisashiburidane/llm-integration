@@ -65,7 +65,10 @@ function airportRows() {
         <p class="panel-kicker">{{ panel.type }} / {{ panel.id }}</p>
         <h3>{{ panel.title }}</h3>
       </div>
-      <span class="panel-source">{{ result.loading ? '--' : `${result.summary.rowCount} rows` }}</span>
+      <div class="panel-header-meta">
+        <span v-if="highlighted" class="panel-highlight-badge">重点</span>
+        <span class="panel-source">{{ result.loading ? '--' : `${result.summary.rowCount} rows` }}</span>
+      </div>
     </header>
     <p class="panel-description">{{ panel.description }}</p>
 
@@ -105,12 +108,14 @@ function airportRows() {
 </template>
 
 <style scoped>
-.dashboard-panel { min-width: 0; height: 100%; padding: 16px; border: 1px solid #d8e0ea; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgb(24 39 75 / 4%); cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
+.dashboard-panel { position: relative; min-width: 0; height: 100%; padding: 16px; border: 1px solid #d8e0ea; border-radius: 8px; background: #fff; box-shadow: 0 2px 8px rgb(24 39 75 / 4%); cursor: pointer; transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease; }
 .dashboard-panel:hover, .dashboard-panel.selected { border-color: #8fb7ed; box-shadow: 0 8px 22px rgb(59 130 246 / 12%); transform: translateY(-1px); }
-.dashboard-panel.highlighted { border-color: #f59e0b; box-shadow: 0 0 0 2px rgb(245 158 11 / 18%); }
+.dashboard-panel.highlighted { border-color: #f59e0b; background: linear-gradient(180deg, #fffdf5 0%, #fff 42%); box-shadow: 0 0 0 3px rgb(245 158 11 / 24%), 0 10px 28px rgb(180 83 9 / 12%); }
 .panel-header { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+.panel-header-meta { display: flex; flex: 0 0 auto; gap: 8px; align-items: center; }
 .panel-kicker { margin: 0 0 5px; color: #6b7b90; font: 10px/1.2 'IBM Plex Mono', monospace; letter-spacing: .04em; text-transform: uppercase; }
 h3 { margin: 0; color: #1e293b; font-size: 14px; }
+.panel-highlight-badge { padding: 3px 6px; border: 1px solid #f6c453; border-radius: 999px; color: #9a6700; background: #fff7d6; font: 700 9px/1 'IBM Plex Mono', monospace; }
 .panel-source { flex: 0 0 auto; color: #94a3b8; font: 10px/1.2 'IBM Plex Mono', monospace; }
 .panel-description { min-height: 32px; margin: 8px 0 10px; color: #64748b; font-size: 11px; line-height: 1.5; }
 .panel-loading { min-height: 180px; padding-top: 12px; }
@@ -120,10 +125,10 @@ h3 { margin: 0; color: #1e293b; font-size: 14px; }
 .metric-value span { margin-top: 8px; color: #94a3b8; font: 10px/1.2 'IBM Plex Mono', monospace; }
 .panel-visual { height: 235px; }
 .airport-status-list { display: grid; gap: 8px; padding: 8px 0; }
-.airport-status-row { display: grid; grid-template-columns: 54px 1fr 74px; gap: 10px; align-items: center; padding: 11px 10px; border: 1px solid #e6edf5; border-radius: 6px; color: #334155; background: #f8fafc; cursor: pointer; text-align: left; }
+.airport-status-row { display: grid; grid-template-columns: minmax(120px, 1fr) 70px 86px; gap: 10px; align-items: center; padding: 11px 10px; border: 1px solid #e6edf5; border-radius: 6px; color: #334155; background: #f8fafc; cursor: pointer; text-align: left; }
 .airport-status-row:hover { border-color: #8fb7ed; background: #eff6ff; }
 .airport-code { min-width: 0; color: #0f3d75; font: 700 12px/1.25 'IBM Plex Sans', sans-serif; }
-.airport-code strong, .airport-code small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.airport-code strong, .airport-code small { display: block; overflow: visible; text-overflow: clip; white-space: normal; word-break: break-word; }
 .airport-code small { margin-top: 2px; color: #94a3b8; font: 9px/1.2 'IBM Plex Mono', monospace; }
 .airport-rate { color: #0f766e; font: 600 13px/1 'IBM Plex Mono', monospace; }
 .airport-delay { color: #b45309; font: 11px/1 'IBM Plex Mono', monospace; text-align: right; }

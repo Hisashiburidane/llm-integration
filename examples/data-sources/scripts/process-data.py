@@ -39,6 +39,7 @@ class DatasetName(str, Enum):
 MISSING = {"", "NA", "N/A", "NULL", "NONE", "-", "NAN"}
 
 AIRPORT_NAMES_ZH = {
+    "ACT": ("韦科地区机场", "Waco Regional Airport"),
     "JFK": ("约翰·肯尼迪国际机场", "John F. Kennedy International Airport"),
     "LGA": ("拉瓜迪亚机场", "LaGuardia Airport"),
     "EWR": ("纽瓦克自由国际机场", "Newark Liberty International Airport"),

@@ -204,7 +204,7 @@ export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client
         prompt: [
           '你负责根据用户问题和已执行 capability 结果生成最终回答。',
           '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的面板结果。',
-          '如果结果不足以回答问题，明确说明缺少什么数据；如果执行了视觉操作，简要说明已完成的界面变化。',
+          '如果结果不足以回答问题，明确说明缺少什么数据。只有 executionResults 中 effect 为 visual 且 ok 为 true 的结果，才可以声称界面发生了变化；没有成功执行 highlight capability 时，不得声称面板已高亮。',
           '直接回答用户问题，使用简洁的中文，可列出关键指标和证据。',
           request.instruction
         ].filter(Boolean).join('\n'),
