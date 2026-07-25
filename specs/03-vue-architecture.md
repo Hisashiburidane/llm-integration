@@ -156,6 +156,8 @@ forge.registerExporter({
 
 默认 agent 使用 OpenAI-compatible client。需要接入内部模型平台时，传入实现 `LlmClient` 的 `llmClient`，不需要重写 registry、policy 或 executor。
 
+默认 agent 不直接把完整 `EnchantSnapshot` 发送给模型，而是使用页面结构说明和 OpenAI-compatible function tools；snapshot、policy 和执行状态保留在 Core。具体边界见 [LLM Context 与 Tool Calling 边界](./13-llm-context-boundary.md)。
+
 Aura 可以通过标准属性 `agent` 接入应用自定义 agent，也可以使用主题化别名 `caster`：
 
 ```vue

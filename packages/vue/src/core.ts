@@ -1,5 +1,9 @@
-export { createDefaultEnchantAgent } from './runtime/agent';
-export type { EnchantAgent, EnchantAgentRequest } from './runtime/agent';
+export { buildEnchantLlmContext, createDefaultEnchantAgent } from './runtime/agent';
+export type {
+  EnchantAgent,
+  EnchantAgentRequest,
+  EnchantLlmContext
+} from './runtime/agent';
 export { useEnchantAction, useEnchantForm } from './runtime/actions';
 export type {
   EnchantActionOptions,
@@ -86,7 +90,16 @@ export {
 } from './runtime/scope';
 export type { LlmMetadataTreeNode, LlmPageTool, LlmScopeSnapshot, MetadataNode } from './runtime/scope';
 export { createLlmClient, parseLlmJson } from './runtime/llm-client';
-export type { LlmClient, LlmClientOptions, LlmMessage, LlmResponse, LlmRunJsonOptions, LlmRunOptions } from './runtime/llm-client';
+export type {
+  LlmClient,
+  LlmClientOptions,
+  LlmFunctionTool,
+  LlmMessage,
+  LlmResponse,
+  LlmRunJsonOptions,
+  LlmRunOptions,
+  LlmToolCall
+} from './runtime/llm-client';
 export type { EnchantNavigationInput, EnchantNavigationSource, EnchantNavigationState } from './runtime/navigation';
 export { clearLlmDebugEvents, pushLlmDebugEvent, useLlmDebugEvents } from './runtime/debug';
 export type { LlmDebugEvent } from './runtime/debug';

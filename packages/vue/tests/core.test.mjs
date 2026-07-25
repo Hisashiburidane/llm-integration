@@ -148,6 +148,29 @@ test('LLM client normalizes timeout and caller abort', async () => {
   await assert.rejects(request, /取消/);
 });
 
+test('LLM client sends native function tools and normalizes tool calls', async () => {
+  let body;
+  const client = createLlmClient({
+    model: 'test',
+    fetcher: async (_url, init) => {
+      body = JSON.parse(init.body);
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: '', tool_calls: [{ id: 'call-1', function: { name: 'enchant_tool_0', arguments: '{"value":"ok"}' } }] } }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+  });
+  const result = await client.runJson({
+    prompt: 'plan',
+    input: 'run',
+    tools: [{ type: 'function', function: { name: 'enchant_tool_0', parameters: { type: 'object' } } }]
+  });
+
+  assert.equal(body.tools[0].function.name, 'enchant_tool_0');
+  assert.equal(body.tool_choice, 'auto');
+  assert.doesNotMatch(body.messages[0].content, /只返回 JSON/);
+  assert.deepEqual(result.toolCalls[0], { id: 'call-1', name: 'enchant_tool_0', arguments: '{"value":"ok"}' });
+});
+
 test('forge rejects stale snapshots before executing a capability', async () => {
   const { forge, getExecutionCount } = createTestForge();
   const snapshot = forge.capture();
@@ -297,6 +320,40 @@ test('default agent can use an injected LLM client', async () => {
   assert.equal(request.input, 'inspect');
   assert.doesNotMatch(request.prompt, /snapshotVersion/);
   assert.equal(request.context.version, undefined);
+  assert.equal(request.context.structure.children[0].children[0].label, 'Test region');
+  assert.equal(request.tools[0].function.name, 'enchant_tool_0');
+  assert.match(request.tools[0].function.description, /Test action/);
+  assert.equal(request.tools[0].function.parameters.properties.value.type, 'string');
+  assert.doesNotMatch(JSON.stringify(request.context), /initial/);
+});
+
+test('default agent maps native function calls back to capabilities', async () => {
+  let request;
+  let executionCount = 0;
+  const forge = createEnchantForge({
+    llmClient: {
+      async runJson(value) {
+        request = value;
+        return {
+          content: 'native tool call',
+          toolCalls: [{ name: 'enchant_tool_0', arguments: '{"value":"valid"}' }]
+        };
+      }
+    }
+  });
+  forge.registry.register(createRegistration({
+    execute(input) {
+      executionCount += 1;
+      return { status: 'success', data: input };
+    }
+  }));
+
+  const result = await forge.run({ input: 'use the action' });
+
+  assert.equal(request.tools[0].function.name, 'enchant_tool_0');
+  assert.equal(result.plan.calls[0].capabilityId, 'capability:test');
+  assert.equal(executionCount, 1);
+  assert.equal(result.results[0].ok, true);
 });
 
 test('registry filters route-scoped registrations for the active snapshot', () => {

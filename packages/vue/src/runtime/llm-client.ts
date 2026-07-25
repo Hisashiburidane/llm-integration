@@ -5,6 +5,21 @@ export interface LlmMessage {
   tool_call_id?: string;
 }
 
+export interface LlmFunctionTool {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters?: Record<string, unknown>;
+  };
+}
+
+export interface LlmToolCall {
+  id?: string;
+  name: string;
+  arguments: string;
+}
+
 export interface LlmClientOptions {
   endpoint?: string;
   model?: string;
@@ -24,6 +39,8 @@ export interface LlmRunOptions {
   model?: string;
   signal?: AbortSignal;
   timeout?: number;
+  tools?: LlmFunctionTool[];
+  toolChoice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } };
   body?: Record<string, unknown>;
 }
 
@@ -34,6 +51,7 @@ export interface LlmRunJsonOptions extends LlmRunOptions {
 export interface LlmResponse {
   content: string;
   payload: unknown;
+  toolCalls?: LlmToolCall[];
 }
 
 export interface LlmClient {
@@ -106,6 +124,7 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
           model,
           temperature: request.temperature ?? 0,
           messages: buildMessages(request),
+          ...(request.tools?.length ? { tools: request.tools, tool_choice: request.toolChoice ?? 'auto' } : {}),
           ...request.body
         })
       });
@@ -116,11 +135,19 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
       }
 
       const payload = await response.json() as {
-        choices?: Array<{ message?: { content?: unknown } }>;
+        choices?: Array<{ message?: { content?: unknown; tool_calls?: Array<{ id?: string; function?: { name?: unknown; arguments?: unknown } }> } }>;
       };
-      const content = payload.choices?.[0]?.message?.content;
-      if (typeof content !== 'string') throw new Error('LLM 响应中缺少 message.content。');
-      return { content, payload };
+      const message = payload.choices?.[0]?.message;
+      const content = typeof message?.content === 'string' ? message.content : '';
+      const toolCalls = message?.tool_calls?.flatMap((call) => {
+        const name = call.function?.name;
+        const args = call.function?.arguments;
+        return typeof name === 'string' && typeof args === 'string'
+          ? [{ id: call.id, name, arguments: args }]
+          : [];
+      });
+      if (!content && !toolCalls?.length) throw new Error('LLM 响应中缺少 message.content 或 tool_calls。');
+      return { content, payload, toolCalls };
     } catch (error) {
       if (timedOut) throw new Error(`LLM 请求超时（${timeout}ms）。`);
       if (request.signal?.aborted || controller.signal.aborted) throw new Error('LLM 请求已取消。');
@@ -134,8 +161,9 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
   async function runJson<T = unknown>(request: LlmRunJsonOptions): Promise<T> {
     const result = await run({
       ...request,
-      messages: request.messages?.length ? request.messages : buildMessages(request, true)
+      messages: request.messages?.length ? request.messages : buildMessages(request, !request.tools?.length)
     });
+    if (result.toolCalls?.length) return { content: result.content, toolCalls: result.toolCalls } as T;
     return parseLlmJson(result.content) as T;
   }
 
