@@ -2,6 +2,8 @@
 
 This package contains source plans for future Dashboard topics. It does not add domain models or claim that these topics are implemented.
 
+注意：这里不包含已经实现的航班 Dashboard 数据。航班 fixture 和 BTS 原始压缩包位于 `examples/dashboard-vue/data/`，请使用该目录文档中的命令；本目录只管理其他专题的数据源。
+
 ## 可直接下载
 
 当前有三个数据集提供稳定直链：

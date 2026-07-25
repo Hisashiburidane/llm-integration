@@ -3,6 +3,12 @@
 The dashboard currently runs with the deterministic fixture in `src/data/aviation.ts`.
 This directory is reserved for the public BTS data workflow.
 
+这里有三种不同状态，不要混为一谈：
+
+- `src/data/aviation.ts`：页面当前实际使用的固定演示 fixture；
+- `data/raw/*.zip`：通过下面命令下载的 BTS 原始压缩包；
+- 原始压缩包接入查询引擎：尚未完成，当前页面不会自动读取 `data/raw`。
+
 ## 可直接下载
 
 航班 BTS 数据使用以下两步：
