@@ -1,20 +1,35 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import ConfigurableDashboard from './ConfigurableDashboard.vue';
+import GlobalDashboardLibrary from './components/GlobalDashboardLibrary.vue';
 import GlobalPanelLibrary from './components/GlobalPanelLibrary.vue';
 import PlatformMenu from './components/PlatformMenu.vue';
-import { dashboardRuntimes } from './runtime/dashboard-registry';
+import { dashboardIds } from './runtime/dashboard-registry';
 
-type View = keyof typeof dashboardRuntimes | 'panels';
+type View = 'aviation' | 'airQuality' | 'taxi' | 'otel' | 'panels' | 'dashboards' | `dashboard/${string}`;
 const view = ref<View>(readView());
-const activeRuntimeKey = computed(() => view.value === 'panels' ? 'aviation' : view.value);
-const menuView = computed<'aviation' | 'air-quality' | 'taxi' | 'otel' | 'panels'>(() => view.value === 'airQuality' ? 'air-quality' : view.value);
+const activeDashboardId = computed(() => {
+  if (view.value.startsWith('dashboard/')) return decodeURIComponent(view.value.slice('dashboard/'.length));
+  if (view.value === 'airQuality') return dashboardIds.airQuality;
+  if (view.value === 'taxi') return dashboardIds.taxi;
+  if (view.value === 'otel') return dashboardIds.otel;
+  return dashboardIds.aviation;
+});
+const menuView = computed<'aviation' | 'air-quality' | 'taxi' | 'otel' | 'panels' | 'dashboards'>(() => {
+  if (view.value.startsWith('dashboard/')) return 'dashboards';
+  if (view.value === 'airQuality') return 'air-quality';
+  if (view.value === 'panels' || view.value === 'dashboards' || view.value === 'taxi' || view.value === 'otel') return view.value;
+  return 'aviation';
+});
 
 function readView(): View {
-  if (window.location.hash === '#air-quality') return 'airQuality';
-  if (window.location.hash === '#taxi') return 'taxi';
-  if (window.location.hash === '#otel') return 'otel';
-  if (window.location.hash === '#panels') return 'panels';
+  const hash = window.location.hash.slice(1);
+  if (hash === 'air-quality') return 'airQuality';
+  if (hash === 'taxi') return 'taxi';
+  if (hash === 'otel') return 'otel';
+  if (hash === 'panels') return 'panels';
+  if (hash === 'dashboards') return 'dashboards';
+  if (hash.startsWith('dashboard/') && hash.length > 'dashboard/'.length) return hash as `dashboard/${string}`;
   return 'aviation';
 }
 
@@ -24,7 +39,8 @@ onMounted(() => window.addEventListener('hashchange', () => { view.value = readV
 <template>
   <PlatformMenu :active="menuView" />
   <GlobalPanelLibrary v-if="view === 'panels'" />
-  <ConfigurableDashboard v-else :key="activeRuntimeKey" :dashboard-id="activeRuntimeKey" />
+  <GlobalDashboardLibrary v-else-if="view === 'dashboards'" />
+  <ConfigurableDashboard v-else :key="activeDashboardId" :dashboard-id="activeDashboardId" />
 </template>
 
 <style>

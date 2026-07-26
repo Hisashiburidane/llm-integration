@@ -28,9 +28,13 @@ pnpm --filter @enchantforge/dashboard-vue data:serve
 
 打开 `http://localhost:5175/dashboard/#air-quality` 可进入 Beijing Air Quality Dashboard。空气质量 Panel 使用 `air_quality_dashboard_rollup`，支持日期范围、监测站筛选和 Air Quality Assistant 分析。
 
-打开 `http://localhost:5175/dashboard/#taxi` 可进入 NYC Taxi Dashboard。出租车 Panel 使用 `nyc_taxi_dashboard_rollup`，支持日期范围、行政区和上车区域筛选。`http://localhost:5175/dashboard/#panels` 是跨专题的统一 Panel Library。
+打开 `http://localhost:5175/dashboard/#taxi` 可进入 NYC Taxi Dashboard。出租车 Panel 使用 `nyc_taxi_dashboard_rollup`，支持日期范围、行政区和上车区域筛选。`http://localhost:5175/dashboard/#panels` 是跨专题的统一 Panel Library，`http://localhost:5175/dashboard/#dashboards` 是 Dashboard Library。
 
-Panel Library 读取独立的 `panel_definitions`，支持跨数据域搜索、点击真实渲染单个 Panel，以及新增和编辑定义。Panel 编辑不会自动改变任何 Dashboard 的排列；Dashboard 继续通过 `dashboard_panel_placements` 组合已有 Panel。
+Panel Library 读取独立的 `panel_definitions`，支持跨数据域搜索、点击真实渲染单个 Panel，以及自定义 Panel CRUD。Panel 编辑不会自动改变任何 Dashboard 的排列；Dashboard 继续通过 `dashboard_panel_placements` 组合已有 Panel。系统 Panel 不可删除，被 Dashboard 引用的自定义 Panel 必须先移除 placement。
+
+Dashboard Library 支持创建、查看、修改和删除自定义 Dashboard，并可从兼容数据域的 Panel Library 快速加入 Panel、调整顺序、宽度和高度。系统示例保持只读，但可以复制为自定义 Dashboard 后编辑。
+
+Panel 和 Dashboard 编辑器都使用 `Enchant + useEnchantForm` 提供 Text-to-Form。自然语言只填写受约束的配置草稿，不直接生成 SQL/Vue，也不会自动保存；用户检查草稿并提交后，Node API 仍会校验数据源、指标维度和 Panel 引用。
 
 打开 `http://localhost:5175/dashboard/#otel` 可进入 OpenTelemetry Dashboard。它使用真实采集后生成的服务、依赖、Metric 和日志分钟聚合表，并默认选择最新采集批次。首次准备数据：
 

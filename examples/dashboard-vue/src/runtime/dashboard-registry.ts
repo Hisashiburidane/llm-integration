@@ -8,9 +8,20 @@ function runtime(configUrl: string) {
   });
 }
 
+export const dashboardIds = {
+  aviation: 'aviation-operations',
+  airQuality: 'air-quality-operations',
+  taxi: 'nyc-taxi-operations',
+  otel: 'otel-demo-observability'
+} as const;
+
+export function createDashboardRuntimeFor(dashboardId: string) {
+  return runtime(`/api/dashboard/config?dashboard=${encodeURIComponent(dashboardId)}`);
+}
+
 export const dashboardRuntimes = {
-  aviation: runtime('/api/dashboard/config'),
-  airQuality: runtime('/api/dashboard/config?dashboard=air-quality-operations'),
-  taxi: runtime('/api/dashboard/config?dashboard=nyc-taxi-operations'),
-  otel: runtime('/api/dashboard/config?dashboard=otel-demo-observability')
+  aviation: createDashboardRuntimeFor(dashboardIds.aviation),
+  airQuality: createDashboardRuntimeFor(dashboardIds.airQuality),
+  taxi: createDashboardRuntimeFor(dashboardIds.taxi),
+  otel: createDashboardRuntimeFor(dashboardIds.otel)
 };

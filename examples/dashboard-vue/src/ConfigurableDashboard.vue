@@ -4,11 +4,11 @@ import { Aura, Enchant } from '@enchantforge/vue';
 import DashboardPanel from './components/DashboardPanel.vue';
 import { createDashboardCapabilities, createPanelCapabilities, dashboardContext } from './runtime/dashboard-capabilities';
 import { dashboardMetadata, panelMetadata } from './runtime/dashboard-metadata';
-import { dashboardRuntimes } from './runtime/dashboard-registry';
+import { createDashboardRuntimeFor } from './runtime/dashboard-registry';
 import type { DashboardFilterDefinition } from './runtime/dashboard-runtime';
 
-const props = defineProps<{ dashboardId: keyof typeof dashboardRuntimes }>();
-const runtime = dashboardRuntimes[props.dashboardId];
+const props = defineProps<{ dashboardId: string }>();
+const runtime = createDashboardRuntimeFor(props.dashboardId);
 const state = runtime.state;
 const contextOpen = ref(false);
 const selectedPanelId = ref('');

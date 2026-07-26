@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { Enchant } from '@enchantforge/vue';
 import DashboardPanel from './DashboardPanel.vue';
+import TextToFormBuilder from './TextToFormBuilder.vue';
 import { queryDashboard } from '../query/client';
 import type { DatasetDefinition, PanelConfig, PanelType, QueryResult, QuerySpec } from '../model/types';
 import type { DashboardFilterDefinition } from '../runtime/dashboard-runtime';
@@ -8,6 +10,10 @@ import type { DashboardFilterDefinition } from '../runtime/dashboard-runtime';
 interface QuerySource {
   datasetId: string;
   metricIds: string[];
+}
+
+interface LibraryPanel extends PanelConfig {
+  seeded?: boolean;
 }
 
 interface DashboardCatalog {
@@ -24,9 +30,10 @@ interface PanelEntry extends PanelConfig {
   dashboardTitle: string;
   topicId: string;
   dataset: DatasetDefinition;
+  seeded?: boolean;
 }
 
-interface PanelDraft {
+interface PanelDraft extends Record<string, unknown> {
   id: string;
   type: PanelType;
   title: string;
@@ -48,7 +55,7 @@ const panelTypes: Array<{ label: string; value: PanelType }> = [
   { label: '拓扑图', value: 'graph' }
 ];
 
-const panels = ref<PanelConfig[]>([]);
+const panels = ref<LibraryPanel[]>([]);
 const catalogs = ref<DashboardCatalog[]>([]);
 const loading = ref(true);
 const saving = ref(false);
@@ -58,6 +65,7 @@ const editorOpen = ref(false);
 const editing = ref(false);
 const formError = ref('');
 const selectedDashboardId = ref('');
+const selectedDatasetId = ref('');
 const detailPanel = ref<PanelEntry | null>(null);
 const previewResult = ref<QueryResult>();
 const editingPanel = ref<PanelConfig>();
@@ -82,10 +90,7 @@ const filteredEntries = computed(() => {
   ].join(' ').toLowerCase().includes(keyword));
 });
 const selectedCatalog = computed(() => catalogs.value.find((catalog) => catalog.id === selectedDashboardId.value) ?? catalogs.value[0]);
-const selectedSource = computed(() => {
-  const metricId = draft.value.metricIds[0];
-  return selectedCatalog.value?.querySources.find((source) => source.metricIds.includes(metricId));
-});
+const selectedSource = computed(() => selectedCatalog.value?.querySources.find((source) => source.datasetId === selectedDatasetId.value));
 const availableMetrics = computed(() => {
   const catalog = selectedCatalog.value;
   if (!catalog) return [];
@@ -100,6 +105,15 @@ const availableDimensions = computed(() => {
     .filter((metric) => metric !== undefined);
   return catalog.dataset.dimensions.filter((dimension) => metrics.every((metric) => metric.supportedDimensions.includes(dimension.id)));
 });
+const builderPrompt = computed(() => [
+  '根据用户描述填写 Panel 草稿，不要保存。',
+  `当前数据域：${selectedCatalog.value?.title ?? '未选择'}。`,
+  `当前查询数据源：${selectedSource.value?.datasetId ?? '未选择'}。`,
+  `可用类型：${panelTypes.map((item) => item.value).join(', ')}。`,
+  `可用指标：${availableMetrics.value.map((metric) => `${metric.id}(${metric.label})`).join(', ')}。`,
+  `可用维度：${availableDimensions.value.map((dimension) => `${dimension.id}(${dimension.label})`).join(', ') || '无'}。`,
+  'metricIds 和 dimensionIds 必须使用上述 ID 数组。指标卡不填写维度，拓扑图必须填写两个维度。id 使用小写字母、数字和连字符。不要调用保存能力。'
+].join('\n\n'));
 
 watch(() => draft.value.metricIds, () => {
   const allowedMetrics = new Set(availableMetrics.value.map((metric) => metric.id));
@@ -112,9 +126,19 @@ watch(() => draft.value.metricIds, () => {
 
 watch(selectedDashboardId, () => {
   if (!editorOpen.value || editing.value) return;
-  const metric = selectedCatalog.value?.dataset.metrics[0];
+  selectedDatasetId.value = selectedCatalog.value?.querySources[0]?.datasetId ?? '';
+  const metric = availableMetrics.value[0];
   draft.value.metricIds = metric ? [metric.id] : [];
   draft.value.dimensionIds = [];
+});
+
+watch(selectedDatasetId, () => {
+  if (!editorOpen.value || editing.value) return;
+  const allowed = new Set(availableMetrics.value.map((metric) => metric.id));
+  if (!draft.value.metricIds.length || draft.value.metricIds.some((metricId) => !allowed.has(metricId))) {
+    draft.value.metricIds = availableMetrics.value[0] ? [availableMetrics.value[0].id] : [];
+    draft.value.dimensionIds = [];
+  }
 });
 
 watch(detailPanel, (panel) => {
@@ -196,8 +220,9 @@ function openCreate() {
   editingPanel.value = undefined;
   formError.value = '';
   selectedDashboardId.value = catalogs.value[0]?.id ?? '';
+  selectedDatasetId.value = selectedCatalog.value?.querySources[0]?.datasetId ?? '';
   draft.value = emptyDraft();
-  const metric = selectedCatalog.value?.dataset.metrics[0];
+  const metric = availableMetrics.value[0];
   if (metric) draft.value.metricIds = [metric.id];
   editorOpen.value = true;
 }
@@ -207,6 +232,7 @@ function openEdit(panel: PanelEntry) {
   editingPanel.value = panel;
   formError.value = '';
   selectedDashboardId.value = panel.dashboardId;
+  selectedDatasetId.value = panel.query.datasetId;
   draft.value = {
     id: panel.id,
     type: panel.type,
@@ -256,6 +282,30 @@ function buildPanel(): PanelConfig | undefined {
   };
 }
 
+function stringArray(value: unknown) {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'string') return value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function applyGeneratedDraft(values: Record<string, unknown>) {
+  if (!editing.value && typeof values.id === 'string') draft.value.id = values.id;
+  if (typeof values.title === 'string') draft.value.title = values.title;
+  if (typeof values.description === 'string') draft.value.description = values.description;
+  if (typeof values.type === 'string' && panelTypes.some((item) => item.value === values.type)) draft.value.type = values.type as PanelType;
+  if (values.metricIds !== undefined) {
+    const allowed = new Set(availableMetrics.value.map((metric) => metric.id));
+    draft.value.metricIds = [...new Set(stringArray(values.metricIds).filter((metricId) => allowed.has(metricId)))];
+  }
+  if (values.dimensionIds !== undefined) {
+    const allowed = new Set(availableDimensions.value.map((dimension) => dimension.id));
+    draft.value.dimensionIds = [...new Set(stringArray(values.dimensionIds).filter((dimensionId) => allowed.has(dimensionId)))];
+  }
+  if (typeof values.width === 'number') draft.value.width = Math.min(12, Math.max(3, Math.round(values.width)));
+  if (typeof values.minHeight === 'number') draft.value.minHeight = Math.min(800, Math.max(120, Math.round(values.minHeight)));
+  if (typeof values.limit === 'number') draft.value.limit = Math.min(100, Math.max(0, Math.round(values.limit)));
+}
+
 async function submit() {
   const panel = buildPanel();
   if (!panel) return;
@@ -294,6 +344,18 @@ async function submit() {
   }
 }
 
+async function deletePanel(panel: PanelEntry) {
+  try {
+    const response = await fetch(`/api/dashboard/panels/${encodeURIComponent(panel.id)}`, { method: 'DELETE' });
+    const payload = await response.json() as { error?: string };
+    if (!response.ok || payload.error) throw new Error(payload.error || `Panel 删除失败（${response.status}）。`);
+    detailPanel.value = null;
+    await load();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Panel 删除失败。';
+  }
+}
+
 async function load() {
   loading.value = true;
   error.value = '';
@@ -308,7 +370,7 @@ async function load() {
       fetch('/api/dashboard/panels'),
       ...configUrls.map((url) => fetch(url))
     ]);
-    const library = await libraryResponse.json() as { panels?: PanelConfig[]; error?: string };
+    const library = await libraryResponse.json() as { panels?: LibraryPanel[]; error?: string };
     const configs = await Promise.all(configResponses.map((response) => response.json() as Promise<DashboardCatalog & { error?: string }>));
     const responseError = library.error || configs.find((config) => config.error)?.error;
     if (!libraryResponse.ok || configResponses.some((response) => !response.ok) || responseError) throw new Error(responseError || 'Panel Library 加载失败。');
@@ -339,35 +401,47 @@ onMounted(() => { void load(); });
         <h2>{{ panel.title }}</h2>
         <p>{{ panel.description }}</p>
         <dl><div><dt>指标</dt><dd>{{ panel.query.metrics.map((metric) => metricLabel(panel, metric.metricId)).join(', ') }}</dd></div><div><dt>维度</dt><dd>{{ panel.query.dimensions.map((dimension) => dimensionLabel(panel, dimension.dimensionId)).join(', ') || '-' }}</dd></div><div><dt>数据源</dt><dd>{{ panel.query.datasetId }}</dd></div></dl>
-        <div class="card-actions"><span>点击独立查看</span><a-button type="link" size="small" @click.stop="openEdit(panel)">编辑</a-button></div>
+        <div class="card-actions"><span>点击独立查看</span><div><a-button type="link" size="small" @click.stop="openEdit(panel)">编辑</a-button><a-popconfirm v-if="!panel.seeded" title="确定删除这个 Panel？" ok-text="删除" cancel-text="取消" @confirm="deletePanel(panel)"><a-button type="link" size="small" danger @click.stop>删除</a-button></a-popconfirm></div></div>
       </article>
     </section>
 
-    <a-modal v-model:open="editorOpen" :title="editing ? '编辑 Panel' : '新增 Panel'" ok-text="保存" cancel-text="取消" :confirm-loading="saving" width="680px" @ok="submit">
+    <a-modal v-model:open="editorOpen" :title="editing ? '编辑 Panel' : '新增 Panel'" ok-text="保存" cancel-text="取消" :confirm-loading="saving" width="720px" @ok="submit">
       <a-alert v-if="formError" type="error" show-icon :message="formError" class="editor-alert" />
-      <a-form layout="vertical">
-        <a-form-item label="数据域" required><a-select v-model:value="selectedDashboardId" :disabled="editing" :options="catalogs.map((catalog) => ({ label: catalog.title, value: catalog.id }))" /></a-form-item>
-        <div class="editor-row">
-          <a-form-item label="Panel ID" required><a-input v-model:value="draft.id" :disabled="editing" placeholder="service-latency" /></a-form-item>
-          <a-form-item label="Panel 类型" required><a-select v-model:value="draft.type" :options="panelTypes" /></a-form-item>
-        </div>
-        <a-form-item label="标题" required><a-input v-model:value="draft.title" /></a-form-item>
-        <a-form-item label="描述" required><a-textarea v-model:value="draft.description" :rows="2" /></a-form-item>
-        <a-form-item label="指标" required><a-select v-model:value="draft.metricIds" mode="multiple" :max-tag-count="3" :options="availableMetrics.map((metric) => ({ label: `${metric.label} / ${metric.id}`, value: metric.id }))" /></a-form-item>
-        <a-form-item label="维度"><a-select v-model:value="draft.dimensionIds" mode="multiple" :disabled="draft.type === 'metric'" :max-tag-count="3" :options="availableDimensions.map((dimension) => ({ label: `${dimension.label} / ${dimension.id}`, value: dimension.id }))" /></a-form-item>
-        <div class="editor-layout-row">
-          <a-form-item label="宽度（12 列）"><a-input-number v-model:value="draft.width" :min="3" :max="12" /></a-form-item>
-          <a-form-item label="最小高度"><a-input-number v-model:value="draft.minHeight" :min="120" :max="800" /></a-form-item>
-          <a-form-item label="Query limit"><a-input-number v-model:value="draft.limit" :min="0" :max="100" /></a-form-item>
-        </div>
-      </a-form>
+      <Enchant name="panel-builder" page="panel-library" kind="form" prompt="根据用户描述填写 Panel 草稿，不要保存。">
+        <TextToFormBuilder
+          :model="draft"
+          :fields="{ id: 'Panel ID', type: 'Panel 类型', title: '标题', description: '描述', metricIds: '指标 ID 列表', dimensionIds: '维度 ID 列表', width: '12 列布局宽度', minHeight: '最小高度', limit: '查询行数上限' }"
+          :prompt="builderPrompt"
+          placeholder="例如：创建一个按服务展示 P95 延迟排名的柱状图，宽度 6"
+          :assign="applyGeneratedDraft"
+        />
+        <a-form layout="vertical">
+          <div class="editor-row">
+            <a-form-item label="数据域" required><a-select v-model:value="selectedDashboardId" :disabled="editing" :options="catalogs.map((catalog) => ({ label: catalog.title, value: catalog.id }))" /></a-form-item>
+            <a-form-item label="查询数据源" required><a-select v-model:value="selectedDatasetId" :disabled="editing" :options="selectedCatalog?.querySources.map((source) => ({ label: source.datasetId, value: source.datasetId }))" /></a-form-item>
+          </div>
+          <div class="editor-row">
+            <a-form-item label="Panel ID" required><a-input v-model:value="draft.id" :disabled="editing" placeholder="service-latency" /></a-form-item>
+            <a-form-item label="Panel 类型" required><a-select v-model:value="draft.type" :options="panelTypes" /></a-form-item>
+          </div>
+          <a-form-item label="标题" required><a-input v-model:value="draft.title" /></a-form-item>
+          <a-form-item label="描述" required><a-textarea v-model:value="draft.description" :rows="2" /></a-form-item>
+          <a-form-item label="指标" required><a-select v-model:value="draft.metricIds" mode="multiple" :max-tag-count="3" :options="availableMetrics.map((metric) => ({ label: `${metric.label} / ${metric.id}`, value: metric.id }))" /></a-form-item>
+          <a-form-item label="维度"><a-select v-model:value="draft.dimensionIds" mode="multiple" :disabled="draft.type === 'metric'" :max-tag-count="3" :options="availableDimensions.map((dimension) => ({ label: `${dimension.label} / ${dimension.id}`, value: dimension.id }))" /></a-form-item>
+          <div class="editor-layout-row">
+            <a-form-item label="宽度（12 列）"><a-input-number v-model:value="draft.width" :min="3" :max="12" /></a-form-item>
+            <a-form-item label="最小高度"><a-input-number v-model:value="draft.minHeight" :min="120" :max="800" /></a-form-item>
+            <a-form-item label="Query limit"><a-input-number v-model:value="draft.limit" :min="0" :max="100" /></a-form-item>
+          </div>
+        </a-form>
+      </Enchant>
     </a-modal>
 
     <a-drawer :open="Boolean(detailPanel)" title="Panel Preview" width="min(720px, 96vw)" @close="detailPanel = null">
       <template v-if="detailPanel">
         <DashboardPanel :panel="detailPanel" :dataset="detailPanel.dataset" :result="previewResult ?? loadingResult(detailPanel)" :highlighted="false" :lowlight="false" :selected="false" />
         <a-divider />
-        <div class="drawer-actions"><a-button @click="openEdit(detailPanel)">编辑 Panel</a-button></div>
+        <div class="drawer-actions"><a-button @click="openEdit(detailPanel)">编辑 Panel</a-button><a-popconfirm v-if="!detailPanel.seeded" title="确定删除这个 Panel？" ok-text="删除" cancel-text="取消" @confirm="deletePanel(detailPanel)"><a-button danger>删除 Panel</a-button></a-popconfirm></div>
         <a-descriptions :column="1" size="small" bordered>
           <a-descriptions-item label="Panel ID">{{ detailPanel.id }}</a-descriptions-item>
           <a-descriptions-item label="数据域">{{ detailPanel.dashboardTitle }}</a-descriptions-item>

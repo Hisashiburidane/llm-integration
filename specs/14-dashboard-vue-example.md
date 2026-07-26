@@ -25,6 +25,8 @@ dataset semantic model
 - 指标卡、折线图、柱状图、构成图、表格、时间线和拓扑图；
 - 专题筛选和配置驱动的 Panel 编排；
 - 面向分析问题的 Evidence Group 元数据；
+- 独立的 Panel Library 和 Dashboard Library 管理页面；
+- 通过 Text-to-Form 生成 PanelConfig 和 Dashboard 编排草稿；
 - Dashboard 和 Panel 的显式 Enchant metadata/capability；
 - `read`、筛选和多 Panel 高亮能力；
 - Aura 助手、Debug trace、数据来源说明和本地运行配置。
@@ -48,6 +50,7 @@ dataset semantic model
 - 能力 owner/provider 及实际执行效果；
 - Panel 渲染和联动；
 - Evidence Group 的领域含义和 Panel 组合；
+- Panel/Dashboard CRUD、数据域约束和草稿保存；
 - 业务 trace 摘要与数据来源展示。
 
 ### 3.3 EnchantForge 负责
@@ -70,6 +73,8 @@ snapshot 只作为 LLM 规划上下文和 Debug 记录。示例不把 registry v
 2. 通过 Aura 提问当前机场或服务的异常指标。
 3. Aura 从 Evidence Group 读取 2-4 个真实 Panel 结果并高亮同一组证据。
 4. 在 Debug trace 中查看 read、继续规划、highlight 和最终回答。
+5. 在 Panel Library 通过自然语言生成 Panel 草稿，检查后保存。
+6. 在 Dashboard Library 选择数据域，通过自然语言或手动方式组合已有 Panel。
 
 ## 6. 验收标准
 
@@ -80,4 +85,6 @@ snapshot 只作为 LLM 规划上下文和 Debug 记录。示例不把 registry v
 - 无关 Panel 挂载不会让已有计划因 snapshot version 失效；
 - 主要分析结论可以追溯到当前 QueryResult 和 SQLite 数据来源；
 - Evidence Group 引用的 Panel 必须存在，且只表达应用领域语义；
+- 自定义 Dashboard 只保存 Panel 引用、顺序和布局，不复制 Panel 定义；
+- Text-to-Form 只能更新草稿，保存仍经过应用 API 校验；
 - 核心包和 Dashboard 示例均可通过定向 typecheck/build。
