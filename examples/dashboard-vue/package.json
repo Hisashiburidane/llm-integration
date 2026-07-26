@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "data:serve": "node scripts/query-server.mjs",
+    "config:reset": "node scripts/reset-dashboard-config.mjs",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },

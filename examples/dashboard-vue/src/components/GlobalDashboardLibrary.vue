@@ -17,7 +17,6 @@ interface DashboardEntry {
   title: string;
   description: string;
   baseDashboardId: string;
-  seeded: boolean;
   placements: DashboardPlacement[];
 }
 
@@ -125,7 +124,6 @@ function openCreate(source?: DashboardEntry) {
 }
 
 function openEdit(dashboard: DashboardEntry) {
-  if (dashboard.seeded) return;
   editing.value = true;
   formError.value = '';
   panelSearch.value = '';
@@ -269,7 +267,7 @@ onMounted(() => { void load(); });
 <template>
   <main class="dashboard-library">
     <header class="library-heading">
-      <div><p class="eyebrow">PLATFORM / DASHBOARD LIBRARY</p><h1>Dashboard Library</h1><p>Dashboard 只编排已有 Panel。系统示例可直接复制，自定义 Dashboard 支持完整 CRUD。</p></div>
+      <div><p class="eyebrow">PLATFORM / DASHBOARD LIBRARY</p><h1>Dashboard Library</h1><p>Dashboard 只编排已有 Panel。所有 Dashboard 都是可查看、编辑、复制和删除的配置资产。</p></div>
       <div class="library-actions"><a-input v-model:value="search" allow-clear placeholder="搜索 Dashboard" class="library-search" /><a-button type="primary" @click="openCreate()">新增 Dashboard</a-button></div>
     </header>
     <a-alert v-if="error" type="error" show-icon :message="error" class="library-alert" />
@@ -277,15 +275,15 @@ onMounted(() => { void load(); });
     <a-empty v-else-if="!filteredDashboards.length" description="没有匹配的 Dashboard" />
     <section v-else class="dashboard-cards">
       <article v-for="dashboard in filteredDashboards" :key="dashboard.id" class="dashboard-card">
-        <div class="card-top"><span class="dashboard-id">{{ dashboard.id }}</span><a-tag :color="dashboard.seeded ? 'blue' : 'green'">{{ dashboard.seeded ? '系统示例' : '自定义' }}</a-tag></div>
+        <div class="card-top"><span class="dashboard-id">{{ dashboard.id }}</span><a-tag>{{ domainTitle(dashboard.baseDashboardId) }}</a-tag></div>
         <h2>{{ dashboard.title }}</h2>
         <p>{{ dashboard.description }}</p>
         <div class="dashboard-stats"><div><strong>{{ dashboard.placements.length }}</strong><span>Panels</span></div><div><strong>{{ domainTitle(dashboard.baseDashboardId) }}</strong><span>数据域</span></div></div>
         <div class="card-actions">
           <a-button size="small" @click="openDashboard(dashboard)">打开</a-button>
           <a-button size="small" @click="openCreate(dashboard)">复制</a-button>
-          <a-button v-if="!dashboard.seeded" size="small" @click="openEdit(dashboard)">编辑</a-button>
-          <a-popconfirm v-if="!dashboard.seeded" title="确定删除这个 Dashboard？Panel 定义不会被删除。" ok-text="删除" cancel-text="取消" @confirm="deleteDashboard(dashboard)"><a-button size="small" danger>删除</a-button></a-popconfirm>
+          <a-button size="small" @click="openEdit(dashboard)">编辑</a-button>
+          <a-popconfirm title="确定删除这个 Dashboard？Panel 定义不会被删除。" ok-text="删除" cancel-text="取消" @confirm="deleteDashboard(dashboard)"><a-button size="small" danger>删除</a-button></a-popconfirm>
         </div>
       </article>
     </section>

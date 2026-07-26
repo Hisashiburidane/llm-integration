@@ -4,9 +4,11 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { aviationDashboard } from './dashboard-config.mjs';
-import { airQualityDashboard } from './air-quality-config.mjs';
-import { otelDashboard } from './otel-config.mjs';
-import { taxiDashboard } from './taxi-config.mjs';
+import {
+  dashboardDefinitions,
+  dashboards,
+  ensureDashboardSchema
+} from './dashboard-config-store.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultDatabase = path.resolve(here, '../../data-sources/data/dashboard.sqlite');
@@ -14,13 +16,6 @@ const database = path.resolve(process.env.DASHBOARD_DB || defaultDatabase);
 const port = Number(process.env.DASHBOARD_DATA_PORT || 5176);
 const maxBodySize = 1024 * 1024;
 
-const dashboards = new Map([
-  [aviationDashboard.id, aviationDashboard],
-  [airQualityDashboard.id, airQualityDashboard],
-  [taxiDashboard.id, taxiDashboard],
-  [otelDashboard.id, otelDashboard]
-]);
-const dashboardDefinitions = [...dashboards.values()];
 const datasetDefinitions = {
   aviation_ontime_demo: {
     dimensions: { date: 'flight_date', hour: 'hour', airport: 'origin', destination: 'destination', carrier: 'carrier', direction: 'direction', delayCause: 'delay_cause', flightId: 'flight_id' },
@@ -336,46 +331,6 @@ async function executeDashboardQuery(query) {
   }
 }
 
-async function ensureDashboardConfig() {
-  if (!existsSync(database)) return;
-  const statements = [
-    'CREATE TABLE IF NOT EXISTS dashboard_configs (id TEXT PRIMARY KEY, topic_id TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, source_manifest_json TEXT NOT NULL, dataset_json TEXT NOT NULL, base_dashboard_id TEXT, is_seeded INTEGER NOT NULL DEFAULT 0)',
-    'CREATE TABLE IF NOT EXISTS dashboard_panels (id TEXT PRIMARY KEY, dashboard_id TEXT NOT NULL, template_id TEXT, is_template INTEGER NOT NULL DEFAULT 0, sort_order INTEGER NOT NULL, type TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, query_json TEXT NOT NULL, visualization_json TEXT, layout_json TEXT NOT NULL, FOREIGN KEY (dashboard_id) REFERENCES dashboard_configs(id))',
-    'CREATE INDEX IF NOT EXISTS idx_dashboard_panels_dashboard ON dashboard_panels(dashboard_id, is_template, sort_order)',
-    'CREATE TABLE IF NOT EXISTS panel_definitions (id TEXT PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, query_json TEXT NOT NULL, visualization_json TEXT, default_width INTEGER NOT NULL, default_min_height INTEGER NOT NULL)',
-    'CREATE TABLE IF NOT EXISTS dashboard_panel_placements (dashboard_id TEXT NOT NULL, panel_id TEXT NOT NULL, sort_order INTEGER NOT NULL, width INTEGER NOT NULL, min_height INTEGER NOT NULL, PRIMARY KEY (dashboard_id, panel_id), FOREIGN KEY (dashboard_id) REFERENCES dashboard_configs(id), FOREIGN KEY (panel_id) REFERENCES panel_definitions(id))',
-    'CREATE INDEX IF NOT EXISTS idx_dashboard_panel_placements_dashboard ON dashboard_panel_placements(dashboard_id, sort_order)',
-    'CREATE INDEX IF NOT EXISTS idx_panel_definitions_title ON panel_definitions(title)'
-  ];
-  try {
-    await runSql("ALTER TABLE dashboard_configs ADD COLUMN dataset_json TEXT NOT NULL DEFAULT '{}'", { readonly: false });
-  } catch (error) {
-    if (!String(error).includes('duplicate column name')) throw error;
-  }
-  for (const migration of [
-    'ALTER TABLE dashboard_configs ADD COLUMN base_dashboard_id TEXT',
-    'ALTER TABLE dashboard_configs ADD COLUMN is_seeded INTEGER NOT NULL DEFAULT 0'
-  ]) {
-    try {
-      await runSql(migration, { readonly: false });
-    } catch (error) {
-      if (!String(error).includes('duplicate column name')) throw error;
-    }
-  }
-  const configs = dashboardDefinitions;
-  const configInserts = configs.map((config) => `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json, base_dashboard_id, is_seeded) VALUES (${sqlString(config.id)}, ${sqlString(config.topicId)}, ${sqlString(config.title)}, ${sqlString(config.description)}, ${sqlString(JSON.stringify(config.sourceManifest))}, ${sqlString(JSON.stringify(config.dataset))}, ${sqlString(config.id)}, 1) ON CONFLICT(id) DO UPDATE SET topic_id = excluded.topic_id, title = excluded.title, description = excluded.description, source_manifest_json = excluded.source_manifest_json, dataset_json = excluded.dataset_json, base_dashboard_id = excluded.base_dashboard_id, is_seeded = 1`);
-  const allPanels = configs.flatMap((config) => [
-    ...config.panels.map((panel, index) => ({ ...panel, dashboardId: config.id, sortOrder: index, isTemplate: 0, templateId: null })),
-    ...config.panelTemplates.map((panel, index) => ({ ...panel, dashboardId: config.id, sortOrder: index, isTemplate: 1, templateId: panel.id }))
-  ]);
-  const inserts = allPanels.map((panel) => `INSERT OR IGNORE INTO dashboard_panels (id, dashboard_id, template_id, is_template, sort_order, type, title, description, query_json, visualization_json, layout_json) VALUES (${sqlString(panel.id)}, ${sqlString(panel.dashboardId)}, ${panel.templateId ? sqlString(panel.templateId) : 'NULL'}, ${panel.isTemplate}, ${panel.sortOrder}, ${sqlString(panel.type)}, ${sqlString(panel.title)}, ${sqlString(panel.description)}, ${sqlString(JSON.stringify(panel.query))}, ${panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL'}, ${sqlString(JSON.stringify(panel.layout))})`);
-  const definitionInserts = allPanels.map((panel) => `INSERT OR IGNORE INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) VALUES (${sqlString(panel.id)}, ${sqlString(panel.type)}, ${sqlString(panel.title)}, ${sqlString(panel.description)}, ${sqlString(JSON.stringify(panel.query))}, ${panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL'}, ${panel.layout.width}, ${panel.layout.minHeight})`);
-  const migrateDefinitions = `INSERT OR IGNORE INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) SELECT id, type, title, description, query_json, visualization_json, 6, 300 FROM dashboard_panels`;
-  const migratePlacements = `INSERT OR IGNORE INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) SELECT dashboard_id, id, sort_order, COALESCE(CAST(json_extract(layout_json, '$.width') AS INTEGER), 6), COALESCE(CAST(json_extract(layout_json, '$.minHeight') AS INTEGER), 300) FROM dashboard_panels WHERE is_template = 0`;
-  const placementInserts = configs.flatMap((config) => config.panels.map((panel, index) => `INSERT OR IGNORE INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) VALUES (${sqlString(config.id)}, ${sqlString(panel.id)}, ${index}, ${panel.layout.width}, ${panel.layout.minHeight})`));
-  await runSql(`${statements.join(';')}; ${configInserts.join(';')}; ${inserts.join(';')}; ${definitionInserts.join(';')}; ${migrateDefinitions}; ${migratePlacements}; ${placementInserts.join(';')}; UPDATE panel_definitions SET type = 'table' WHERE type = 'airport-status'; UPDATE dashboard_panels SET type = 'table' WHERE type = 'airport-status'`, { readonly: false });
-}
-
 async function detectRollup() {
   for (const [datasetId, definition] of Object.entries(datasetDefinitions)) {
     const table = await runSql(`SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ${sqlString(definition.rollupTable)}`);
@@ -388,8 +343,8 @@ async function detectRollup() {
   }
 }
 
-async function readConfig(dashboardId = aviationDashboard.id) {
-  const configs = await runSql(`SELECT id, topic_id, title, description, source_manifest_json, dataset_json, base_dashboard_id, is_seeded FROM dashboard_configs WHERE id = ${sqlString(dashboardId)}`);
+async function readConfig(dashboardId) {
+  const configs = await runSql(`SELECT id, topic_id, title, description, source_manifest_json, dataset_json, base_dashboard_id FROM dashboard_configs WHERE id = ${sqlString(dashboardId)}`);
   if (!configs.length) throw new Error('Dashboard 配置尚未初始化。');
   const config = configs[0];
   const dashboard = dashboards.get(config.base_dashboard_id || config.id);
@@ -441,7 +396,9 @@ async function readConfig(dashboardId = aviationDashboard.id) {
     dataset: JSON.parse(config.dataset_json),
     panels: panels.map(parsePanelRow),
     panelLibrary: panelLibrary.map(parsePanelRow),
-    panelTemplates: dashboard.panelTemplates,
+    panelTemplates: panelLibrary
+      .filter((panel) => dashboard.panelTemplates.some((template) => template.id === panel.id))
+      .map(parsePanelRow),
     querySources: dashboard.querySources ?? [{ datasetId: dashboard.dataset.id, metricIds: dashboard.dataset.metrics.map((metric) => metric.id) }],
     facets,
     filterDefinitions,
@@ -472,12 +429,11 @@ function parsePanelRow(panel) {
 
 async function readPanelLibrary() {
   const rows = await runSql('SELECT id, type, title, description, query_json, visualization_json, default_width AS width, default_min_height AS min_height FROM panel_definitions ORDER BY title, id');
-  const seededIds = new Set(dashboardDefinitions.flatMap((dashboard) => [...dashboard.panels, ...dashboard.panelTemplates]).map((panel) => panel.id));
-  return { panels: rows.map((row) => ({ ...parsePanelRow(row), seeded: seededIds.has(row.id) })) };
+  return { panels: rows.map(parsePanelRow) };
 }
 
 async function readDashboardLibrary() {
-  const configs = await runSql('SELECT id, topic_id, title, description, base_dashboard_id, is_seeded FROM dashboard_configs ORDER BY is_seeded DESC, title, id');
+  const configs = await runSql('SELECT id, topic_id, title, description, base_dashboard_id FROM dashboard_configs ORDER BY title, id');
   const placements = await runSql('SELECT dashboard_id, panel_id, sort_order, width, min_height FROM dashboard_panel_placements ORDER BY dashboard_id, sort_order');
   return {
     dashboards: configs.map((config) => ({
@@ -486,7 +442,6 @@ async function readDashboardLibrary() {
       title: config.title,
       description: config.description,
       baseDashboardId: config.base_dashboard_id || config.id,
-      seeded: Boolean(config.is_seeded),
       placements: placements
         .filter((placement) => placement.dashboard_id === config.id)
         .map((placement) => ({
@@ -500,7 +455,13 @@ async function readDashboardLibrary() {
       id: dashboard.id,
       topicId: dashboard.topicId,
       title: dashboard.title,
-      datasetIds: (dashboard.querySources ?? [{ datasetId: dashboard.dataset.id }]).map((source) => source.datasetId)
+      datasetIds: (dashboard.querySources ?? [{ datasetId: dashboard.dataset.id }]).map((source) => source.datasetId),
+      dataset: dashboard.dataset,
+      querySources: dashboard.querySources ?? [{
+        datasetId: dashboard.dataset.id,
+        metricIds: dashboard.dataset.metrics.map((metric) => metric.id)
+      }],
+      filterDefinitions: dashboard.filterDefinitions ?? []
     }))
   };
 }
@@ -527,8 +488,7 @@ async function saveDashboard(value) {
   const dashboard = validateDashboardPayload(value);
   const base = dashboards.get(dashboard.baseDashboardId);
   const allowedDatasets = new Set((base.querySources ?? [{ datasetId: base.dataset.id }]).map((source) => source.datasetId));
-  const existing = await runSql(`SELECT id, is_seeded FROM dashboard_configs WHERE id = ${sqlString(dashboard.id)}`);
-  if (existing[0]?.is_seeded) throw new Error('系统示例 Dashboard 只读，请先复制为自定义 Dashboard。');
+  const existing = await runSql(`SELECT id FROM dashboard_configs WHERE id = ${sqlString(dashboard.id)}`);
   const requestedIds = [...new Set(dashboard.placements.map((placement) => placement.panelId))];
   const definitions = await runSql(`SELECT id, query_json FROM panel_definitions WHERE id IN (${requestedIds.map(sqlString).join(', ')})`);
   if (definitions.length !== requestedIds.length) throw new Error('Dashboard 引用了不存在的 Panel。');
@@ -537,7 +497,7 @@ async function saveDashboard(value) {
 
   const configSql = existing.length
     ? `UPDATE dashboard_configs SET topic_id = ${sqlString(base.topicId)}, title = ${sqlString(dashboard.title.trim())}, description = ${sqlString(dashboard.description.trim())}, source_manifest_json = ${sqlString(JSON.stringify(base.sourceManifest))}, dataset_json = ${sqlString(JSON.stringify(base.dataset))}, base_dashboard_id = ${sqlString(base.id)} WHERE id = ${sqlString(dashboard.id)}`
-    : `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json, base_dashboard_id, is_seeded) VALUES (${sqlString(dashboard.id)}, ${sqlString(base.topicId)}, ${sqlString(dashboard.title.trim())}, ${sqlString(dashboard.description.trim())}, ${sqlString(JSON.stringify(base.sourceManifest))}, ${sqlString(JSON.stringify(base.dataset))}, ${sqlString(base.id)}, 0)`;
+    : `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json, base_dashboard_id) VALUES (${sqlString(dashboard.id)}, ${sqlString(base.topicId)}, ${sqlString(dashboard.title.trim())}, ${sqlString(dashboard.description.trim())}, ${sqlString(JSON.stringify(base.sourceManifest))}, ${sqlString(JSON.stringify(base.dataset))}, ${sqlString(base.id)})`;
   const placementSql = dashboard.placements.map((placement, index) => `INSERT INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) VALUES (${sqlString(dashboard.id)}, ${sqlString(placement.panelId)}, ${index}, ${placement.width}, ${placement.minHeight})`);
   await runSql(`BEGIN; ${configSql}; DELETE FROM dashboard_panel_placements WHERE dashboard_id = ${sqlString(dashboard.id)}; ${placementSql.join(';')}; COMMIT`, { readonly: false });
   return { dashboard: (await readDashboardLibrary()).dashboards.find((item) => item.id === dashboard.id) };
@@ -545,23 +505,20 @@ async function saveDashboard(value) {
 
 async function deleteDashboard(dashboardId) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(dashboardId)) throw new Error('Dashboard ID 无效。');
-  const existing = await runSql(`SELECT id, is_seeded FROM dashboard_configs WHERE id = ${sqlString(dashboardId)}`);
+  const existing = await runSql(`SELECT id FROM dashboard_configs WHERE id = ${sqlString(dashboardId)}`);
   if (!existing.length) throw new Error('Dashboard 不存在。');
-  if (existing[0].is_seeded) throw new Error('系统示例 Dashboard 不能删除。');
   await runSql(`BEGIN; DELETE FROM dashboard_panel_placements WHERE dashboard_id = ${sqlString(dashboardId)}; DELETE FROM dashboard_configs WHERE id = ${sqlString(dashboardId)}; COMMIT`, { readonly: false });
   return { deleted: dashboardId };
 }
 
 async function deletePanel(panelId) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(panelId)) throw new Error('Panel ID 无效。');
-  const seededIds = new Set(dashboardDefinitions.flatMap((dashboard) => [...dashboard.panels, ...dashboard.panelTemplates]).map((panel) => panel.id));
-  if (seededIds.has(panelId)) throw new Error('系统 Panel 不能删除。');
   const existing = await runSql(`SELECT id FROM panel_definitions WHERE id = ${sqlString(panelId)}`);
   if (!existing.length) throw new Error('Panel 不存在。');
   const placements = await runSql(`SELECT dashboard_id FROM dashboard_panel_placements WHERE panel_id = ${sqlString(panelId)} ORDER BY dashboard_id`);
-  if (placements.length) throw new Error(`Panel 正被以下 Dashboard 使用，请先移除引用：${placements.map((placement) => placement.dashboard_id).join(', ')}。`);
-  await runSql(`DELETE FROM panel_definitions WHERE id = ${sqlString(panelId)}`, { readonly: false });
-  return { deleted: panelId };
+  await runSql(`BEGIN; DELETE FROM dashboard_panel_placements WHERE panel_id = ${sqlString(panelId)}; DELETE FROM panel_definitions WHERE id = ${sqlString(panelId)}; COMMIT`, { readonly: false });
+  queryCache.clear();
+  return { deleted: panelId, removedFromDashboards: placements.map((placement) => placement.dashboard_id) };
 }
 
 function validatePanelPayload(value) {
@@ -597,8 +554,6 @@ function validatePanelPayload(value) {
 async function savePanel(value) {
   const panel = validatePanelPayload(value);
   const existing = await runSql(`SELECT id FROM panel_definitions WHERE id = ${sqlString(panel.id)}`);
-  const templateIds = dashboardDefinitions.flatMap((dashboard) => dashboard.panelTemplates).map((item) => item.id);
-  if (!existing.length && templateIds.includes(panel.id)) throw new Error(`Panel ID 已被模板占用：${panel.id}。`);
   const visualization = panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL';
   const query = sqlString(JSON.stringify(panel.query));
   if (existing.length) {
@@ -639,7 +594,9 @@ const server = createServer(async (request, response) => {
   }
   if (request.method === 'GET' && requestUrl.pathname === '/api/dashboard/config') {
     try {
-      sendJson(response, 200, await readConfig(requestUrl.searchParams.get('dashboard') || aviationDashboard.id));
+      const dashboardId = requestUrl.searchParams.get('dashboard');
+      if (!dashboardId) throw new Error('缺少 dashboard 查询参数。');
+      sendJson(response, 200, await readConfig(dashboardId));
     } catch (error) {
       sendJson(response, 503, { error: error instanceof Error ? error.message : String(error) });
     }
@@ -715,7 +672,7 @@ const server = createServer(async (request, response) => {
   sendJson(response, 404, { error: 'Not found' });
 });
 
-ensureDashboardConfig()
+ensureDashboardSchema(runSql)
   .then(detectRollup)
   .then(() => server.listen(port, '127.0.0.1', () => {
     console.log(`[dashboard-data] http://127.0.0.1:${port} -> ${database}`);

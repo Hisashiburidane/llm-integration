@@ -4,33 +4,22 @@ import ConfigurableDashboard from './ConfigurableDashboard.vue';
 import GlobalDashboardLibrary from './components/GlobalDashboardLibrary.vue';
 import GlobalPanelLibrary from './components/GlobalPanelLibrary.vue';
 import PlatformMenu from './components/PlatformMenu.vue';
-import { dashboardIds } from './runtime/dashboard-registry';
 
-type View = 'aviation' | 'airQuality' | 'taxi' | 'otel' | 'panels' | 'dashboards' | `dashboard/${string}`;
+type View = 'panels' | 'dashboards' | `dashboard/${string}`;
 const view = ref<View>(readView());
 const activeDashboardId = computed(() => {
   if (view.value.startsWith('dashboard/')) return decodeURIComponent(view.value.slice('dashboard/'.length));
-  if (view.value === 'airQuality') return dashboardIds.airQuality;
-  if (view.value === 'taxi') return dashboardIds.taxi;
-  if (view.value === 'otel') return dashboardIds.otel;
-  return dashboardIds.aviation;
+  return undefined;
 });
-const menuView = computed<'aviation' | 'air-quality' | 'taxi' | 'otel' | 'panels' | 'dashboards'>(() => {
-  if (view.value.startsWith('dashboard/')) return 'dashboards';
-  if (view.value === 'airQuality') return 'air-quality';
-  if (view.value === 'panels' || view.value === 'dashboards' || view.value === 'taxi' || view.value === 'otel') return view.value;
-  return 'aviation';
+const menuView = computed<'panels' | 'dashboards'>(() => {
+  return view.value === 'panels' ? 'panels' : 'dashboards';
 });
 
 function readView(): View {
   const hash = window.location.hash.slice(1);
-  if (hash === 'air-quality') return 'airQuality';
-  if (hash === 'taxi') return 'taxi';
-  if (hash === 'otel') return 'otel';
   if (hash === 'panels') return 'panels';
-  if (hash === 'dashboards') return 'dashboards';
   if (hash.startsWith('dashboard/') && hash.length > 'dashboard/'.length) return hash as `dashboard/${string}`;
-  return 'aviation';
+  return 'dashboards';
 }
 
 onMounted(() => window.addEventListener('hashchange', () => { view.value = readView(); }));
@@ -39,8 +28,8 @@ onMounted(() => window.addEventListener('hashchange', () => { view.value = readV
 <template>
   <PlatformMenu :active="menuView" />
   <GlobalPanelLibrary v-if="view === 'panels'" />
-  <GlobalDashboardLibrary v-else-if="view === 'dashboards'" />
-  <ConfigurableDashboard v-else :key="activeDashboardId" :dashboard-id="activeDashboardId" />
+  <ConfigurableDashboard v-else-if="activeDashboardId" :key="activeDashboardId" :dashboard-id="activeDashboardId" />
+  <GlobalDashboardLibrary v-else />
 </template>
 
 <style>

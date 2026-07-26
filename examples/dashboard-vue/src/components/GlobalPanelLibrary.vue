@@ -12,9 +12,7 @@ interface QuerySource {
   metricIds: string[];
 }
 
-interface LibraryPanel extends PanelConfig {
-  seeded?: boolean;
-}
+type LibraryPanel = PanelConfig;
 
 interface DashboardCatalog {
   id: string;
@@ -30,7 +28,6 @@ interface PanelEntry extends PanelConfig {
   dashboardTitle: string;
   topicId: string;
   dataset: DatasetDefinition;
-  seeded?: boolean;
 }
 
 interface PanelDraft extends Record<string, unknown> {
@@ -360,21 +357,15 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const configUrls = [
-      '/api/dashboard/config',
-      '/api/dashboard/config?dashboard=air-quality-operations',
-      '/api/dashboard/config?dashboard=nyc-taxi-operations',
-      '/api/dashboard/config?dashboard=otel-demo-observability'
-    ];
-    const [libraryResponse, ...configResponses] = await Promise.all([
+    const [libraryResponse, dashboardResponse] = await Promise.all([
       fetch('/api/dashboard/panels'),
-      ...configUrls.map((url) => fetch(url))
+      fetch('/api/dashboard/dashboards')
     ]);
     const library = await libraryResponse.json() as { panels?: LibraryPanel[]; error?: string };
-    const configs = await Promise.all(configResponses.map((response) => response.json() as Promise<DashboardCatalog & { error?: string }>));
-    const responseError = library.error || configs.find((config) => config.error)?.error;
-    if (!libraryResponse.ok || configResponses.some((response) => !response.ok) || responseError) throw new Error(responseError || 'Panel Library 加载失败。');
-    catalogs.value = configs;
+    const dashboardLibrary = await dashboardResponse.json() as { domains?: DashboardCatalog[]; error?: string };
+    const responseError = library.error || dashboardLibrary.error;
+    if (!libraryResponse.ok || !dashboardResponse.ok || responseError) throw new Error(responseError || 'Panel Library 加载失败。');
+    catalogs.value = dashboardLibrary.domains ?? [];
     panels.value = library.panels ?? [];
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Panel Library 加载失败。';
@@ -401,7 +392,7 @@ onMounted(() => { void load(); });
         <h2>{{ panel.title }}</h2>
         <p>{{ panel.description }}</p>
         <dl><div><dt>指标</dt><dd>{{ panel.query.metrics.map((metric) => metricLabel(panel, metric.metricId)).join(', ') }}</dd></div><div><dt>维度</dt><dd>{{ panel.query.dimensions.map((dimension) => dimensionLabel(panel, dimension.dimensionId)).join(', ') || '-' }}</dd></div><div><dt>数据源</dt><dd>{{ panel.query.datasetId }}</dd></div></dl>
-        <div class="card-actions"><span>点击独立查看</span><div><a-button type="link" size="small" @click.stop="openEdit(panel)">编辑</a-button><a-popconfirm v-if="!panel.seeded" title="确定删除这个 Panel？" ok-text="删除" cancel-text="取消" @confirm="deletePanel(panel)"><a-button type="link" size="small" danger @click.stop>删除</a-button></a-popconfirm></div></div>
+        <div class="card-actions"><span>点击独立查看</span><div><a-button type="link" size="small" @click.stop="openEdit(panel)">编辑</a-button><a-popconfirm title="确定删除这个 Panel？它会同时从引用它的 Dashboard 中移除。" ok-text="删除" cancel-text="取消" @confirm="deletePanel(panel)"><a-button type="link" size="small" danger @click.stop>删除</a-button></a-popconfirm></div></div>
       </article>
     </section>
 
@@ -441,7 +432,7 @@ onMounted(() => { void load(); });
       <template v-if="detailPanel">
         <DashboardPanel :panel="detailPanel" :dataset="detailPanel.dataset" :result="previewResult ?? loadingResult(detailPanel)" :highlighted="false" :lowlight="false" :selected="false" />
         <a-divider />
-        <div class="drawer-actions"><a-button @click="openEdit(detailPanel)">编辑 Panel</a-button><a-popconfirm v-if="!detailPanel.seeded" title="确定删除这个 Panel？" ok-text="删除" cancel-text="取消" @confirm="deletePanel(detailPanel)"><a-button danger>删除 Panel</a-button></a-popconfirm></div>
+        <div class="drawer-actions"><a-button @click="openEdit(detailPanel)">编辑 Panel</a-button><a-popconfirm title="确定删除这个 Panel？它会同时从引用它的 Dashboard 中移除。" ok-text="删除" cancel-text="取消" @confirm="deletePanel(detailPanel)"><a-button danger>删除 Panel</a-button></a-popconfirm></div>
         <a-descriptions :column="1" size="small" bordered>
           <a-descriptions-item label="Panel ID">{{ detailPanel.id }}</a-descriptions-item>
           <a-descriptions-item label="数据域">{{ detailPanel.dashboardTitle }}</a-descriptions-item>
