@@ -8,6 +8,7 @@ import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import 'ant-design-vue/dist/reset.css';
+import '@enchantforge/vue/style.css';
 import { createEnchantDebug, createEnchantForge } from '@enchantforge/vue';
 import App from './App.vue';
 import './styles.css';

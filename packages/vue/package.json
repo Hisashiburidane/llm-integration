@@ -2,13 +2,16 @@
   "name": "@enchantforge/vue",
   "version": "0.1.0",
   "type": "module",
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
     "dist"
   ],
   "main": "./dist/enchantforge-vue.js",
   "module": "./dist/enchantforge-vue.js",
   "types": "./dist/index.d.ts",
+  "style": "./dist/enchantforge-vue.css",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -29,7 +32,8 @@
     "./debug": {
       "types": "./dist/debug.d.ts",
       "import": "./dist/debug.js"
-    }
+    },
+    "./style.css": "./dist/enchantforge-vue.css"
   },
   "scripts": {
     "build": "vite build && vue-tsc -p tsconfig.json --declaration --emitDeclarationOnly",

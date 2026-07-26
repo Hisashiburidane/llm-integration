@@ -24,11 +24,6 @@ export default defineConfig(({ mode }) => {
   return {
     base: '/examples/',
     plugins: [vue()],
-    resolve: {
-      alias: {
-        '@enchantforge/vue': fileURLToPath(new URL('../../packages/vue/src/index.ts', import.meta.url))
-      }
-    },
     define: {
       __LLM_MODEL__: JSON.stringify(model ?? ''),
       __LLM_CONFIG_ERROR__: JSON.stringify(configError)

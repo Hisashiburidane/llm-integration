@@ -48,6 +48,7 @@ const suggestions = ${JSON.stringify(suggestions, null, 2)};
 const forgeSetupCode = `import { createApp } from 'vue';
 import Antd from 'ant-design-vue';
 import { createEnchantDebug, createEnchantForge } from '@enchantforge/vue';
+import '@enchantforge/vue/style.css';
 import App from './App.vue';
 
 const forge = createEnchantForge({

@@ -12,13 +12,7 @@
     ],
     "types": [
       "vite/client"
-    ],
-    "baseUrl": ".",
-    "paths": {
-      "@enchantforge/vue": [
-        "../../packages/vue/src/index.ts"
-      ]
-    }
+    ]
   },
   "include": [
     "src/**/*.ts",
