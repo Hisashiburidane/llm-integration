@@ -73,7 +73,7 @@ function supports(source, query) {
     && (!query.timeRange || source.dimensions.hour);
 }
 
-function compileQuery(query, model, source) {
+function compileQuery(query, source) {
   const dimensionItems = query.dimensions.map((item) => ({
     ...item,
     alias: resultAlias(item.alias, item.dimensionId),
@@ -160,7 +160,7 @@ export function createQueryEngine({ runSql, queryModels }) {
     query.dimensions.forEach((item) => {
       if (!source.dimensions[item.dimensionId]) throw new Error(`未知维度：${item.dimensionId}。`);
     });
-    const rows = await runSql(compileQuery(query, model, source));
+    const rows = await runSql(compileQuery(query, source));
     const rowCount = Number(rows[0]?.__row_count ?? 0);
     rows.forEach((row) => { delete row.__row_count; });
     return {
@@ -172,7 +172,6 @@ export function createQueryEngine({ runSql, queryModels }) {
 
   async function readFacet(model, facet) {
     if (facet.options) return facet.options;
-    const query = { metrics: [], dimensions: [{ dimensionId: facet.dimensionId }], filters: [] };
     const source = model.sources.find((candidate) => availableTables.has(candidate.table) && candidate.dimensions[facet.dimensionId]);
     if (!source) return [];
     const dimension = dimensionDefinition(source, facet.dimensionId);
