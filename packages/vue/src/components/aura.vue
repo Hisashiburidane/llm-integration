@@ -61,6 +61,8 @@ const open = ref(false);
 const conversation = ref<ConversationItem[]>([]);
 const clock = ref(Date.now());
 let clockTimer: number | undefined;
+let activeRunController: AbortController | undefined;
+let conversationVersion = 0;
 const anchor = reactive({ x: 0, y: 0 });
 const viewport = reactive({ width: 0, height: 0 });
 const drag = reactive({ active: false, moved: false, offsetX: 0, offsetY: 0 });
@@ -230,6 +232,9 @@ function formatActivityDuration(activity: ActivityItem) {
 async function submit(message?: string) {
   const question = (message ?? input.value).trim();
   if (!question || loading.value) return;
+  const version = conversationVersion;
+  const controller = new AbortController();
+  activeRunController = controller;
   input.value = '';
   conversation.value.push({ id: Date.now(), type: 'message', role: 'user', content: question });
   const activity = reactive<ActivityItem>({
@@ -243,15 +248,20 @@ async function submit(message?: string) {
   conversation.value.push(activity);
   loading.value = true;
   startClock();
+  const handleProgress = progressHandler(activity);
   try {
     const result = await forge.run({
       input: question,
       page: props.page || undefined,
       prompt: props.prompt || undefined,
       agent: resolvedAgent.value,
+      signal: controller.signal,
       confirm: requestConfirmation,
-      onProgress: progressHandler(activity)
+      onProgress: (event) => {
+        if (version === conversationVersion) handleProgress(event);
+      }
     });
+    if (version !== conversationVersion) return;
     conversation.value.push({
       id: Date.now() + 2,
       type: 'message',
@@ -259,6 +269,7 @@ async function submit(message?: string) {
       content: result.message || '操作已完成。'
     });
   } catch (error) {
+    if (version !== conversationVersion) return;
     conversation.value.push({
       id: Date.now() + 2,
       type: 'message',
@@ -266,11 +277,26 @@ async function submit(message?: string) {
       content: error instanceof Error ? error.message : '执行失败。'
     });
   } finally {
-    activity.finishedAt = Date.now();
-    clock.value = activity.finishedAt;
-    stopClock();
-    loading.value = false;
+    if (version === conversationVersion) {
+      activity.finishedAt = Date.now();
+      clock.value = activity.finishedAt;
+    }
+    if (activeRunController === controller) {
+      activeRunController = undefined;
+      stopClock();
+      loading.value = false;
+    }
   }
+}
+
+function clearConversation() {
+  conversationVersion += 1;
+  activeRunController?.abort(new Error('聊天记录已清空。'));
+  activeRunController = undefined;
+  conversation.value = [];
+  input.value = '';
+  stopClock();
+  loading.value = false;
 }
 
 function requestConfirmation(request: EnchantConfirmationRequest) {
@@ -280,7 +306,7 @@ function requestConfirmation(request: EnchantConfirmationRequest) {
 }
 
 watch(() => props.page, () => {
-  conversation.value = [];
+  clearConversation();
 });
 
 onMounted(() => {
@@ -288,6 +314,9 @@ onMounted(() => {
   window.addEventListener('resize', updateViewport);
 });
 onBeforeUnmount(() => {
+  conversationVersion += 1;
+  activeRunController?.abort(new Error('Aura 已卸载。'));
+  activeRunController = undefined;
   stopClock();
   window.removeEventListener('resize', updateViewport);
 });
@@ -328,11 +357,24 @@ onBeforeUnmount(() => {
     <section v-else class="aura-panel">
       <header class="aura-header" @pointerdown="beginDrag">
         <span class="aura-header-mark">A</span>
-        <div>
+        <div class="aura-header-copy">
           <strong>{{ title }}</strong>
           <small>{{ digest.pageId }} / {{ digest.activeEnchantments }} enchantments</small>
         </div>
-        <button type="button" aria-label="关闭 Aura" @pointerdown.stop @click="open = false">×</button>
+        <div class="aura-header-actions">
+          <button
+            type="button"
+            class="aura-clear"
+            :disabled="!conversation.length && !input && !loading"
+            aria-label="清空聊天记录"
+            title="清空聊天记录"
+            @pointerdown.stop
+            @click="clearConversation"
+          >
+            清空
+          </button>
+          <button type="button" class="aura-close" aria-label="关闭 Aura" @pointerdown.stop @click="open = false">×</button>
+        </div>
       </header>
 
       <div class="aura-messages">
@@ -414,11 +456,16 @@ onBeforeUnmount(() => {
 .aura-panel { display: flex; width: min(400px, calc(100vw - 32px)); height: min(620px, calc(100vh - 32px)); flex-direction: column; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff; box-shadow: 0 24px 70px #1e3a5f3d; }
 .aura-header { display: flex; gap: 10px; align-items: center; padding: 14px; border-bottom: 1px solid #e5e7eb; background: #f8fafc; cursor: grab; }
 .aura-header-mark { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 50%; color: #fff; background: #1677ff; font: 700 12px/1 ui-monospace, monospace; }
-.aura-header div { min-width: 0; }
+.aura-header-copy { flex: 1; min-width: 0; }
 .aura-header strong, .aura-header small { display: block; }
 .aura-header strong { font-size: 13px; }
 .aura-header small { margin-top: 3px; overflow: hidden; color: #64748b; font: 10px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
-.aura-header button { margin-left: auto; border: 0; color: #64748b; background: transparent; font-size: 24px; cursor: pointer; }
+.aura-header-actions { display: flex; margin-left: auto; align-items: center; gap: 4px; }
+.aura-header-actions button { border: 0; color: #64748b; background: transparent; cursor: pointer; }
+.aura-header-actions button:disabled { cursor: not-allowed; opacity: .38; }
+.aura-clear { padding: 5px 7px; border-radius: 4px !important; font-size: 11px; }
+.aura-clear:hover:not(:disabled) { color: #1677ff; background: #eaf3ff; }
+.aura-close { width: 28px; height: 28px; padding: 0; font-size: 24px; line-height: 24px; }
 .aura-messages { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 8px; padding: 14px; overflow-y: auto; }
 .aura-empty { display: flex; margin: auto 8px; flex-direction: column; gap: 12px; color: #64748b; font-size: 12px; line-height: 1.7; }
 .aura-empty p { margin: 0; }
