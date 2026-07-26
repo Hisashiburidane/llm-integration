@@ -156,5 +156,6 @@ uv run python scripts/process-data.py --help
 | `otel_service_minute_rollup` | 每分钟服务 Span 数、错误数、平均/P95/最大耗时 |
 | `otel_service_edge_rollup` | 跨服务调用次数、错误数、平均/P95 耗时 |
 | `otel_metric_minute_rollup` | 每分钟服务指标聚合 |
+| `otel_log_minute_rollup` | 每分钟服务日志数量和标准化严重级别 |
 
 这些表只保存实际采集到的 OTLP 信号。服务关系由父子 Span 确定，错误由 Span status 确定；场景标签不会被当作根因证据。

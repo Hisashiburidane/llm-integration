@@ -412,6 +412,15 @@ def create_schema(connection: sqlite3.Connection) -> None:
           PRIMARY KEY (capture_id, observed_minute, service_name, metric_name, unit)
         ) WITHOUT ROWID;
         CREATE INDEX IF NOT EXISTS idx_otel_metric_rollup_time ON otel_metric_minute_rollup(capture_id, observed_minute);
+        CREATE TABLE IF NOT EXISTS otel_log_minute_rollup (
+          capture_id TEXT NOT NULL,
+          observed_minute TEXT NOT NULL,
+          service_name TEXT NOT NULL,
+          severity TEXT NOT NULL,
+          log_count INTEGER NOT NULL,
+          PRIMARY KEY (capture_id, observed_minute, service_name, severity)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_otel_log_rollup_time ON otel_log_minute_rollup(capture_id, observed_minute);
         """
     )
     try:
@@ -657,8 +666,8 @@ def process_otel_logs(connection: sqlite3.Connection, capture_id: str, path: Pat
     return count
 
 
-def build_otel_rollups(connection: sqlite3.Connection) -> tuple[int, int, int]:
-    for table in ("otel_service_minute_rollup", "otel_service_edge_rollup", "otel_metric_minute_rollup"):
+def build_otel_rollups(connection: sqlite3.Connection) -> tuple[int, int, int, int]:
+    for table in ("otel_service_minute_rollup", "otel_service_edge_rollup", "otel_metric_minute_rollup", "otel_log_minute_rollup"):
         reset_table(connection, table)
     connection.executescript(
         """
@@ -728,12 +737,44 @@ def build_otel_rollups(connection: sqlite3.Connection) -> tuple[int, int, int]:
         FROM otel_metric_points
         WHERE value IS NOT NULL
         GROUP BY capture_id, substr(observed_at, 1, 16), service_name, metric_name, COALESCE(unit, '');
+
+        INSERT INTO otel_log_minute_rollup
+        (capture_id, observed_minute, service_name, severity, log_count)
+        WITH normalized AS (
+          SELECT capture_id, substr(observed_at, 1, 16) || ':00Z' AS observed_minute,
+                 service_name,
+                 CASE
+                   WHEN trim(COALESCE(severity, '')) = '' THEN 'UNSPECIFIED'
+                   WHEN trim(severity) NOT GLOB '*[^0-9]*' THEN
+                     CASE
+                       WHEN CAST(trim(severity) AS INTEGER) BETWEEN 1 AND 4 THEN 'TRACE'
+                       WHEN CAST(trim(severity) AS INTEGER) BETWEEN 5 AND 8 THEN 'DEBUG'
+                       WHEN CAST(trim(severity) AS INTEGER) BETWEEN 9 AND 12 THEN 'INFO'
+                       WHEN CAST(trim(severity) AS INTEGER) BETWEEN 13 AND 16 THEN 'WARN'
+                       WHEN CAST(trim(severity) AS INTEGER) BETWEEN 17 AND 20 THEN 'ERROR'
+                       WHEN CAST(trim(severity) AS INTEGER) BETWEEN 21 AND 24 THEN 'FATAL'
+                       ELSE 'UNSPECIFIED'
+                     END
+                   WHEN upper(trim(severity)) IN ('INFORMATION', 'INFO') THEN 'INFO'
+                   WHEN upper(trim(severity)) LIKE 'WARN%' THEN 'WARN'
+                   WHEN upper(trim(severity)) LIKE 'ERR%' THEN 'ERROR'
+                   WHEN upper(trim(severity)) LIKE 'FATAL%' THEN 'FATAL'
+                   WHEN upper(trim(severity)) LIKE 'DEBUG%' THEN 'DEBUG'
+                   WHEN upper(trim(severity)) LIKE 'TRACE%' THEN 'TRACE'
+                   ELSE upper(trim(severity))
+                 END AS normalized_severity
+          FROM otel_logs
+        )
+        SELECT capture_id, observed_minute, service_name, normalized_severity, COUNT(*)
+        FROM normalized
+        GROUP BY capture_id, observed_minute, service_name, normalized_severity;
         """
     )
     service_rows = int(connection.execute("SELECT COUNT(*) FROM otel_service_minute_rollup").fetchone()[0])
     edge_rows = int(connection.execute("SELECT COUNT(*) FROM otel_service_edge_rollup").fetchone()[0])
     metric_rows = int(connection.execute("SELECT COUNT(*) FROM otel_metric_minute_rollup").fetchone()[0])
-    return service_rows, edge_rows, metric_rows
+    log_rows = int(connection.execute("SELECT COUNT(*) FROM otel_log_minute_rollup").fetchone()[0])
+    return service_rows, edge_rows, metric_rows, log_rows
 
 
 def build_aviation_rollup(connection: sqlite3.Connection) -> int:
@@ -1134,6 +1175,7 @@ def process_otel(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, 
             f"otel-demo capture not found in {raw_dir}; run `pnpm data:collect:otel -- --duration 300`"
         )
     for table in (
+        "otel_log_minute_rollup",
         "otel_metric_minute_rollup",
         "otel_service_edge_rollup",
         "otel_service_minute_rollup",
@@ -1184,10 +1226,10 @@ def process_otel(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, 
             f"{metric_count} metric points, {log_count} logs",
             flush=True,
         )
-    service_rows, edge_rows, metric_rows = build_otel_rollups(connection)
+    service_rows, edge_rows, metric_rows, log_rows = build_otel_rollups(connection)
     print(
         f"otel-demo: built {service_rows} service-minute, {edge_rows} service-edge, "
-        f"{metric_rows} metric-minute aggregate rows",
+        f"{metric_rows} metric-minute, {log_rows} log-minute aggregate rows",
         flush=True,
     )
     return manifests[-1], total_rows

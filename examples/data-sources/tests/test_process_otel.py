@@ -112,6 +112,10 @@ class OtelProcessingTest(unittest.TestCase):
             )
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM otel_metric_minute_rollup").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT body FROM otel_logs").fetchone()[0], "payment failed")
+            self.assertEqual(
+                connection.execute("SELECT severity, log_count FROM otel_log_minute_rollup").fetchone(),
+                ("ERROR", 1),
+            )
             connection.close()
 
 
