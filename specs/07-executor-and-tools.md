@@ -48,7 +48,7 @@ This is important for the product feeling:
 
 1. Agent 根据当前 snapshot 和用户输入生成初始 capability 调用。
 2. Forge 执行调用，并收集结构化 execution results。
-3. 如果产生成功的 read 结果且 Agent 实现 `planNext`，Forge 将已完成 plans 和 results 交回 Agent。
+3. 如果初始计划实际执行了 capability 且 Agent 实现 `planNext`，Forge 将已完成 plans 和 results 交回 Agent；Core 不根据 effect 类型决定是否允许继续规划。
 4. Agent 可以返回新的 capability 调用，或返回最终 assistant content 结束循环。
 
 `maxPlanRounds` 默认是 `3`，`maxPlanCalls` 约束整个 run 的累计调用数。Core 跳过 capabilityId 和 input 完全相同的重复调用。每一轮只复用本次 run 的 snapshot 作为 capability 合约来源，但每次执行仍读取当前 registration status 并重新经过 policy。

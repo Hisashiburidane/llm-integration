@@ -147,7 +147,7 @@ Aura 可以由以下事件触发：
 
 初始计划可以同时包含读取和界面操作。例如 Dashboard 应用可以要求分析问题调用 `dashboard.read_data` 和 `dashboard.highlight`。Core 只提供组合执行机制，不自行推断哪个业务 Panel 应成为证据；该语义由应用 prompt 和 capability description 声明。
 
-成功执行 read capability 后，支持 `planNext` 的 Agent 会进入有界 Tool Loop。每轮都接收已完成 plans 和真实 execution results，可以继续调用 visual capability，也可以直接返回最终 assistant content。默认最多继续 3 轮，完全相同的 capability 和 input 不重复执行，累计调用仍受 `maxPlanCalls` 限制，每次调用都重新经过 schema、policy、确认和 executor。
+初始计划实际执行 capability 后，支持 `planNext` 的 Agent 会进入有界 Tool Loop。每轮都接收已完成 plans 和真实 execution results，由 Agent 根据应用 instruction 和结果决定继续调用 capability，或直接返回最终 assistant content。Core 不按 `read`、`visual`、`draft` 或 `commit` 推断工作流顺序。默认最多继续 3 轮，完全相同的 capability 和 input 不重复执行，累计调用仍受 `maxPlanCalls` 限制，每次调用都重新经过 schema、policy、确认和 executor。
 
 不实现 `planNext` 的自定义 Agent 保持单轮兼容行为。应用可以通过 `maxPlanRounds: 0` 关闭继续规划。最终回答属于 Agent response channel，不默认注册成 capability；只有需要结构化消息 UI 或外部消息系统 effect 时，应用才应显式提供对应工具。
 

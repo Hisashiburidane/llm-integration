@@ -507,6 +507,9 @@ test('default agent maps native function calls back to capabilities', async () =
           content: 'native tool call',
           toolCalls: [{ name: 'enchant_tool_0', arguments: '{"value":"valid"}' }]
         };
+      },
+      async run() {
+        return { content: 'native completed', payload: {} };
       }
     }
   });
@@ -558,6 +561,63 @@ test('forge synthesizes a response from successful read capability results', asy
   assert.deepEqual(responseRequest.history, history);
   assert.equal(responseRequest.results[0].ok, true);
   assert.deepEqual(responseRequest.results[0].value, { airport: 'JFK', averageDelay: 31 });
+});
+
+test('forge continuation and response are not restricted to read effects', async () => {
+  const requests = [];
+  const forge = createEnchantForge({
+    agent: {
+      async plan({ snapshot }) {
+        return {
+          message: '',
+          snapshotVersion: snapshot.version,
+          calls: [{ capabilityId: 'capability:test', input: { value: 'draft' } }]
+        };
+      },
+      async planNext(request) {
+        requests.push(request);
+        return { message: '草稿已生成，可以继续检查。' };
+      },
+      async respond() {
+        throw new Error('planNext message should finish the run');
+      }
+    }
+  });
+  forge.registry.register(createRegistration({
+    effect: 'draft',
+    execute: () => ({ status: 'success', data: { draftId: 'draft-1' } })
+  }));
+
+  const result = await forge.run({ input: '生成草稿' });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].results[0].value.draftId, 'draft-1');
+  assert.equal(result.message, '草稿已生成，可以继续检查。');
+});
+
+test('forge responder receives non-read execution results', async () => {
+  let responseRequest;
+  const forge = createEnchantForge({
+    agent: {
+      async plan({ snapshot }) {
+        return {
+          message: '',
+          snapshotVersion: snapshot.version,
+          calls: [{ capabilityId: 'capability:test', input: { value: 'valid' } }]
+        };
+      },
+      async respond(request) {
+        responseRequest = request;
+        return '界面操作已完成。';
+      }
+    }
+  });
+  forge.registry.register(createRegistration({ effect: 'visual' }));
+
+  const result = await forge.run({ input: '聚焦目标' });
+
+  assert.equal(responseRequest.results[0].status, 'success');
+  assert.equal(result.message, '界面操作已完成。');
 });
 
 test('capture and agent run add trace events without changing registry version', async () => {

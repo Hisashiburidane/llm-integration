@@ -286,11 +286,6 @@ function createFinalMessage(plan: EnchantPlan, results: EnchantExecutionResult[]
     || (results.length ? `已完成 ${results.length} 项操作。` : '当前页面没有可执行的匹配操作。');
 }
 
-function hasReadableResult(snapshot: EnchantSnapshot, results: EnchantExecutionResult[]) {
-  const effects = new Map(snapshot.tools.map((tool) => [tool.capabilityId, tool.effect]));
-  return results.some((result) => result.ok && effects.get(result.capabilityId) === 'read');
-}
-
 function planCallKey(call: EnchantPlanCall) {
   return `${call.capabilityId}:${JSON.stringify(call.input ?? {})}`;
 }
@@ -675,7 +670,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
 
       const initialResults = await executePlan(initialPlan, 'Agent plan');
       let continuationMessage = '';
-      if (selectedAgent.planNext && hasReadableResult(current, initialResults)) {
+      if (selectedAgent.planNext && initialResults.length) {
         for (let round = 1; round <= maxPlanRounds; round += 1) {
           throwIfAborted(request.signal);
           emitProgress(runId, 'planning', request.onProgress);
@@ -701,7 +696,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       const plan = combinePlans(plans);
       let message = continuationMessage || createFinalMessage(plan, results);
       const responder = selectedAgent.respond;
-      if (!continuationMessage && responder && hasReadableResult(current, results)) {
+      if (!continuationMessage && responder && results.length) {
         emitProgress(runId, 'responding', request.onProgress);
         try {
           message = await responder({
@@ -716,7 +711,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         } catch (error) {
           const detail = error instanceof Error ? error.message : 'LLM 最终回答生成失败。';
           trace({ source: current.pageId, kind: 'error', title: 'Response synthesis failed', detail });
-          message = `已读取数据，但无法生成最终分析回答：${detail}`;
+          message = `操作已执行，但无法生成最终回答：${detail}`;
         }
       }
       emitProgress(
