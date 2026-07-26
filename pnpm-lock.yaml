@@ -92,18 +92,15 @@ importers:
       '@enchantforge/vue':
         specifier: workspace:*
         version: link:../../packages/vue
-      '@guolao/vue-monaco-editor':
-        specifier: ^1.6.0
-        version: 1.6.0(monaco-editor@0.55.1)(vue@3.5.39(typescript@5.9.3))
       ant-design-vue:
         specifier: ^4.2.6
         version: 4.2.6(vue@3.5.39(typescript@5.9.3))
       echarts:
         specifier: ^6.1.0
         version: 6.1.0
-      monaco-editor:
-        specifier: ^0.55.1
-        version: 0.55.1
+      highlight.js:
+        specifier: ^11.11.1
+        version: 11.11.1
       vue:
         specifier: ^3.5.13
         version: 3.5.39(typescript@5.9.3)

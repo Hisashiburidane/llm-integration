@@ -1,48 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VueMonacoDiffEditor, VueMonacoEditor } from '@guolao/vue-monaco-editor';
+import HighlightedCode from './HighlightedCode.vue';
 import type { CodeBlock } from './registry';
 
 const props = defineProps<{
   blocks: CodeBlock[];
 }>();
 
-const displayMode = ref<Record<string, 'code' | 'diff'>>({});
-
-const editorOptions = {
-  readOnly: true,
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  automaticLayout: true,
-  wordWrap: 'off' as const,
-  renderWhitespace: 'selection' as const,
-  lineNumbersMinChars: 3,
-  padding: { top: 16, bottom: 16 },
-  fontSize: 12,
-  fontFamily: 'IBM Plex Mono, SFMono-Regular, Consolas, monospace'
-};
-
-const diffOptions = {
-  readOnly: true,
-  renderSideBySide: false,
-  originalEditable: false,
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  automaticLayout: true,
-  wordWrap: 'off' as const,
-  lineNumbersMinChars: 3,
-  padding: { top: 16, bottom: 16 }
-};
+const displayMode = ref<Record<string, 'code' | 'compare'>>({});
 
 const blockMap = computed(() => new Map(props.blocks.map((block) => [block.key, block])));
 
 function languageOf(block: CodeBlock) {
   return block.language ?? (block.code.trimStart().startsWith('<') ? 'xml' : 'typescript');
-}
-
-function editorHeight(code: string, lineHeight = 22, min = 220, max = 860) {
-  const lines = code.split('\n').length;
-  return `${Math.min(max, Math.max(min, lines * lineHeight + 48))}px`;
 }
 
 function compareBlock(block: CodeBlock) {
@@ -54,7 +24,7 @@ function modeFor(block: CodeBlock) {
 }
 
 function handleModeChange(blockKey: string, value: string | number) {
-  displayMode.value = { ...displayMode.value, [blockKey]: value as 'code' | 'diff' };
+  displayMode.value = { ...displayMode.value, [blockKey]: value as 'code' | 'compare' };
 }
 </script>
 
@@ -67,30 +37,31 @@ function handleModeChange(blockKey: string, value: string | number) {
             :value="modeFor(block)"
             :options="[
               { label: '源码', value: 'code' },
-              { label: 'Diff', value: 'diff' }
+              { label: '对照', value: 'compare' }
             ]"
             @change="handleModeChange(block.key, $event)"
           />
         </div>
 
-        <VueMonacoEditor
+        <HighlightedCode
           v-if="!compareBlock(block) || modeFor(block) === 'code'"
-          :value="block.code"
+          :code="block.code"
           :language="languageOf(block)"
-          theme="vs"
-          :options="editorOptions"
-          :height="editorHeight(block.code)"
         />
 
-        <VueMonacoDiffEditor
-          v-else
-          :original="compareBlock(block)?.code ?? ''"
-          :modified="block.code"
-          :language="languageOf(block)"
-          theme="vs"
-          :options="diffOptions"
-          :height="editorHeight(block.code + '\n' + (compareBlock(block)?.code ?? ''), 18, 320, 920)"
-        />
+        <div v-else class="code-comparison">
+          <section>
+            <strong>接入前</strong>
+            <HighlightedCode
+              :code="compareBlock(block)?.code ?? ''"
+              :language="languageOf(compareBlock(block) ?? block)"
+            />
+          </section>
+          <section>
+            <strong>接入后</strong>
+            <HighlightedCode :code="block.code" :language="languageOf(block)" />
+          </section>
+        </div>
       </a-tab-pane>
     </a-tabs>
   </a-card>
@@ -102,16 +73,23 @@ function handleModeChange(blockKey: string, value: string | number) {
   justify-content: flex-end;
   margin-bottom: 12px;
 }
-:deep(.monaco-editor),
-:deep(.monaco-diff-editor),
-:deep(.monaco-editor .margin),
-:deep(.monaco-diff-editor .margin) {
-  background: #f7f8fa !important;
+.code-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
-:deep(.monaco-editor),
-:deep(.monaco-diff-editor) {
-  border: 1px solid #d8d9da;
-  border-radius: 4px;
-  overflow: hidden;
+.code-comparison section {
+  min-width: 0;
+}
+.code-comparison strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #6e7681;
+  font: 700 10px/1.2 "IBM Plex Mono", monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+@media (max-width: 900px) {
+  .code-comparison { grid-template-columns: 1fr; }
 }
 </style>
