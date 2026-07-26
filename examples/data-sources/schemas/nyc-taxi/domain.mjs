@@ -1,4 +1,4 @@
-export const taxiDashboard = {
+export default {
   id: 'nyc-taxi-operations',
   topicId: 'mobility',
   title: 'NYC Taxi / Mobility Operations',

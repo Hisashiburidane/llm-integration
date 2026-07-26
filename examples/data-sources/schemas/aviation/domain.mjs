@@ -1,4 +1,4 @@
-export const aviationDashboard = {
+export default {
   id: 'aviation-operations',
   topicId: 'aviation',
   title: 'Flight Operations / Delay Analysis',

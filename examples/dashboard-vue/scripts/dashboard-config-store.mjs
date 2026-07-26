@@ -1,19 +1,3 @@
-import { aviationDashboard } from './dashboard-config.mjs';
-import { airQualityDashboard } from './air-quality-config.mjs';
-import { otelDashboard } from './otel-config.mjs';
-import { taxiDashboard } from './taxi-config.mjs';
-
-export const dashboardDefinitions = [
-  aviationDashboard,
-  airQualityDashboard,
-  taxiDashboard,
-  otelDashboard
-];
-
-export const dashboards = new Map(
-  dashboardDefinitions.map((dashboard) => [dashboard.id, dashboard])
-);
-
 function sqlString(value) {
   return `'${String(value ?? '').replaceAll("'", "''")}'`;
 }
@@ -50,7 +34,7 @@ export async function ensureDashboardSchema(runSql) {
   }
 }
 
-export async function resetDashboardConfiguration(runSql) {
+export async function resetDashboardConfiguration(runSql, dashboardDefinitions) {
   await ensureDashboardSchema(runSql);
 
   const panels = dashboardDefinitions.flatMap((dashboard) => [

@@ -1,4 +1,4 @@
-export const otelDashboard = {
+export default {
   id: 'otel-demo-observability',
   topicId: 'observability',
   title: 'Astronomy Shop / OpenTelemetry',

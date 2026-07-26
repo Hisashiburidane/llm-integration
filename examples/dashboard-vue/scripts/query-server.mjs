@@ -2,17 +2,19 @@ import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
-  dashboardDefinitions,
-  dashboards,
   ensureDashboardSchema
 } from './dashboard-config-store.mjs';
+import { loadSchemaRegistry } from './schema-registry.mjs';
 import { createSqliteRunner, resolveDatabasePath } from './sqlite-cli.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultDatabase = path.resolve(here, '../../data-sources/data/dashboard.sqlite');
+const defaultSchemaDirectory = path.resolve(here, '../../data-sources/schemas');
 const database = resolveDatabasePath(process.env.DASHBOARD_DB, defaultDatabase);
+const schemaDirectory = path.resolve(process.env.DASHBOARD_SCHEMA_DIR || defaultSchemaDirectory);
 const port = Number(process.env.DASHBOARD_DATA_PORT || 5176);
 const maxBodySize = 1024 * 1024;
+const { domains: dashboardDefinitions, domainById: dashboards } = await loadSchemaRegistry(schemaDirectory);
 
 const datasetDefinitions = {
   aviation_ontime_demo: {

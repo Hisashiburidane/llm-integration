@@ -1,4 +1,4 @@
-export const airQualityDashboard = {
+export default {
   id: 'air-quality-operations',
   topicId: 'air-quality',
   title: 'Beijing Air Quality / Pollution Monitoring',
