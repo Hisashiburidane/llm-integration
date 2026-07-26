@@ -18,6 +18,36 @@ function validateDomain(domain, directory) {
   }
 }
 
+function validateQueryModel(model, domainId, file) {
+  if (!model || typeof model !== 'object') throw new Error(`${domainId}/${file} 未导出查询模型。`);
+  assertIdentifier(model.id, `${domainId}/${file} 查询模型 ID`);
+  if (!Array.isArray(model.sources) || !model.sources.length) throw new Error(`${model.id} 至少需要一个 source。`);
+  model.sources.forEach((source) => {
+    assertIdentifier(source.id, `${model.id} source ID`);
+    if (typeof source.table !== 'string' || typeof source.from !== 'string') throw new Error(`${model.id}/${source.id} 缺少 table 或 from。`);
+    if (!source.dimensions || !source.metrics || typeof source.rowCountSql !== 'string') {
+      throw new Error(`${model.id}/${source.id} 缺少 dimensions、metrics 或 rowCountSql。`);
+    }
+  });
+}
+
+async function loadQueryModels(schemaDirectory, directory, domain) {
+  const queryDirectory = path.join(schemaDirectory, directory, 'queries');
+  const entries = await readdir(queryDirectory, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.mjs'))
+    .map((entry) => entry.name)
+    .sort();
+  const models = [];
+
+  for (const file of files) {
+    const module = await import(pathToFileURL(path.join(queryDirectory, file)).href);
+    validateQueryModel(module.default, domain.id, file);
+    models.push(module.default);
+  }
+  return models;
+}
+
 export async function loadSchemaRegistry(schemaDirectory) {
   const entries = await readdir(schemaDirectory, { withFileTypes: true });
   const domainDirectories = entries
@@ -30,14 +60,38 @@ export async function loadSchemaRegistry(schemaDirectory) {
     const module = await import(pathToFileURL(path.join(schemaDirectory, directory, 'domain.mjs')).href);
     const domain = module.default;
     validateDomain(domain, directory);
-    domains.push(domain);
+    const queryModels = await loadQueryModels(schemaDirectory, directory, domain);
+    const semanticMetrics = new Set(domain.dataset.metrics.map((metric) => metric.id));
+    const semanticDimensions = new Set(domain.dataset.dimensions.map((dimension) => dimension.id));
+    queryModels.forEach((model) => model.sources.forEach((source) => {
+      Object.keys(source.metrics).forEach((metricId) => {
+        if (!semanticMetrics.has(metricId)) throw new Error(`${model.id} 指标未在 ${domain.id} dataset 中声明：${metricId}。`);
+      });
+      Object.keys(source.dimensions).forEach((dimensionId) => {
+        if (!semanticDimensions.has(dimensionId)) throw new Error(`${model.id} 维度未在 ${domain.id} dataset 中声明：${dimensionId}。`);
+      });
+    }));
+    domains.push({
+      ...domain,
+      queryModels,
+      querySources: queryModels.map((model) => ({
+        datasetId: model.id,
+        metricIds: [...new Set(model.sources.flatMap((source) => Object.keys(source.metrics)))]
+      }))
+    });
   }
 
   const duplicate = domains.find((domain, index) => domains.findIndex((item) => item.id === domain.id) !== index);
   if (duplicate) throw new Error(`数据域 ID 重复：${duplicate.id}。`);
 
+  const queryModels = domains.flatMap((domain) => domain.queryModels);
+  const duplicateModel = queryModels.find((model, index) => queryModels.findIndex((item) => item.id === model.id) !== index);
+  if (duplicateModel) throw new Error(`查询模型 ID 重复：${duplicateModel.id}。`);
+
   return {
     domains,
-    domainById: new Map(domains.map((domain) => [domain.id, domain]))
+    domainById: new Map(domains.map((domain) => [domain.id, domain])),
+    queryModels,
+    queryModelById: new Map(queryModels.map((model) => [model.id, model]))
   };
 }
