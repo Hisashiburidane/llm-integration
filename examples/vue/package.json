@@ -9,16 +9,12 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@ant-design/icons-vue": "^7.0.1",
     "@guolao/vue-monaco-editor": "^1.6.0",
     "@enchantforge/vue": "workspace:*",
     "ant-design-vue": "^4.2.6",
-    "ant-design-x-vue": "^1.6.0",
     "echarts": "^6.1.0",
-    "highlight.js": "^11.11.1",
     "monaco-editor": "^0.55.1",
-    "vue": "^3.5.13",
-    "vue-echarts": "^8.0.1"
+    "vue": "^3.5.13"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.1",

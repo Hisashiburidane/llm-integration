@@ -13,7 +13,8 @@ const panelPriorities = ['normal', 'warning', 'critical'] as const;
 
 function readExplicitPanelIds(value: unknown) {
   if (value === undefined) return undefined;
-  if (!Array.isArray(value) || !value.length) throw new Error('panelIds 不能为空。');
+  if (!Array.isArray(value)) throw new Error('panelIds 必须是数组。');
+  if (!value.length) return undefined;
   const panelIds = [...new Set(value.map(String))];
   const invalid = panelIds.filter((id) => !knownPanelIds.has(id));
   if (invalid.length) throw new Error(`未知面板：${invalid.join(', ')}。`);

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import ApiExpressForm from './ApiExpressForm.vue';
-import { shippingFormState } from './shippingFormStore';
+import { resetShippingForm, shippingFormState } from './shippingFormStore';
+
+resetShippingForm();
 </script>
 
 <template>

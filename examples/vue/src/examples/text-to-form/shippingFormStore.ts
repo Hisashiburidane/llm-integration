@@ -18,7 +18,3 @@ export const shippingFormState = reactive(createEmptyShippingForm());
 export function resetShippingForm() {
   Object.assign(shippingFormState, createEmptyShippingForm());
 }
-
-export function applyShippingForm(values: Record<string, string>) {
-  Object.assign(shippingFormState, values);
-}

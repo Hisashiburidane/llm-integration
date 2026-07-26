@@ -91,6 +91,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash));
     </a-drawer>
 
     <Aura
+      v-if="active.status === '真实 API'"
       ref="aura"
       :page="active.id"
       :title="`${active.title} Assistant`"

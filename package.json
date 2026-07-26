@@ -9,7 +9,7 @@
     "dev:react-example": "pnpm --filter llm-integration-dashboard-demo dev",
     "build": "pnpm -r build",
     "build:lib": "pnpm --filter @enchantforge/vue build",
-    "build:examples": "pnpm --filter './examples/**' build",
+    "build:examples": "pnpm build:lib && pnpm --filter './examples/**' build",
     "build:dashboard": "pnpm --filter @enchantforge/dashboard-vue build",
     "build:website": "pnpm --filter @enchantforge/website build"
   },

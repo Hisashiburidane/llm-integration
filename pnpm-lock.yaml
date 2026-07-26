@@ -89,9 +89,6 @@ importers:
 
   examples/vue:
     dependencies:
-      '@ant-design/icons-vue':
-        specifier: ^7.0.1
-        version: 7.0.1(vue@3.5.39(typescript@5.9.3))
       '@enchantforge/vue':
         specifier: workspace:*
         version: link:../../packages/vue
@@ -101,24 +98,15 @@ importers:
       ant-design-vue:
         specifier: ^4.2.6
         version: 4.2.6(vue@3.5.39(typescript@5.9.3))
-      ant-design-x-vue:
-        specifier: ^1.6.0
-        version: 1.6.0(ant-design-vue@4.2.6(vue@3.5.39(typescript@5.9.3)))(vue@3.5.39(typescript@5.9.3))
       echarts:
         specifier: ^6.1.0
         version: 6.1.0
-      highlight.js:
-        specifier: ^11.11.1
-        version: 11.11.1
       monaco-editor:
         specifier: ^0.55.1
         version: 0.55.1
       vue:
         specifier: ^3.5.13
         version: 3.5.39(typescript@5.9.3)
-      vue-echarts:
-        specifier: ^8.0.1
-        version: 8.0.1(echarts@6.1.0)(vue@3.5.39(typescript@5.9.3))
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^5.2.1
