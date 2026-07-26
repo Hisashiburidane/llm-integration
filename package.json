@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "demo": "bash scripts/dashboard-demo.sh",
     "dev": "pnpm build:lib && pnpm --parallel --filter @enchantforge/website --filter @enchantforge/vue-examples dev",
     "dev:examples": "pnpm build:lib && pnpm --filter @enchantforge/vue-examples dev",
     "dev:dashboard": "pnpm build:lib && pnpm --filter @enchantforge/dashboard-vue dev",

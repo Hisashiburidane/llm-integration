@@ -17,6 +17,19 @@ See `AGENTS.md` for project-level instructions for coding agents.
 
 ## Commands
 
+Prepare every Dashboard dataset, initialize the configuration, build the core
+library, and start the complete example with one command:
+
+```bash
+pnpm demo
+```
+
+The first run downloads the aviation, Beijing air-quality, and NYC Taxi public
+datasets. If no valid local capture exists, it also runs the official
+OpenTelemetry Demo with Docker for a 60-second warmup and 300-second capture.
+Later runs reuse downloaded files and existing captures. Run
+`pnpm demo -- --help` for preparation-only and refresh options.
+
 ```bash
 pnpm install
 pnpm build

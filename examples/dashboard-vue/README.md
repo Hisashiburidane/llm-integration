@@ -2,6 +2,50 @@
 
 这是一个配置驱动的 Vue Dashboard 平台示例，包含航班运行与延误分析、北京空气质量、NYC Taxi 和 OpenTelemetry Demo 四个专题。前端只负责通用 Dashboard/Panel 渲染和运行时交互；专题 schema、查询 SQL、筛选定义、Panel QuerySpec、Evidence Group 和 Assistant prompt 位于 `examples/data-sources/schemas/`。
 
+## One-command demo
+
+前置环境包括 Node.js、pnpm、uv 和 sqlite3；本地没有可复用的 OpenTelemetry capture 时还需要可用的 Docker Engine，macOS 可以使用 OrbStack。
+
+从仓库根目录执行：
+
+```bash
+pnpm demo
+```
+
+该命令会顺序完成：
+
+1. 安装 pnpm workspace 依赖；
+2. 生成下载计划并下载航空、北京空气质量和 NYC Taxi 数据；
+3. 本地没有有效 capture 时，通过 Docker 启动官方 OpenTelemetry Demo 并采集 traces、metrics 和 logs；
+4. 使用 uv 管理的 Python CLI 严格清洗四个 Dashboard 数据域，并写入 `examples/data-sources/data/dashboard.sqlite`；
+5. 从 schema 恢复 Dashboard、Panel 和 placement 初始配置；
+6. 构建 `@enchantforge/vue`；
+7. 启动 SQLite 查询服务和 Vite dev server。
+
+重复运行会复用已下载文件和有效的 OpenTelemetry capture。首次运行的 OTel 阶段默认包含 60 秒预热和 300 秒真实采集，此外还需要等待官方 Demo 镜像下载。
+
+常用维护参数：
+
+```text
+--prepare-only             只准备数据库和配置，不启动 dev server
+--skip-install             使用现有 node_modules
+--skip-download            使用现有公开数据文件
+--force-download           重新下载公开数据
+--skip-otel                只使用现有 OTel capture；不存在时失败
+--refresh-otel             即使已有 capture 也重新采集
+--otel-duration <seconds>  修改 OTel 采集时长
+--otel-warmup <seconds>    修改 OTel 预热时长
+--otel-scenario <label>    设置采集场景标签
+```
+
+完整帮助：
+
+```bash
+pnpm demo -- --help
+```
+
+脚本继承当前 shell 的 `HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY` 和其他环境变量。Aura 仍然需要在 `examples/dashboard-vue/.env` 中配置 OpenAI-compatible API；未配置时 Dashboard 和查询功能可以运行，Aura 会明确显示配置错误。
+
 ## Run
 
 ```bash
