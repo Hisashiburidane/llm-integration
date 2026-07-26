@@ -31,6 +31,7 @@ const props = withDefaults(defineProps<AuraProps>(), {
   endpoint: '/api/llm/chat/completions',
   apiKey: '',
   configError: '',
+  open: undefined,
   defaultOpen: false,
   initialMessages: () => [],
   historyLimit: 20,
@@ -409,7 +410,9 @@ defineExpose<AuraInstance>({
           :active-count="digest.activeEnchantments"
         />
         <span v-else class="aura-bubble" :class="`status-${auraStatus}`">
-          <MessageOutlined class="aura-bubble-icon" />
+          <svg class="aura-bubble-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5.5 5.5h13v9.25h-7.25L7 18.5v-3.75H5.5z" />
+          </svg>
           <i></i>
         </span>
       </slot>
@@ -512,7 +515,7 @@ defineExpose<AuraInstance>({
 .aura-trigger { display: grid; width: 56px; height: 56px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: grab; }
 .aura-bubble { position: relative; display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid #d9d9d9; border-radius: 50%; color: #1677ff; background: #fff; box-shadow: 0 6px 18px #0000001f; transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
 .aura-trigger:hover .aura-bubble { border-color: #1677ff; box-shadow: 0 8px 22px #1677ff24; transform: translateY(-1px); }
-.aura-bubble-icon { font-size: 23px; }
+.aura-bubble-icon { width: 24px; height: 24px; fill: none; stroke: currentcolor; stroke-linejoin: round; stroke-width: 1.7; }
 .aura-bubble i { position: absolute; right: 3px; bottom: 3px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #94a3b8; }
 .aura-bubble.status-ready i { background: #1677ff; }
 .aura-bubble.status-running i { background: #f0b429; animation: aura-pulse 1.2s ease-in-out infinite; }

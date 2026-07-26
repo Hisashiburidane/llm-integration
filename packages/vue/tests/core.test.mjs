@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
+  Aura,
   createEnchantForge,
   createEnchantDebug,
   createEnchantRegistry,
@@ -96,6 +97,11 @@ function createTestForge(options = {}) {
   }));
   return { forge, getExecutionCount: () => executionCount };
 }
+
+test('Aura preserves undefined open state for uncontrolled usage', () => {
+  assert.equal(Object.hasOwn(Aura.props.open, 'default'), true);
+  assert.equal(Aura.props.open.default, undefined);
+});
 
 test('registry preserves nested metadata tree nodes', () => {
   const registry = createEnchantRegistry();
