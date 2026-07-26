@@ -9,16 +9,44 @@ export const focusViewState = reactive({
 });
 
 const knownPanelIds = new Set(k8sPanels.map((panel) => panel.id));
+const panelPriorities = ['normal', 'warning', 'critical'] as const;
 
-function readPanelIds(input: unknown) {
-  const value = input && typeof input === 'object'
-    ? (input as { panelIds?: unknown }).panelIds
-    : undefined;
+function readExplicitPanelIds(value: unknown) {
+  if (value === undefined) return undefined;
   if (!Array.isArray(value) || !value.length) throw new Error('panelIds 不能为空。');
   const panelIds = [...new Set(value.map(String))];
   const invalid = panelIds.filter((id) => !knownPanelIds.has(id));
   if (invalid.length) throw new Error(`未知面板：${invalid.join(', ')}。`);
   return panelIds;
+}
+
+function readPanelSelection(input: unknown) {
+  const selection = input && typeof input === 'object'
+    ? input as { panelIds?: unknown; priority?: unknown }
+    : {};
+  const explicitPanelIds = readExplicitPanelIds(selection.panelIds);
+  const priority = selection.priority === undefined ? undefined : String(selection.priority);
+  if (priority && !panelPriorities.includes(priority as typeof panelPriorities[number])) {
+    throw new Error(`未知优先级：${priority}。`);
+  }
+  if (!explicitPanelIds && !priority) throw new Error('panelIds 和 priority 至少需要提供一项。');
+
+  const matched = priority
+    ? k8sPanels.filter((panel) => panel.priority === priority).map((panel) => panel.id)
+    : [...knownPanelIds];
+  const matchedSet = new Set(matched);
+  const panelIds = explicitPanelIds
+    ? explicitPanelIds.filter((panelId) => matchedSet.has(panelId))
+    : matched;
+  if (!panelIds.length) throw new Error('没有符合条件的面板。');
+  return panelIds;
+}
+
+function readPanelIds(input: unknown) {
+  const value = input && typeof input === 'object'
+    ? (input as { panelIds?: unknown }).panelIds
+    : undefined;
+  return readExplicitPanelIds(value) ?? [];
 }
 
 function readPanelId(input: unknown) {
@@ -52,15 +80,26 @@ export const focusViewCapabilities: EnchantCapabilityDefinition[] = [{
   provider: 'focus-view',
   name: 'dashboard.highlight',
   label: '高亮监控面板',
-  description: '根据 panelIds 高亮相关面板。用户只要求查看、查找或定位数据时使用。',
+  description: '根据明确的 panelIds 或 priority 高亮相关面板。用户只要求查看、查找或定位数据时使用。',
   effect: 'visual',
   inputSchema: {
     type: 'object',
-    required: ['panelIds'],
-    properties: { panelIds: { type: 'array', items: { type: 'string' } } }
+    properties: {
+      panelIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description: '明确指定的面板 id。'
+      },
+      priority: {
+        type: 'string',
+        enum: panelPriorities,
+        description: '按面板优先级选择目标。'
+      }
+    },
+    additionalProperties: false
   },
   execute(input) {
-    const panelIds = readPanelIds(input);
+    const panelIds = readPanelSelection(input);
     highlight(panelIds);
     return { status: 'success', summary: `已高亮 ${panelIds.length} 个面板。` };
   }
