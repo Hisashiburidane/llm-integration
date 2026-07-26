@@ -8,8 +8,6 @@ import expressFormCode from './text-to-form/ExpressForm.vue?raw';
 import enchantExpressFormCodeRaw from './text-to-form/EnchantExpressForm.vue?raw';
 import apiExpressFormCodeRaw from './text-to-form/ApiExpressForm.vue?raw';
 import domScanExpressFormCodeRaw from './text-to-form/DomScanExpressForm.vue?raw';
-import focusViewDemoCodeRaw from './FocusViewDemo.vue?raw';
-import focusViewCapabilitiesCodeRaw from './focus/focus-view-capabilities.ts?raw';
 
 export type CodeBlock = {
   key: string;
@@ -67,7 +65,6 @@ createApp(App).use(Antd).use(forge).mount('#app');`;
 const enchantExpressFormCode = stripVueStyleBlock(enchantExpressFormCodeRaw);
 const apiExpressFormCode = stripVueStyleBlock(apiExpressFormCodeRaw);
 const domScanExpressFormCode = stripVueStyleBlock(domScanExpressFormCodeRaw);
-const focusViewCode = stripVueStyleBlock(focusViewDemoCodeRaw);
 
 const originalTextToFormPageCode = `<script setup lang="ts">
 import ExpressForm from './ExpressForm.vue';
@@ -81,96 +78,102 @@ import { shippingFormState } from './shippingFormStore';
 </template>`;
 
 const originalFocusViewCode = `<script setup lang="ts">
-import { computed, ref } from 'vue';
-import { k8sPanels, panelGroups, type K8sPanel } from './focus/k8sDashboard';
-import EChart from './focus/EChart.vue';
-
-const highlightedIds = ref<string[]>([]);
-const activePanelId = ref('');
-const composedPanelIds = ref<string[]>([]);
-
-const activePanel = computed(() => k8sPanels.find((panel) => panel.id === activePanelId.value));
-const composedPanels = computed(() =>
-  composedPanelIds.value
-    .map((id) => k8sPanels.find((panel) => panel.id === id))
-    .filter((panel): panel is K8sPanel => Boolean(panel))
-);
-
-function latestValue(panel: K8sPanel) {
-  return panel.values[panel.values.length - 1];
-}
-
-function openPanel(panelId: string) {
-  activePanelId.value = panelId;
-}
-
-function closeDetail() {
-  activePanelId.value = '';
-}
-
-function clearComposed() {
-  composedPanelIds.value = [];
-}
+import { panelGroups } from './focus/k8sDashboard';
 </script>
 
 <template>
-  <div class="focus-shell">
-    <section class="k8s-board">
-      <header class="board-header">
-        <div>
-          <p class="board-kicker">PROD / CN-EAST-1</p>
-          <h2>Kubernetes Operations Center</h2>
-        </div>
-        <div class="board-status">
-          <span><i class="healthy-dot"></i> 47 / 48 nodes ready</span>
-          <span>{{ k8sPanels.length }} panels</span>
-        </div>
-      </header>
+  <section class="k8s-board">
+    <section v-for="group in panelGroups" :key="group.category">
+      <article v-for="panel in group.panels" :key="panel.id">
+        <!-- 原有 Panel 内容 -->
+      </article>
+    </section>
+  </section>
+</template>`;
 
-      <section v-for="group in panelGroups" :key="group.category" class="metric-group">
-        <div class="group-heading">
-          <h3>{{ group.label }}</h3>
-          <span>{{ group.panels.length }} panels</span>
-        </div>
-        <div class="panel-grid">
-          <article
-            v-for="panel in group.panels"
-            :key="panel.id"
-            class="metric-panel"
-            :class="[
-              'priority-' + panel.priority,
-              { highlighted: highlightedIds.includes(panel.id), dimmed: highlightedIds.length && !highlightedIds.includes(panel.id) }
-            ]"
-            @dblclick="openPanel(panel.id)"
-          >
-            <header>
-              <div><span>{{ panel.title }}</span><code>{{ panel.metric }}</code></div>
-              <a-tag :color="panel.priority === 'critical' ? 'red' : panel.priority === 'warning' ? 'orange' : 'green'">{{ panel.priority }}</a-tag>
-            </header>
-            <div class="panel-value"><strong>{{ latestValue(panel) }}</strong><span>{{ panel.unit }}</span></div>
-            <EChart class="panel-chart" :option="panel.option" />
-            <p>{{ panel.summary }}</p>
-          </article>
-        </div>
+const focusViewIntegrationCode = `<script setup lang="ts">
+import { Enchant } from '@enchantforge/vue';
+import { focusViewCapabilities } from './focus/focus-view-capabilities';
+import { panelGroups } from './focus/k8sDashboard';
+</script>
+
+<template>
+  <Enchant
+    name="focus-dashboard"
+    page="focus-view"
+    kind="page"
+    prompt="根据用户要求高亮、打开或组合监控面板。"
+    :capabilities="focusViewCapabilities"
+  >
+    <section class="k8s-board">
+      <section v-for="group in panelGroups" :key="group.category">
+        <Enchant
+          v-for="panel in group.panels"
+          :key="panel.id"
+          :name="panel.id"
+          page="focus-view"
+          kind="chart"
+          :metadata="[{
+            id: panel.id,
+            kind: 'chart',
+            label: panel.title,
+            title: panel.title,
+            metric: panel.metric,
+            summary: panel.summary,
+            priority: panel.priority
+          }]"
+        >
+          <!-- 原有 Panel 内容保持不变 -->
+        </Enchant>
       </section>
     </section>
-
-    <a-modal :open="Boolean(activePanel)" :title="activePanel?.title" width="860px" :footer="null" @cancel="closeDetail">
-      <EChart v-if="activePanel" class="detail-chart" :option="activePanel.option" />
-      <a-alert v-if="activePanel" type="info" show-icon :message="activePanel.summary" />
-    </a-modal>
-
-    <a-drawer :open="composedPanels.length > 0" title="Focus Sub-dashboard" width="76vw" @close="clearComposed">
-      <div class="composed-grid">
-        <article v-for="panel in composedPanels" :key="panel.id" class="composed-panel">
-          <h3>{{ panel.title }}</h3>
-          <EChart class="composed-chart" :option="panel.option" />
-          <p>{{ panel.summary }}</p>
-        </article>
-      </div>
-    </a-drawer>
-  </div>
+  </Enchant>
 </template>`;
+
+const focusViewCapabilityCode = `import { reactive } from 'vue';
+import type { EnchantCapabilityDefinition } from '@enchantforge/vue';
+import { k8sPanels, type K8sPanel } from './k8sDashboard';
+
+const focusViewState = reactive({
+  highlightedPanelIds: [] as string[]
+});
+
+const highlightCapability: EnchantCapabilityDefinition = {
+  id: 'focus-view:highlight-panels',
+  owner: 'application',
+  provider: 'focus-view',
+  name: 'dashboard.highlight',
+  label: '高亮监控面板',
+  description: '根据 panelIds 或 priority 高亮相关面板。',
+  effect: 'visual',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      panelIds: { type: 'array', items: { type: 'string' } },
+      priority: {
+        type: 'string',
+        enum: ['normal', 'warning', 'critical']
+      }
+    }
+  },
+  execute(input) {
+    const selection = input as {
+      panelIds?: string[];
+      priority?: K8sPanel['priority'];
+    };
+    const panelIds = selection.priority
+      ? k8sPanels
+          .filter((panel) => panel.priority === selection.priority)
+          .map((panel) => panel.id)
+      : selection.panelIds ?? [];
+
+    focusViewState.highlightedPanelIds = panelIds;
+    return {
+      status: 'success',
+      summary: \`已高亮 \${panelIds.length} 个面板。\`
+    };
+  }
+};`;
 
 const shippingSuggestions = [
   '阿尔萨斯·米奈希尔，13800138000，黑龙江省哈尔滨市道里区冰封大道 9 号。1:1 霜之哀伤复刻模型，木箱加固。',
@@ -239,8 +242,9 @@ export const demos: DemoSpec[] = [
     component: FocusViewDemo,
     codeBlocks: [
       { key: 'original', tab: '原组件', code: originalFocusViewCode, language: 'xml' },
-      { key: 'component', tab: '接入组件', code: focusViewCode, language: 'xml', compareTo: 'original' },
-      { key: 'capabilities', tab: '页面能力', code: focusViewCapabilitiesCodeRaw, language: 'typescript' },
+      { key: 'component', tab: '接入组件', code: focusViewIntegrationCode, language: 'xml', compareTo: 'original' },
+      { key: 'capabilities', tab: '语义高亮', code: focusViewCapabilityCode, language: 'typescript' },
+      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
       { key: 'assistant', tab: '全局助手', code: assistantUsageCode('focus-view', focusViewSuggestions), language: 'xml' }
     ]
   }
