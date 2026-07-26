@@ -1,12 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useEnchantForge } from '../runtime/forge';
 import type { EnchantSnapshot } from '../runtime/enchantment';
 
+const VIEWPORT_GAP = 12;
 const forge = useEnchantForge();
 const open = ref(false);
 const activeTab = ref('overview');
 const inspectedSnapshot = ref<EnchantSnapshot>();
+const root = ref<HTMLElement>();
+const positioned = ref(false);
+const anchor = reactive({ x: 0, y: 0 });
+const viewport = reactive({ width: 0, height: 0 });
+const drag = reactive({ active: false, moved: false, offsetX: 0, offsetY: 0 });
 
 const digest = computed(() => {
   forge.registry.version.value;
@@ -17,6 +23,87 @@ const events = computed(() => forge.events.slice(0, 80));
 const snapshots = computed(() => forge.snapshots);
 const snapshot = computed(() => inspectedSnapshot.value ?? snapshots.value[0]);
 const positionClass = computed(() => `debug-position-${forge.debug.position}`);
+const rootStyle = computed(() => positioned.value ? {
+  left: `${anchor.x}px`,
+  top: `${anchor.y}px`,
+  right: 'auto',
+  bottom: 'auto'
+} : undefined);
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.max(minimum, Math.min(value, Math.max(minimum, maximum)));
+}
+
+function triggerSize() {
+  const bounds = root.value?.getBoundingClientRect();
+  return {
+    width: bounds?.width || 160,
+    height: bounds?.height || 34
+  };
+}
+
+function clampAnchor() {
+  const size = triggerSize();
+  anchor.x = clamp(anchor.x, VIEWPORT_GAP, viewport.width - size.width - VIEWPORT_GAP);
+  anchor.y = clamp(anchor.y, VIEWPORT_GAP, viewport.height - size.height - VIEWPORT_GAP);
+}
+
+function updateViewport() {
+  viewport.width = window.innerWidth;
+  viewport.height = window.innerHeight;
+  if (positioned.value) clampAnchor();
+}
+
+function restoreAnchor() {
+  updateViewport();
+  const size = triggerSize();
+  const fallbackX = forge.debug.position === 'bottom-left'
+    ? 18
+    : viewport.width - size.width - 18;
+  const fallbackY = viewport.height - size.height - 18;
+  try {
+    const saved = JSON.parse(localStorage.getItem('enchantforge:debug-anchor') || 'null') as { x?: number; y?: number } | null;
+    anchor.x = saved?.x ?? fallbackX;
+    anchor.y = saved?.y ?? fallbackY;
+  } catch {
+    anchor.x = fallbackX;
+    anchor.y = fallbackY;
+  }
+  positioned.value = true;
+  clampAnchor();
+}
+
+function beginDrag(event: PointerEvent) {
+  drag.active = true;
+  drag.moved = false;
+  drag.offsetX = event.clientX - anchor.x;
+  drag.offsetY = event.clientY - anchor.y;
+  (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+}
+
+function moveDrag(event: PointerEvent) {
+  if (!drag.active) return;
+  const left = event.clientX - drag.offsetX;
+  const top = event.clientY - drag.offsetY;
+  if (Math.abs(left - anchor.x) > 2 || Math.abs(top - anchor.y) > 2) drag.moved = true;
+  anchor.x = left;
+  anchor.y = top;
+  clampAnchor();
+}
+
+function endDrag() {
+  if (!drag.active) return;
+  drag.active = false;
+  try {
+    localStorage.setItem('enchantforge:debug-anchor', JSON.stringify(anchor));
+  } catch {
+    // Storage can be unavailable in embedded or privacy-restricted contexts.
+  }
+}
+
+function openDebug() {
+  if (!drag.moved) open.value = true;
+}
 
 function refreshSnapshot() {
   inspectedSnapshot.value = forge.capture({ retain: true });
@@ -29,16 +116,34 @@ function clearEvents() {
 function stringify(value: unknown) {
   return JSON.stringify(value, null, 2) ?? '';
 }
+
+onMounted(() => {
+  restoreAnchor();
+  window.addEventListener('resize', updateViewport);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewport);
+});
 </script>
 
 <template>
-  <div class="enchant-debug-root" :class="positionClass">
+  <div
+    ref="root"
+    class="enchant-debug-root"
+    :class="[positionClass, { dragging: drag.active }]"
+    :style="rootStyle"
+    @pointermove="moveDrag"
+    @pointerup="endDrag"
+    @pointercancel="endDrag"
+  >
     <button
       class="enchant-debug-trigger"
       type="button"
       :aria-label="forge.debug.title"
       :title="forge.debug.title"
-      @click="open = true"
+      @pointerdown="beginDrag"
+      @click="openDebug"
     >
       <span class="debug-glyph">&gt;_</span>
       <span>Debug</span>
@@ -102,6 +207,7 @@ function stringify(value: unknown) {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+.enchant-debug-root.dragging { user-select: none; }
 .debug-position-bottom-right { right: 18px; }
 .debug-position-bottom-left { left: 18px; }
 
@@ -116,12 +222,14 @@ function stringify(value: unknown) {
   border: 1px solid #b8c4d4;
   border-radius: 6px;
   box-shadow: 0 5px 18px rgb(37 55 79 / 16%);
-  cursor: pointer;
+  cursor: grab;
   font: inherit;
   font-size: 11px;
   letter-spacing: .02em;
+  touch-action: none;
 }
 
+.enchant-debug-root.dragging .enchant-debug-trigger { cursor: grabbing; }
 .enchant-debug-trigger:hover { color: #0958d9; border-color: #7aa2df; }
 .debug-glyph { color: #0958d9; font-weight: 700; }
 .debug-count { min-width: 16px; padding: 1px 4px; color: #fff; background: #64748b; border-radius: 8px; font-size: 9px; text-align: center; }
