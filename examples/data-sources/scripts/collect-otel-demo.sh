@@ -11,6 +11,7 @@ DEMO_REF="main"
 DURATION=300
 WARMUP=60
 SCENARIO="baseline"
+MAX_START_ATTEMPTS=3
 
 usage() {
   cat <<'EOF'
@@ -135,14 +136,30 @@ COMPOSE+=(
   -f "$DEMO_DIR/compose.observability.yaml"
   -f "$COMPOSE_OVERRIDE"
 )
+export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-4}"
+export COMPOSE_PROGRESS="${COMPOSE_PROGRESS:-plain}"
 
 cleanup() {
   "${COMPOSE[@]}" down --remove-orphans >/dev/null 2>&1 || true
 }
+
+start_stack() {
+  local attempt=1
+  while ! "${COMPOSE[@]}" up --force-recreate --remove-orphans --detach; do
+    if ((attempt >= MAX_START_ATTEMPTS)); then
+      echo "otel-demo: Compose failed after ${MAX_START_ATTEMPTS} attempts" >&2
+      return 1
+    fi
+    echo "otel-demo: Compose start failed; retrying cached layers ($attempt/$MAX_START_ATTEMPTS)" >&2
+    sleep $((attempt * 5))
+    attempt=$((attempt + 1))
+  done
+}
+
 trap cleanup EXIT INT TERM
 
 echo "otel-demo: starting revision ${REVISION:0:12}"
-"${COMPOSE[@]}" up --force-recreate --remove-orphans --detach
+start_stack
 if ((WARMUP > 0)); then
   echo "otel-demo: warming up for ${WARMUP}s"
   sleep "$WARMUP"
