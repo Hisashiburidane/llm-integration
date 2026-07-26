@@ -7,7 +7,8 @@ import {
   createEnchantDebug,
   createEnchantRegistry,
   createLlmClient,
-  evaluateEnchantPolicy
+  evaluateEnchantPolicy,
+  renderAuraMarkdown
 } from '../dist/enchantforge-vue.js';
 
 function status(overrides = {}) {
@@ -339,7 +340,6 @@ test('default agent can use an injected LLM client', async () => {
   assert.equal(result.message, 'custom client');
   assert.equal(request.input, 'inspect');
   assert.doesNotMatch(request.prompt, /snapshotVersion/);
-  assert.match(request.prompt, /组合 read 和 visual capability/);
   assert.equal(request.context.version, undefined);
   assert.equal(request.context.structure.children[0].children[0].label, 'Test region');
   assert.equal(request.tools[0].function.name, 'enchant_tool_0');
@@ -374,6 +374,18 @@ test('default agent forwards conversation history without mixing it into the sna
   assert.match(request.messages.at(-1).content, /它的准点率呢？/);
   assert.equal(request.context.structure.children[0].children[0].label, 'Test region');
   assert.doesNotMatch(JSON.stringify(request.context), /首都机场/);
+});
+
+test('Aura markdown renders common syntax and rejects executable content', () => {
+  const rendered = renderAuraMarkdown('**P95 延迟**\n\n- `checkout`\n- [详情](https://example.com)');
+  assert.match(rendered, /<strong>P95 延迟<\/strong>/);
+  assert.match(rendered, /<code>checkout<\/code>/);
+  assert.match(rendered, /rel="noopener noreferrer"/);
+
+  const unsafe = renderAuraMarkdown('<script>alert(1)</script>\n\n[运行](javascript:alert(1))\n\n![remote](https://example.com/a.png)');
+  assert.doesNotMatch(unsafe, /<script>/);
+  assert.doesNotMatch(unsafe, /href="javascript:/);
+  assert.doesNotMatch(unsafe, /<img/);
 });
 
 test('default agent maps native function calls back to capabilities', async () => {
@@ -606,6 +618,7 @@ test('core entry stays independent from optional UI component bundles', () => {
 
   assert.doesNotMatch(coreEntry, /ant-design/);
   assert.doesNotMatch(coreEntry, /ant-design-x/);
+  assert.doesNotMatch(coreEntry, /marked/);
   assert.equal(packageManifest.dependencies['ant-design-x-vue'], '^1.6.0');
   assert.equal(packageManifest.dependencies['ant-design-vue'], undefined);
   assert.equal(packageManifest.dependencies['@ant-design/icons-vue'], undefined);

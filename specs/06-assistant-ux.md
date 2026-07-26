@@ -66,6 +66,12 @@ function inspectCurrentPage() {
 
 `clearOnPageChange` 默认为 `true`，避免路由切换后旧页面对话被误用于新页面。需要跨页面保留交互记录时，应用可以显式关闭，并自行决定哪些历史消息仍适合进入 Agent 上下文。
 
+### 2.2 消息渲染
+
+Ant Design X Vue 的 Bubble 提供 `messageRender` 和消息插槽，但不内置 Markdown parser。Aura 默认通过自己的安全 renderer 展示助手 Markdown，支持段落、列表、强调、链接、引用、表格和代码块；用户输入仍作为纯文本展示。
+
+原始 HTML、可执行链接和远程图片默认不渲染，避免把模型输出直接作为不受约束的 HTML 注入页面。应用可以传入 `:markdown="false"` 关闭默认 Markdown，或使用 Aura 的 `#message` 插槽完全替换消息展示。
+
 orb 负责：
 
 - 以悬浮入口常驻；

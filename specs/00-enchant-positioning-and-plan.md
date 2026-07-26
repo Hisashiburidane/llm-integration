@@ -315,6 +315,7 @@ Aura 默认使用 orb 形态呈现可拖动的悬浮入口，并在展开后承�
 | `initialMessages` | 恢复应用持久化的会话消息 | 空 |
 | `historyLimit` | 发送给 Agent 的最近会话消息数量 | `20` |
 | `clearOnPageChange` | 页面标识变化时取消运行并清空会话 | `true` |
+| `markdown` | 使用 Aura 的安全 Markdown renderer 展示助手消息 | `true` |
 
 agent 的解析顺序为 `agent ?? caster ?? forge.agent ?? builtInAgent`。同时传入 `agent` 和 `caster` 时使用 `agent`，开发模式下对不同实例给出警告。caster 不定义新的 agent 类型、生命周期或协议。
 

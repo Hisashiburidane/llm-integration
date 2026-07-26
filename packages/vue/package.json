@@ -46,6 +46,7 @@
     "vue-tsc": "^2.2.0"
   },
   "dependencies": {
-    "ant-design-x-vue": "^1.6.0"
+    "ant-design-x-vue": "^1.6.0",
+    "marked": "14.0.0"
   }
 }

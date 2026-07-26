@@ -138,6 +138,9 @@ importers:
       ant-design-x-vue:
         specifier: ^1.6.0
         version: 1.6.0(ant-design-vue@4.2.6(vue@3.5.39(typescript@5.9.3)))(vue@3.5.39(typescript@5.9.3))
+      marked:
+        specifier: 14.0.0
+        version: 14.0.0
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^5.2.1

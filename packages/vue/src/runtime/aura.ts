@@ -13,6 +13,7 @@ export interface AuraProps {
   title?: string;
   prompt?: string;
   placeholder?: string;
+  markdown?: boolean;
   suggestions?: string[];
   progressMessages?: AuraProgressMessages;
   model?: string;

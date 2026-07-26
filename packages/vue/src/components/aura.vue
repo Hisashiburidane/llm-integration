@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Bubble, Sender, ThoughtChain, type ThoughtChainProps } from 'ant-design-x-vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import MarkdownContent from './markdown-content.vue';
 import { createDefaultEnchantAgent } from '../runtime/agent';
 import type { EnchantConfirmationRequest } from '../runtime/forge';
 import type { EnchantProgressEvent, EnchantRunResult } from '../runtime/enchantment';
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<AuraProps>(), {
   title: 'Aura',
   prompt: '',
   placeholder: '描述你要在当前界面完成的操作',
+  markdown: true,
   suggestions: () => [],
   progressMessages: () => ({}),
   model: '',
@@ -457,7 +459,14 @@ defineExpose<AuraInstance>({
             :placement="item.role === 'user' ? 'end' : 'start'"
             :variant="item.role === 'user' ? 'filled' : 'borderless'"
             :class="['aura-chat-bubble', item.role]"
-          />
+          >
+            <template #message>
+              <slot name="message" :message="item">
+                <MarkdownContent v-if="item.role === 'assistant' && markdown" :content="item.content" />
+                <span v-else class="aura-plain-message">{{ item.content }}</span>
+              </slot>
+            </template>
+          </Bubble>
           <Bubble v-else placement="start" variant="borderless" class="aura-chat-bubble aura-activity-bubble">
             <template #message>
               <slot
@@ -557,6 +566,7 @@ defineExpose<AuraInstance>({
 .aura-follow-up-suggestions button { flex: 0 0 auto; max-width: 280px; padding: 5px 8px; overflow: hidden; border: 1px solid #dbe3ec; border-radius: 5px; color: #36516f; background: #f8fafc; cursor: pointer; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .aura-follow-up-suggestions button:hover { border-color: #91b8ec; color: #165dba; background: #eff6ff; }
 .aura-chat-bubble { width: 100%; font-size: 12px; }
+.aura-plain-message { white-space: pre-wrap; }
 .aura-activity-bubble { margin: -4px 0; }
 .aura-progress-collapse { width: min(100%, 340px); }
 .activity-toggle { display: flex; width: 100%; min-width: 0; align-items: center; gap: 7px; padding: 5px 4px; border: 0; color: #526477; background: transparent; cursor: pointer; text-align: left; }

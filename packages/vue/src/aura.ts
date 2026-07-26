@@ -1,4 +1,5 @@
 export { default } from './components/aura.vue';
+export { renderAuraMarkdown } from './runtime/markdown';
 export type {
   AuraActivity,
   AuraClearReason,

@@ -117,7 +117,6 @@ const DEFAULT_AGENT_PROMPT = [
   '优先使用 function tool 完成请求；没有匹配工具时不要猜测执行动作。',
   '如果用户要求分析、比较、解释或查找数据，必须调用能返回实际数据的 read capability；读取页面上下文只能发现结构，不能作为数据答案。',
   '多个 capability 都能满足请求时，选择效果范围最小且调用次数最少的方案。',
-  '应用 instruction 明确要求同时呈现证据时，可以在同一计划中组合 read 和 visual capability；不得用“最少调用”省略明确要求的界面操作。',
   '使用最少调用完成任务。不要提交、审批、支付、删除或调用未授权动作。',
   '无法完成时 calls 返回空数组并说明原因。',
   '如果服务端未执行 function tool calling，才使用 JSON 格式：{"message":"","calls":[{"capabilityId":"","input":{},"reason":""}]}。'
