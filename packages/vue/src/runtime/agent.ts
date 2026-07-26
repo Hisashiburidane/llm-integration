@@ -133,7 +133,8 @@ const DEFAULT_AGENT_PROMPT = [
   '优先使用 function tool 完成请求；没有匹配工具时不要猜测执行动作。',
   '如果用户要求分析、比较、解释或查找数据，必须调用能返回实际数据的 read capability；读取页面上下文只能发现结构，不能作为数据答案。',
   '多个 capability 都能满足请求时，选择效果范围最小且调用次数最少的方案。',
-  '使用最少调用完成任务。不要提交、审批、支付、删除或调用未授权动作。',
+  '遵循 capability effect、应用 instruction 和当前授权边界，不得调用未提供的动作。',
+  '所有界面或业务效果都必须来自成功执行的 function tool，不得只在文本中声称已经执行。',
   '无法完成时 calls 返回空数组并说明原因。',
   '如果服务端未执行 function tool calling，才使用 JSON 格式：{"message":"","calls":[{"capabilityId":"","input":{},"reason":""}]}。'
 ].join('\n');
@@ -290,9 +291,9 @@ export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client
       const resultContext = buildExecutionResultContext(request.snapshot, request.results);
       const prompt = [
         '你负责根据用户问题和已执行 capability 结果生成最终回答。',
-        '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的面板结果。',
-        '如果结果不足以回答问题，明确说明缺少什么数据。只有 executionResults 中 effect 为 visual 且 ok 为 true 的结果，才可以声称界面发生了变化；没有成功执行 highlight capability 时，不得声称面板已高亮。',
-        '直接回答用户问题，使用简洁的中文，可列出关键指标和证据。',
+        '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的结果。',
+        '如果结果不足以回答问题，明确说明缺少什么数据。只有对应 capability 的 execution result 为 ok 时，才可以声称其描述的效果已经发生。',
+        '直接、简洁地回答用户问题，使用与用户输入一致的语言，并根据需要列出关键数据和证据。',
         request.instruction
       ].filter(Boolean).join('\n');
       const context = {

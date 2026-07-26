@@ -498,8 +498,10 @@ test('Aura markdown renders common syntax and rejects executable content', () =>
 
 test('default agent maps native function calls back to capabilities', async () => {
   let request;
+  let responseRequest;
   let executionCount = 0;
   const forge = createEnchantForge({
+    maxPlanRounds: 0,
     llmClient: {
       async runJson(value) {
         request = value;
@@ -508,7 +510,8 @@ test('default agent maps native function calls back to capabilities', async () =
           toolCalls: [{ name: 'enchant_tool_0', arguments: '{"value":"valid"}' }]
         };
       },
-      async run() {
+      async run(value) {
+        responseRequest = value;
         return { content: 'native completed', payload: {} };
       }
     }
@@ -526,6 +529,9 @@ test('default agent maps native function calls back to capabilities', async () =
   assert.equal(result.plan.calls[0].capabilityId, 'capability:test');
   assert.equal(executionCount, 1);
   assert.equal(result.results[0].ok, true);
+  assert.doesNotMatch(request.prompt, /审批|支付|删除/);
+  assert.doesNotMatch(responseRequest.prompt, /highlight capability|面板已高亮/);
+  assert.match(responseRequest.prompt, /对应 capability/);
 });
 
 test('forge synthesizes a response from successful read capability results', async () => {

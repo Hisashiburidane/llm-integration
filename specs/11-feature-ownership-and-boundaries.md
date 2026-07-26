@@ -290,7 +290,7 @@ Core 只允许保留无业务含义的回退文案，例如：
 - Focus View 的高亮、详情和组合状态已移到 examples/vue；
 - Dashboard 使用一个应用级批量 capability provider，不再为每个 panel 生成 Core 业务动作；
 - Core 已移除 page-focus、visual state 和组合视图结果文案；
-- 默认 agent prompt 不再包含打开 panel 或组合视图的领域规则；
+- 默认 agent prompt 不包含特定业务操作的禁止列表，也不包含 panel、highlight 或组合视图的领域完成规则；
 - DOM scanner 已移除 Ant Design Vue 私有 class 选择器，改用标准 label、ARIA 和通用结构推断；
 - 已移除从 metadata 直接生成无 provider tools 的 legacy helper。
 
