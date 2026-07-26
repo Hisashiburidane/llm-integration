@@ -14,6 +14,7 @@ pnpm --filter @enchantforge/dashboard-vue dev
 ```bash
 pnpm --filter @enchantforge/data-sources data:process -- --dataset aviation-ontime
 pnpm --filter @enchantforge/data-sources data:process -- --dataset beijing-air-quality
+pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi
 ```
 
 也可以单独启动查询服务：
@@ -27,6 +28,8 @@ pnpm --filter @enchantforge/dashboard-vue data:serve
 打开 `http://localhost:5173/#air-quality` 可进入 Beijing Air Quality Dashboard。空气质量 Panel 使用 `air_quality_dashboard_rollup`，支持日期范围、监测站筛选和 Air Quality Assistant 分析。
 
 打开 `http://localhost:5173/#taxi` 可进入 NYC Taxi Dashboard。出租车 Panel 使用 `nyc_taxi_dashboard_rollup`，支持日期范围、行政区和上车区域筛选。`http://localhost:5173/#panels` 是跨专题的统一 Panel Library。
+
+NYC Taxi 的处理流程会读取 `yellow_tripdata_2025-01.parquet` 和 `taxi_zone_lookup.csv`，将行程时长、区域名称、车费、总收入等字段清洗后写入 `nyc_taxi_trips`、`nyc_taxi_zones` 和 `nyc_taxi_dashboard_rollup`。缺少原始文件或 `pyarrow` 时，页面只显示数据服务错误，不会使用模拟数据。
 
 LLM 配置使用 OpenAI-compatible Chat Completions endpoint：
 

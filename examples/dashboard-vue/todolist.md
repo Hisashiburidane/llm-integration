@@ -14,6 +14,8 @@
 - [x] 通过统一数据源下载器下载 BTS 原始压缩包并生成 SHA-256 manifest。
 - [x] 使用 uv/Typer 清洗 BTS 航班数据并写入 SQLite `aviation_flights`。
 - [x] 通过 Node 开发服务从 SQLite 提供 Dashboard 配置、Panel、QuerySpec 和聚合查询结果。
+- [x] 完成 NYC Taxi 数据清洗、区域字典关联、物化聚合表和配置驱动 Dashboard。
+- [x] 让 Taxi Panel 复用通用渲染器，根据 Dataset 元数据显示指标标签、单位和区域名称。
 
 ## 下一步
 
