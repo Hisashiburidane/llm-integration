@@ -1,6 +1,6 @@
 # Dashboard Vue
 
-这是一个配置驱动的 Vue Dashboard 平台示例，包含航班运行与延误分析、北京空气质量、NYC Taxi 和 OpenTelemetry Demo 四个专题。前端只负责通用 Dashboard/Panel 渲染和运行时交互；专题数据集、筛选定义、Panel QuerySpec 和 Assistant prompt 由 Node 配置服务返回。
+这是一个配置驱动的 Vue Dashboard 平台示例，包含航班运行与延误分析、北京空气质量、NYC Taxi 和 OpenTelemetry Demo 四个专题。前端只负责通用 Dashboard/Panel 渲染和运行时交互；专题数据集、筛选定义、Panel QuerySpec、Evidence Group 和 Assistant prompt 由 Node 配置服务返回。
 
 ## Run
 
@@ -39,7 +39,9 @@ pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --s
 pnpm --filter @enchantforge/data-sources data:process -- --dataset otel-demo
 ```
 
-服务拓扑是通用 `graph` Panel：节点和边完全来自 QuerySpec 返回的 source/target 维度，不在 Vue 前端维护固定服务列表。
+服务拓扑是通用 `graph` Panel：节点和边完全来自 QuerySpec 返回的 source/target 维度，不在 Vue 前端维护固定服务列表。OpenTelemetry 页面提供 24 个真实数据 Panel，覆盖延迟、错误、流量、服务依赖、日志和 Metric 采集。
+
+`evidenceGroups` 将常见分析问题映射为 2-4 个互补 Panel。它属于 Dashboard 应用元数据，不是 Core spell；Aura 仍通过通用 `dashboard.read_data` 和 `dashboard.highlight` capability 完成多证据读取、高亮和回答。
 
 NYC Taxi 的处理流程会读取 `yellow_tripdata_2025-01.parquet` 和 `taxi_zone_lookup.csv`，将行程时长、区域名称、车费、总收入等字段清洗后写入 `nyc_taxi_trips`、`nyc_taxi_zones` 和 `nyc_taxi_dashboard_rollup`。缺少原始文件或 `pyarrow` 时，页面只显示数据服务错误，不会使用模拟数据。
 

@@ -1,6 +1,6 @@
 import { reactive, toRaw } from 'vue';
 import { queryDashboardBatch } from '../query/client';
-import type { DashboardConfig, DatasetDefinition, FacetOption, FilterOperator, PanelConfig, QueryResult, QuerySpec, Scalar } from '../model/types';
+import type { DashboardConfig, DashboardEvidenceGroup, DatasetDefinition, FacetOption, FilterOperator, PanelConfig, QueryResult, QuerySpec, Scalar } from '../model/types';
 
 export interface DashboardFilterDefinition {
   id: string;
@@ -22,6 +22,7 @@ export interface DashboardRuntimeState<TFilters extends Record<string, unknown>>
   panelTemplates: PanelConfig[];
   dataset: DatasetDefinition;
   sourceManifest: Record<string, unknown>;
+  evidenceGroups: DashboardEvidenceGroup[];
   assistantPrompt: string;
   suggestions: string[];
   facets: Record<string, FacetOption[] | string[]>;
@@ -78,6 +79,7 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
     panelTemplates: [],
     dataset: clone(options.initialDataset),
     sourceManifest: {},
+    evidenceGroups: [],
     assistantPrompt: '',
     suggestions: [],
     facets: {},
@@ -128,7 +130,7 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
         id: string; topicId: string; title: string; description: string; sourceManifest?: Record<string, unknown>;
         dataset: DatasetDefinition; panels: PanelConfig[]; panelTemplates: PanelConfig[]; panelLibrary: PanelConfig[];
         facets?: Record<string, FacetOption[] | string[]>; assistantPrompt?: string; suggestions?: string[]; error?: string;
-        filterDefinitions?: DashboardFilterDefinition[];
+        filterDefinitions?: DashboardFilterDefinition[]; evidenceGroups?: DashboardEvidenceGroup[];
       };
       if (!response.ok || payload.error) throw new Error(payload.error || `Dashboard 配置请求失败（${response.status}）。`);
       state.config = { id: payload.id, topicId: payload.topicId, title: payload.title, description: payload.description, panels: (payload.panels ?? []).map(normalizePanel) };
@@ -136,6 +138,7 @@ export function createDashboardRuntime<TFilters extends Record<string, unknown>>
       state.panelTemplates = (payload.panelTemplates ?? []).map(normalizePanel);
       state.dataset = payload.dataset;
       state.sourceManifest = payload.sourceManifest ?? {};
+      state.evidenceGroups = payload.evidenceGroups ?? [];
       state.assistantPrompt = payload.assistantPrompt ?? '';
       state.suggestions = payload.suggestions ?? [];
       state.facets = payload.facets ?? {};

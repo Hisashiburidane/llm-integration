@@ -8,27 +8,28 @@
 dataset semantic model
   -> constrained QuerySpec
   -> configured Panel
+  -> Dashboard evidence groups
   -> Dashboard state and links
   -> Enchant capability
   -> Aura request and trace
 ```
 
-首个专题是航班运行与延误分析。示例优先展示当前页面中的 Panel 实例、筛选条件和能力如何被寻址；不实现通用 BI 平台，也不允许模型生成 Vue 或 SQL。
+当前包含航班运行、北京空气质量、NYC Taxi 和 OpenTelemetry 四个专题。示例优先展示当前页面中的 Panel 实例、筛选条件和能力如何被寻址；不允许模型生成 Vue 或 SQL。
 
 ## 2. 当前交付范围
 
-首个增量包含：
+当前增量包含：
 
-- 航班专题语义模型、指标、维度和关系定义；
-- 受约束的本地 QuerySpec 校验与聚合查询；
-- 指标卡、折线图、柱状图、构成图、表格、时间线和机场状态 Panel；
-- 全局机场、航空公司、方向和小时范围筛选；
-- Panel 选择联动和 Dashboard 视图保存/恢复；
+- 四个专题的语义模型、指标、维度和关系定义；
+- 受约束的服务端 QuerySpec 校验与 SQLite 聚合查询；
+- 指标卡、折线图、柱状图、构成图、表格、时间线和拓扑图；
+- 专题筛选和配置驱动的 Panel 编排；
+- 面向分析问题的 Evidence Group 元数据；
 - Dashboard 和 Panel 的显式 Enchant metadata/capability；
-- `read`、筛选、时间范围、选择、高亮、添加模板 Panel、保存视图等能力；
+- `read`、筛选和多 Panel 高亮能力；
 - Aura 助手、Debug trace、数据来源说明和本地运行配置。
 
-业务数据使用固定、可审计的演示 fixture，明确标注为非实时数据。统一的 `examples/data-sources` 已登记 BTS 月度下载地址、按计划下载原始压缩包并生成治理 manifest；BTS 原始数据清洗与接入仍属于后续任务，不能把 fixture 描述为实时运行数据。
+业务数据由 `examples/data-sources` 统一下载或采集、清洗并写入 SQLite；页面不会使用前端模拟数据。
 
 ## 3. 边界
 
@@ -46,6 +47,7 @@ dataset semantic model
 - 当前 Dashboard 状态和 Panel 实例；
 - 能力 owner/provider 及实际执行效果；
 - Panel 渲染和联动；
+- Evidence Group 的领域含义和 Panel 组合；
 - 业务 trace 摘要与数据来源展示。
 
 ### 3.3 EnchantForge 负责
@@ -60,15 +62,14 @@ snapshot 只作为 LLM 规划上下文和 Debug 记录。示例不把 registry v
 
 专题数据模型至少包含：`flight`、`airport`、`airline`、`date`、`hour`、`direction`、`delayCause`。首个版本实现航班数、准点率、平均/P95 出港延误、取消率、严重延误数和延误原因分钟数等指标。
 
-`QuerySpec` 只能引用已注册 dataset、metric、dimension 和允许的 operator。前端本地查询引擎是可替换的演示实现；未来可将同一 QuerySpec 交给 DuckDB/FastAPI 服务，Panel 和 Enchant capability 契约不变。
+`QuerySpec` 只能引用已注册 dataset、metric、dimension 和允许的 operator。Node 查询服务将 QuerySpec 编译为受约束的 SQLite 查询；未来替换查询后端时，Panel 和 Enchant capability 契约不变。
 
 ## 5. 可演示路径
 
 1. 选择 `JFK` 和 18:00-21:00，所有 Panel 联动更新。
-2. 在机场状态或排名 Panel 选择对象，页面高亮关联 Panel。
-3. 通过 Aura 请求读取当前航班延误数据、切换时间范围或高亮异常 Panel。
-4. 通过 Aura 请求添加受约束的航空公司排名模板 Panel，并保存当前视图。
-5. 在 Debug trace 中查看 capture、tool、policy、action 和 result 事件。
+2. 通过 Aura 提问当前机场或服务的异常指标。
+3. Aura 从 Evidence Group 读取 2-4 个真实 Panel 结果并高亮同一组证据。
+4. 在 Debug trace 中查看 read、继续规划、highlight 和最终回答。
 
 ## 6. 验收标准
 
@@ -77,5 +78,6 @@ snapshot 只作为 LLM 规划上下文和 Debug 记录。示例不把 registry v
 - 业务数据和筛选变化不递增 registry version；
 - Panel capability 只能作用于当前实例；
 - 无关 Panel 挂载不会让已有计划因 snapshot version 失效；
-- 所有主要航班结论可以追溯到当前 QueryResult 和 fixture 来源；
+- 主要分析结论可以追溯到当前 QueryResult 和 SQLite 数据来源；
+- Evidence Group 引用的 Panel 必须存在，且只表达应用领域语义；
 - 核心包和 Dashboard 示例均可通过定向 typecheck/build。

@@ -10,7 +10,7 @@ export function createDashboardCapabilities(runtime: DashboardRuntime<Record<str
     },
     {
       id: `${state.config.id}:read-data`, owner: 'application', provider: 'dashboard-runtime', name: 'dashboard.read_data', label: '读取 Dashboard 数据',
-      description: '读取指定 Panel 的真实查询结果，用于回答数据问题；后续分析步骤可调用 dashboard.highlight 聚焦主要证据。', effect: 'read',
+      description: '读取指定 Panel 的真实查询结果。分析问题优先从 evidenceGroups 选择 2-4 个互补 Panel，后续可调用 dashboard.highlight 聚焦同一组证据。', effect: 'read',
       inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string' } } } },
       execute(input) {
         const panelIds = input && typeof input === 'object' && Array.isArray((input as { panelIds?: unknown }).panelIds) ? (input as { panelIds: unknown[] }).panelIds.map(String) : [];
@@ -31,7 +31,7 @@ export function createDashboardCapabilities(runtime: DashboardRuntime<Record<str
     },
     {
       id: `${state.config.id}:highlight`, owner: 'application', provider: 'dashboard-runtime', name: 'dashboard.highlight', label: '高亮 Dashboard Panel',
-      description: '高亮当前 Dashboard 中已注册的 Panel，用于聚焦分析回答所依据的指标和图表。', effect: 'visual', inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', items: { type: 'string' } } } },
+      description: '高亮当前 Dashboard 中已注册的 Panel。分析问题应同时高亮 2-4 个相互佐证的指标和图表，而不是只高亮单一结果。', effect: 'visual', inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string' } } } },
       execute(input) {
         const panelIds = input && typeof input === 'object' && Array.isArray((input as { panelIds?: unknown }).panelIds) ? (input as { panelIds: unknown[] }).panelIds.map(String) : [];
         if (!panelIds.length) throw new Error('panelIds 不能为空。');
@@ -61,6 +61,7 @@ export function dashboardContext(runtime: DashboardRuntime<Record<string, unknow
     filters: runtime.state.filters,
     filterDefinitions: runtime.state.filterDefinitions,
     panels: runtime.state.config.panels.map((panel) => ({ id: panel.id, title: panel.title, type: panel.type, query: runtime.queryForPanel(panel) })),
+    evidenceGroups: runtime.state.evidenceGroups,
     dataset: runtime.state.dataset,
     lastAction: runtime.state.lastAction
   };

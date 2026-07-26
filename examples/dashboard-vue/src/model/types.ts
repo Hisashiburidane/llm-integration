@@ -122,6 +122,14 @@ export interface PanelConfig {
   layout: PanelLayout;
 }
 
+export interface DashboardEvidenceGroup {
+  id: string;
+  label: string;
+  description: string;
+  panelIds: string[];
+  questions: string[];
+}
+
 export interface DashboardConfig {
   id: string;
   topicId: string;

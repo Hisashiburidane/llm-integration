@@ -15,7 +15,13 @@ export const airQualityDashboard = {
     { id: 'date', dimensionId: 'date', operator: 'between', defaultValue: ['2016-01-01', '2017-02-28'] },
     { id: 'station', dimensionId: 'station', operator: 'eq', defaultValue: 'ALL', allValue: 'ALL', facetKey: 'stations' }
   ],
-  assistantPrompt: '你是 Air Quality Assistant。回答问题前必须调用 dashboard.read_data，并在分析过程中调用 dashboard.highlight 高亮作为回答主要证据的 Panel；只有用户明确要求不改变界面时才不高亮。涉及站点比较使用 aq-station-ranking，涉及趋势使用 aq-pm25-trend。必须说明监测站名称、日期范围和指标单位。',
+  evidenceGroups: [
+    { id: 'pm25', label: 'PM2.5 分析', description: '结合总体均值、峰值、时间趋势和站点排名分析 PM2.5。', panelIds: ['aq-pm25-average', 'aq-pm25-peak', 'aq-pm25-trend', 'aq-station-ranking'], questions: ['哪个站点 PM2.5 最高', 'PM2.5 如何变化', '是否出现污染峰值'] },
+    { id: 'pollutants', label: '污染物结构', description: '比较主要污染物总体水平、站点差异和 PM10/O3 趋势。', panelIds: ['aq-pollutant-profile', 'aq-station-pollutants', 'aq-pm10-trend', 'aq-ozone-trend'], questions: ['主要污染物是什么', '站点污染物有何差异', 'PM10 或 O3 如何变化'] },
+    { id: 'weather', label: '气象背景', description: '结合气温、降雨趋势与站点气象差异解释背景条件。', panelIds: ['aq-weather-context', 'aq-station-weather', 'aq-pm25-trend'], questions: ['温度和降雨如何', '气象条件与污染趋势是否同步'] },
+    { id: 'coverage', label: '数据覆盖', description: '检查有效观测总量、站点数量和各站覆盖情况。', panelIds: ['aq-observation-count', 'aq-station-count', 'aq-observation-quality'], questions: ['数据是否完整', '哪些站点观测较少', '当前覆盖多少站点'] }
+  ],
+  assistantPrompt: '你是 Air Quality Assistant。回答问题前必须调用 dashboard.read_data。根据页面 metadata 中的 evidenceGroups 选择 2-4 个互补 Panel 交叉分析，并调用 dashboard.highlight 高亮同一组主要证据；只有用户明确要求不改变界面时才不高亮。不要为了凑数量选择无关 Panel。必须说明监测站名称、日期范围和指标单位。',
   suggestions: ['哪个监测站的 PM2.5 最高？', 'PM2.5 在当前日期范围如何变化？', '比较主要污染物的平均浓度。', '查看温度和降雨背景。'],
   dataset: {
     id: 'beijing_air_quality_demo',
@@ -53,8 +59,13 @@ export const airQualityDashboard = {
     { id: 'aq-station-count', type: 'metric', title: '监测站数量', description: '当前查询范围内有观测记录的监测站数量。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'stationCount' }], dimensions: [], filters: [] }, layout: { width: 3, minHeight: 148 } },
     { id: 'aq-pm25-trend', type: 'line', title: 'PM2.5 日均趋势', description: '观察日期范围内 PM2.5 日均浓度变化。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'pm25Average' }], dimensions: [{ dimensionId: 'date' }], filters: [], limit: 100 }, visualization: { showLabels: false }, layout: { width: 8, minHeight: 330 } },
     { id: 'aq-station-ranking', type: 'bar', title: '监测站 PM2.5 排名', description: '比较当前日期范围内各监测站的 PM2.5 日均浓度。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'pm25Average' }], dimensions: [{ dimensionId: 'station' }], filters: [], limit: 20 }, visualization: { showLabels: true }, layout: { width: 4, minHeight: 330 } },
+    { id: 'aq-pm25-peak-ranking', type: 'bar', title: '监测站 PM2.5 峰值', description: '比较各监测站在当前日期范围内出现的 PM2.5 最高浓度。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'pm25Peak' }], dimensions: [{ dimensionId: 'station' }], filters: [], limit: 20, orderBy: { fieldId: 'pm25Peak', direction: 'desc' } }, visualization: { showLabels: true }, layout: { width: 4, minHeight: 300 } },
+    { id: 'aq-pm10-trend', type: 'line', title: 'PM10 日均趋势', description: '按日期观察 PM10 日均浓度变化。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'pm10Average' }], dimensions: [{ dimensionId: 'date' }], filters: [], limit: 100 }, layout: { width: 4, minHeight: 300 } },
+    { id: 'aq-ozone-trend', type: 'line', title: 'O₃ 日均趋势', description: '按日期观察臭氧日均浓度变化。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'o3Average' }], dimensions: [{ dimensionId: 'date' }], filters: [], limit: 100 }, layout: { width: 4, minHeight: 300 } },
     { id: 'aq-pollutant-profile', type: 'bar', title: '主要污染物概览', description: '比较 PM2.5、PM10、NO₂、SO₂ 和 O₃ 的平均浓度。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'pm25Average' }, { metricId: 'pm10Average' }, { metricId: 'no2Average' }, { metricId: 'so2Average' }, { metricId: 'o3Average' }], dimensions: [], filters: [] }, layout: { width: 6, minHeight: 300 } },
     { id: 'aq-weather-context', type: 'line', title: '温度与降雨背景', description: '查看温度和降雨变化，为污染物波动提供气象背景。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'temperatureAverage' }, { metricId: 'rainTotal' }], dimensions: [{ dimensionId: 'date' }], filters: [], limit: 100 }, layout: { width: 6, minHeight: 300 } },
+    { id: 'aq-station-pollutants', type: 'table', title: '监测站污染物对比', description: '按监测站并列比较 PM2.5、PM10、NO₂、SO₂ 和 O₃ 平均浓度。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'pm25Average' }, { metricId: 'pm10Average' }, { metricId: 'no2Average' }, { metricId: 'so2Average' }, { metricId: 'o3Average' }], dimensions: [{ dimensionId: 'station' }], filters: [], limit: 20, orderBy: { fieldId: 'pm25Average', direction: 'desc' } }, layout: { width: 7, minHeight: 340 } },
+    { id: 'aq-station-weather', type: 'table', title: '监测站气象背景', description: '按监测站比较平均温度和累计降雨。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'temperatureAverage' }, { metricId: 'rainTotal' }], dimensions: [{ dimensionId: 'station' }], filters: [], limit: 20 }, layout: { width: 5, minHeight: 340 } },
     { id: 'aq-observation-quality', type: 'table', title: '监测站观测覆盖', description: '检查各监测站在当前范围内的有效观测数量。', query: { datasetId: 'beijing_air_quality_demo', metrics: [{ metricId: 'observationCount' }, { metricId: 'pm25Average' }], dimensions: [{ dimensionId: 'station' }], filters: [], limit: 20 }, layout: { width: 12, minHeight: 340 } }
   ]
 };

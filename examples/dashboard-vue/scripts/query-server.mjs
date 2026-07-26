@@ -431,6 +431,7 @@ async function readConfig(dashboardId = aviationDashboard.id) {
     querySources: dashboard.querySources ?? [{ datasetId: dashboard.dataset.id, metricIds: dashboard.dataset.metrics.map((metric) => metric.id) }],
     facets,
     filterDefinitions,
+    evidenceGroups: dashboard.evidenceGroups ?? [],
     assistantPrompt: dashboard.assistantPrompt ?? '',
     suggestions: dashboard.suggestions ?? []
   };

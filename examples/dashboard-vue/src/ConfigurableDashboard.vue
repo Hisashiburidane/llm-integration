@@ -14,7 +14,7 @@ const contextOpen = ref(false);
 const selectedPanelId = ref('');
 const panels = computed(() => state.config.panels);
 const activePanel = computed(() => panels.value.find((panel) => panel.id === selectedPanelId.value));
-const rootMetadata = computed(() => dashboardMetadata(state.config));
+const rootMetadata = computed(() => dashboardMetadata(state.config, state.evidenceGroups));
 const capabilities = createDashboardCapabilities(runtime);
 
 watch(() => state.filters, () => { if (state.config.panels.length) void runtime.refreshData(); }, { deep: true });
