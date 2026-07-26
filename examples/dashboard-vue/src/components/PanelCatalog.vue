@@ -34,7 +34,6 @@ const panelTypes: Array<{ label: string; value: PanelType }> = [
   { label: '环形图', value: 'donut' },
   { label: '表格', value: 'table' },
   { label: '时间线', value: 'timeline' },
-  { label: '机场状态', value: 'airport-status' }
 ];
 const search = ref('');
 const editorOpen = ref(false);

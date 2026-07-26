@@ -98,7 +98,7 @@ function displayDimensionValue(row: Record<string, unknown>, dimension: string) 
       <strong>{{ displayValue(primaryValue) }}</strong>
       <span>{{ primaryMetric?.label ?? metricId }}<template v-if="primaryMetric?.unit"> · {{ primaryMetric.unit }}</template></span>
     </div>
-    <div v-else-if="panel.type === 'table' || panel.type === 'airport-status'" class="table-wrap">
+    <div v-else-if="panel.type === 'table'" class="table-wrap">
       <table>
         <thead><tr><th v-for="column in result.columns" :key="column">{{ columnLabel(column) }}</th></tr></thead>
         <tbody>

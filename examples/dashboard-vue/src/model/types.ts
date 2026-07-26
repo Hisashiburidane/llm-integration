@@ -1,6 +1,6 @@
 export type Scalar = string | number | boolean;
 export interface FacetOption { code: string; label: string; }
-export type PanelType = 'metric' | 'line' | 'bar' | 'donut' | 'table' | 'timeline' | 'airport-status';
+export type PanelType = 'metric' | 'line' | 'bar' | 'donut' | 'table' | 'timeline';
 export type DataType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p95' | 'ratio';
 export type FilterOperator = 'eq' | 'neq' | 'in' | 'between' | 'gte' | 'lte';
@@ -52,23 +52,6 @@ export interface DatasetDefinition {
   dimensions: DimensionDefinition[];
   metrics: MetricDefinition[];
   relations: RelationDefinition[];
-}
-
-export interface FlightRecord {
-  flightId: string;
-  date: string;
-  hour: number;
-  origin: string;
-  destination: string;
-  carrier: string;
-  direction: 'departure' | 'arrival';
-  depDelay: number;
-  arrDelay: number;
-  taxiOut: number;
-  cancelled: boolean;
-  diverted: boolean;
-  delayCause: 'carrier' | 'weather' | 'nas' | 'security' | 'none';
-  delayMinutes: number;
 }
 
 export interface TimeRange {
@@ -140,20 +123,5 @@ export interface DashboardConfig {
   topicId: string;
   title: string;
   description: string;
-  panels: PanelConfig[];
-}
-
-export interface DashboardFilters {
-  airport: string;
-  carrier: string;
-  direction: FlightRecord['direction'];
-  timeRange: TimeRange;
-}
-
-export interface DashboardView {
-  id: string;
-  name: string;
-  savedAt: string;
-  filters: DashboardFilters;
   panels: PanelConfig[];
 }

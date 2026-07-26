@@ -269,7 +269,7 @@ async function ensureDashboardConfig() {
   const migrateDefinitions = `INSERT OR IGNORE INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) SELECT id, type, title, description, query_json, visualization_json, 6, 300 FROM dashboard_panels`;
   const migratePlacements = `INSERT OR IGNORE INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) SELECT dashboard_id, id, sort_order, COALESCE(CAST(json_extract(layout_json, '$.width') AS INTEGER), 6), COALESCE(CAST(json_extract(layout_json, '$.minHeight') AS INTEGER), 300) FROM dashboard_panels WHERE is_template = 0`;
   const placementInserts = configs.flatMap((config) => config.panels.map((panel, index) => `INSERT OR IGNORE INTO dashboard_panel_placements (dashboard_id, panel_id, sort_order, width, min_height) VALUES (${sqlString(config.id)}, ${sqlString(panel.id)}, ${index}, ${panel.layout.width}, ${panel.layout.minHeight})`));
-  await runSql(`${statements.join(';')}; ${configInserts.join(';')}; ${inserts.join(';')}; ${definitionInserts.join(';')}; ${migrateDefinitions}; ${migratePlacements}; ${placementInserts.join(';')}`, { readonly: false });
+  await runSql(`${statements.join(';')}; ${configInserts.join(';')}; ${inserts.join(';')}; ${definitionInserts.join(';')}; ${migrateDefinitions}; ${migratePlacements}; ${placementInserts.join(';')}; UPDATE panel_definitions SET type = 'table' WHERE type = 'airport-status'; UPDATE dashboard_panels SET type = 'table' WHERE type = 'airport-status'`, { readonly: false });
 }
 
 async function detectRollup() {
@@ -338,7 +338,7 @@ function validatePanelPayload(value) {
   if (typeof panel.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(panel.id)) throw new Error('Panel ID 只能使用小写字母、数字和连字符。');
   if (typeof panel.title !== 'string' || !panel.title.trim()) throw new Error('Panel 标题不能为空。');
   if (typeof panel.description !== 'string' || !panel.description.trim()) throw new Error('Panel 描述不能为空。');
-  if (!['metric', 'line', 'bar', 'donut', 'table', 'timeline', 'airport-status'].includes(panel.type)) throw new Error('Panel 类型不支持。');
+  if (!['metric', 'line', 'bar', 'donut', 'table', 'timeline'].includes(panel.type)) throw new Error('Panel 类型不支持。');
   if (!panel.query || panel.query.datasetId !== aviationDashboard.dataset.id) throw new Error('Panel QuerySpec 数据集不支持。');
   if (!Array.isArray(panel.query.metrics) || panel.query.metrics.length !== 1) throw new Error('Panel 必须选择一个指标。');
   if (!Array.isArray(panel.query.dimensions) || !Array.isArray(panel.query.filters)) throw new Error('Panel QuerySpec 结构无效。');
