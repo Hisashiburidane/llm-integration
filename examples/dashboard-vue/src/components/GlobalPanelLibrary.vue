@@ -4,24 +4,13 @@ import { Enchant } from '@enchantforge/vue';
 import DashboardPanel from './DashboardPanel.vue';
 import TextToFormBuilder from './TextToFormBuilder.vue';
 import { queryDashboard } from '../query/client';
+import { fetchDataDomains } from '../query/domains';
 import type { DatasetDefinition, PanelConfig, PanelType, QueryResult, QuerySpec } from '../model/types';
-import type { DashboardFilterDefinition } from '../runtime/dashboard-runtime';
-
-interface QuerySource {
-  datasetId: string;
-  metricIds: string[];
-}
+import type { DataDomain } from '../query/domains';
 
 type LibraryPanel = PanelConfig;
 
-interface DashboardCatalog {
-  id: string;
-  title: string;
-  topicId: string;
-  dataset: DatasetDefinition;
-  querySources: QuerySource[];
-  filterDefinitions: DashboardFilterDefinition[];
-}
+type DashboardCatalog = DataDomain;
 
 interface PanelEntry extends PanelConfig {
   dashboardId: string;
@@ -357,15 +346,13 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const [libraryResponse, dashboardResponse] = await Promise.all([
+    const [libraryResponse, domainDefinitions] = await Promise.all([
       fetch('/api/dashboard/panels'),
-      fetch('/api/dashboard/dashboards')
+      fetchDataDomains()
     ]);
     const library = await libraryResponse.json() as { panels?: LibraryPanel[]; error?: string };
-    const dashboardLibrary = await dashboardResponse.json() as { domains?: DashboardCatalog[]; error?: string };
-    const responseError = library.error || dashboardLibrary.error;
-    if (!libraryResponse.ok || !dashboardResponse.ok || responseError) throw new Error(responseError || 'Panel Library 加载失败。');
-    catalogs.value = dashboardLibrary.domains ?? [];
+    if (!libraryResponse.ok || library.error) throw new Error(library.error || 'Panel Library 加载失败。');
+    catalogs.value = domainDefinitions;
     panels.value = library.panels ?? [];
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Panel Library 加载失败。';

@@ -2,7 +2,9 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { Enchant } from '@enchantforge/vue';
 import TextToFormBuilder from './TextToFormBuilder.vue';
+import { fetchDataDomains } from '../query/domains';
 import type { PanelConfig } from '../model/types';
+import type { DataDomain } from '../query/domains';
 
 interface DashboardPlacement {
   panelId: string;
@@ -20,13 +22,6 @@ interface DashboardEntry {
   placements: DashboardPlacement[];
 }
 
-interface DashboardDomain {
-  id: string;
-  topicId: string;
-  title: string;
-  datasetIds: string[];
-}
-
 interface DashboardDraft extends Record<string, unknown> {
   id: string;
   title: string;
@@ -36,7 +31,7 @@ interface DashboardDraft extends Record<string, unknown> {
 }
 
 const dashboards = ref<DashboardEntry[]>([]);
-const domains = ref<DashboardDomain[]>([]);
+const domains = ref<DataDomain[]>([]);
 const panels = ref<PanelConfig[]>([]);
 const loading = ref(true);
 const saving = ref(false);
@@ -242,17 +237,18 @@ async function load() {
   loading.value = true;
   error.value = '';
   try {
-    const [dashboardResponse, panelResponse] = await Promise.all([
+    const [dashboardResponse, panelResponse, domainDefinitions] = await Promise.all([
       fetch('/api/dashboard/dashboards'),
-      fetch('/api/dashboard/panels')
+      fetch('/api/dashboard/panels'),
+      fetchDataDomains()
     ]);
-    const dashboardPayload = await dashboardResponse.json() as { dashboards?: DashboardEntry[]; domains?: DashboardDomain[]; error?: string };
+    const dashboardPayload = await dashboardResponse.json() as { dashboards?: DashboardEntry[]; error?: string };
     const panelPayload = await panelResponse.json() as { panels?: PanelConfig[]; error?: string };
     if (!dashboardResponse.ok || !panelResponse.ok || dashboardPayload.error || panelPayload.error) {
       throw new Error(dashboardPayload.error || panelPayload.error || 'Dashboard Library 加载失败。');
     }
     dashboards.value = dashboardPayload.dashboards ?? [];
-    domains.value = dashboardPayload.domains ?? [];
+    domains.value = domainDefinitions;
     panels.value = panelPayload.panels ?? [];
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Dashboard Library 加载失败。';
