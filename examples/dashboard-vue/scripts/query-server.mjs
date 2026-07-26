@@ -1,5 +1,3 @@
-import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -9,10 +7,11 @@ import {
   dashboards,
   ensureDashboardSchema
 } from './dashboard-config-store.mjs';
+import { createSqliteRunner, resolveDatabasePath } from './sqlite-cli.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultDatabase = path.resolve(here, '../../data-sources/data/dashboard.sqlite');
-const database = path.resolve(process.env.DASHBOARD_DB || defaultDatabase);
+const database = resolveDatabasePath(process.env.DASHBOARD_DB, defaultDatabase);
 const port = Number(process.env.DASHBOARD_DATA_PORT || 5176);
 const maxBodySize = 1024 * 1024;
 
@@ -277,32 +276,7 @@ function buildSql(query) {
   return { sql: `WITH base AS (${base}), ${source} SELECT ${selections.join(', ')} FROM ranked ${joins.join(' ')}${grouping} LIMIT ${query.limit || 100}`, useRollup };
 }
 
-function runSql(sql, { readonly = true } = {}) {
-  return new Promise((resolve, reject) => {
-    if (!existsSync(database)) {
-      reject(new Error(`SQLite 数据库不存在：${database}。请先运行 data:process。`));
-      return;
-    }
-    const child = spawn('sqlite3', [...(readonly ? ['-readonly'] : []), '-json', database], { stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.on('error', (error) => reject(new Error(`无法启动 sqlite3：${error.message}`)));
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `sqlite3 退出码：${code}`));
-        return;
-      }
-      try {
-        resolve(stdout.trim() ? JSON.parse(stdout) : []);
-      } catch (error) {
-        reject(new Error(`SQLite 返回了无效 JSON：${error instanceof Error ? error.message : String(error)}`));
-      }
-    });
-    child.stdin.end(`${sql};\n`);
-  });
-}
+const runSql = createSqliteRunner(database);
 
 async function executeDashboardQuery(query) {
   const key = JSON.stringify(query);
