@@ -88,7 +88,7 @@ const catalog = [
       'pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --scenario baseline',
     ],
     transformations: ['capture OTLP JSON for traces, metrics, and logs', 'record the exact upstream revision and capture window', 'derive service health, latency, error, and dependency rollups'],
-    limitations: ['generated from the OpenTelemetry Demo rather than a production system', 'Docker Compose requires approximately 6 GB RAM and 14 GB disk', 'scenario labels describe operator intent and do not prove root cause'],
+    limitations: ['generated from the OpenTelemetry Demo rather than a production system', 'minimal mode requires approximately 3 GB RAM; full mode requires approximately 6 GB RAM and 14 GB disk', 'scenario labels describe operator intent and do not prove root cause'],
   },
 ]
 

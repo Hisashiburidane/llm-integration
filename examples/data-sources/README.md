@@ -104,10 +104,11 @@ pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --s
 - `--warmup <seconds>`：正式采集前的预热时长，默认 60 秒；
 - `--ref <git-ref>`：OpenTelemetry Demo 的 branch、tag 或 commit，默认 `main`；manifest 会记录最终 commit；
 - `--scenario <label>`：写入 manifest 的场景标签，例如 `baseline` 或 `payment-failure`；
+- `--stack <minimal|full>`：默认 `minimal`，启动核心服务、负载生成器和 Collector；`full` 额外启动 Kafka、Jaeger、Prometheus、OpenSearch、Grafana 等后端；
 - `--demo-dir <path>`：复用指定的干净 OpenTelemetry Demo checkout；
 - `--help`：显示参数和运行说明。
 
-脚本要求 Docker、Docker Compose、Git 和 Node.js。完整 Demo 按官方说明约需 6 GB 内存和 14 GB 磁盘。脚本会启动完整 Compose，预热后重新启动 Collector 并采集 `traces.jsonl`、`metrics.jsonl`、`logs.jsonl`，完成后关闭整个 Compose stack。需要故障样本时，在采集期间打开 `http://localhost:8080/feature` 启用官方 feature flag，并使用对应的 `--scenario` 标签记录操作意图。
+脚本要求 Docker、Docker Compose、Git 和 Node.js。默认 minimal 模式约需 3 GB 内存；完整模式按官方说明约需 6 GB 内存和 14 GB 磁盘。脚本预热后重新启动 Collector 并采集 `traces.jsonl`、`metrics.jsonl`、`logs.jsonl`，完成后关闭整个 Compose stack。需要故障样本时，在采集期间打开 `http://localhost:8080/feature` 启用官方 feature flag，并使用对应的 `--scenario` 标签记录操作意图。
 
 The source choices follow the planned topics: BTS On-Time Performance for aviation, UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.
 

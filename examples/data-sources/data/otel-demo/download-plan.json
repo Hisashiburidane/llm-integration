@@ -18,7 +18,7 @@
   ],
   "limitations": [
     "generated from the OpenTelemetry Demo rather than a production system",
-    "Docker Compose requires approximately 6 GB RAM and 14 GB disk",
+    "minimal mode requires approximately 3 GB RAM; full mode requires approximately 6 GB RAM and 14 GB disk",
     "scenario labels describe operator intent and do not prove root cause"
   ]
 }
