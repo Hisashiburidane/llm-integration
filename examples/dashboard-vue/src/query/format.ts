@@ -1,11 +1,14 @@
-export function formatMetricValue(metricId: string, value: unknown, unit?: string) {
+import type { MetricDefinition } from '../model/types';
+
+export function formatMetricValue(value: unknown, definition?: MetricDefinition) {
   if (value === null || value === undefined || value === '') return '-';
   const number = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(number)) return String(value);
-  const normalized = metricId.toLowerCase();
-  if (normalized.includes('rate') || normalized.includes('ratio') || normalized.includes('percentage')) return `${(number * 100).toFixed(1)}%`;
-  const formatted = normalized.includes('count') || normalized.includes('number') ? Math.round(number).toLocaleString('en-US') : number.toFixed(1);
-  if (unit === 'USD') return `$${formatted}`;
-  if (unit) return `${formatted} ${unit}`;
+  if (definition?.format === 'percentage') return `${(number * 100).toFixed(1)}%`;
+  const formatted = definition?.format === 'integer'
+    ? Math.round(number).toLocaleString('en-US')
+    : number.toFixed(1);
+  if (definition?.unit === 'USD') return `$${formatted}`;
+  if (definition?.unit) return `${formatted} ${definition.unit}`;
   return formatted;
 }

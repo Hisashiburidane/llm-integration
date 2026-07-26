@@ -1,6 +1,6 @@
 # Dashboard Vue
 
-这是一个配置驱动的 Vue Dashboard 平台示例，包含航班运行与延误分析、北京空气质量、NYC Taxi 和 OpenTelemetry Demo 四个专题。前端只负责通用 Dashboard/Panel 渲染和运行时交互；专题数据集、筛选定义、Panel QuerySpec、Evidence Group 和 Assistant prompt 由 Node 配置服务返回。
+这是一个配置驱动的 Vue Dashboard 平台示例，包含航班运行与延误分析、北京空气质量、NYC Taxi 和 OpenTelemetry Demo 四个专题。前端只负责通用 Dashboard/Panel 渲染和运行时交互；专题 schema、查询 SQL、筛选定义、Panel QuerySpec、Evidence Group 和 Assistant prompt 位于 `examples/data-sources/schemas/`。
 
 ## Run
 
@@ -36,16 +36,19 @@ pnpm --filter @enchantforge/dashboard-vue config:reset
 
 ```text
 --database <path>  指定 SQLite 文件
+--schemas <path>   指定数据域 schema 目录
 -h, --help         查看帮助
 ```
 
-未传入 `--database` 时依次读取 `DASHBOARD_DB` 和默认的 `examples/data-sources/data/dashboard.sqlite`。例如：
+未传入参数时，数据库依次读取 `DASHBOARD_DB` 和默认路径，schema 依次读取 `DASHBOARD_SCHEMA_DIR` 和 `examples/data-sources/schemas`。例如：
 
 ```bash
 pnpm --filter @enchantforge/dashboard-vue config:reset -- --database ./examples/data-sources/data/dashboard.sqlite
 ```
 
-默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。查询服务启动时只确保配置表结构存在，不会自动创建或恢复 Dashboard/Panel。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把明细数据打包进浏览器。
+默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_SCHEMA_DIR` 指定 schema 根目录，使用 `DASHBOARD_DATA_PORT` 修改端口。查询服务启动时只确保配置表结构存在，不会自动创建或恢复 Dashboard/Panel。页面先通过 `/api/data-domains` 获取数据域列表，再通过 `/api/data-domains/:id` 获取数据源和指标；查询仍由 `/api/dashboard/query` 执行，不把明细数据打包进浏览器。
+
+查询服务是轻量 schema runtime，不依赖 CubeJS。目录结构、字段合同、QuerySpec 变量和新增数据域方法见 [`examples/data-sources/schemas/README.md`](../data-sources/schemas/README.md)。
 
 `http://localhost:5175/dashboard/#dashboards` 是默认入口，打开 Dashboard Library；`http://localhost:5175/dashboard/#panels` 打开跨数据域的 Panel Library。具体 Dashboard 从 Library 中打开，不在平台导航中硬编码。
 

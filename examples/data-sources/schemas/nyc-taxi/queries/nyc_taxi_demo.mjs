@@ -8,8 +8,8 @@ export default {
       from: 'nyc_taxi_dashboard_rollup AS source',
       dimensions: {
         date: 'source.pickup_date',
-        borough: 'source.pickup_borough',
-        pickupZone: 'source.pickup_zone',
+        borough: { sql: 'source.pickup_borough', labelSql: "COALESCE(NULLIF(source.pickup_borough, ''), '未知行政区')" },
+        pickupZone: { sql: 'source.pickup_zone', labelSql: "COALESCE(NULLIF(source.pickup_zone, ''), '未知区域')" },
         pickupLocation: 'source.pickup_location_id'
       },
       metrics: {

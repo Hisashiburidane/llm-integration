@@ -17,7 +17,7 @@ export interface DimensionDefinition {
   id: string;
   label: string;
   description: string;
-  /** Physical query field; datasets are not limited to the aviation example. */
+  /** Physical field name exposed by the data-domain schema. */
   field: string;
   dataType: DataType;
   semanticType?: 'category' | 'time' | 'entity';

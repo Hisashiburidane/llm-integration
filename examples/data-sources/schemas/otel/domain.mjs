@@ -41,12 +41,6 @@ export default {
     '日志主要来自哪些严重级别？',
     '结合服务健康和拓扑，指出值得优先调查的服务。'
   ],
-  querySources: [
-    { datasetId: 'otel_service_demo', metricIds: ['serviceCount', 'spanCount', 'spanErrorCount', 'spanErrorRate', 'averageLatency', 'p95Latency'] },
-    { datasetId: 'otel_edge_demo', metricIds: ['callCount', 'edgeErrorRate', 'edgeAverageLatency', 'edgeP95Latency'] },
-    { datasetId: 'otel_log_demo', metricIds: ['logCount', 'logErrorRate'] },
-    { datasetId: 'otel_metric_demo', metricIds: ['metricPointCount', 'metricSeriesCount'] }
-  ],
   dataset: {
     id: 'otel_demo',
     name: 'OpenTelemetry Demo observability signals',

@@ -19,7 +19,7 @@ const emit = defineEmits<{
 
 const metricKey = computed(() => props.panel.query.metrics[0]?.alias ?? props.panel.query.metrics[0]?.metricId ?? 'value');
 const dimensionKey = computed(() => props.panel.query.dimensions[0]?.alias ?? props.panel.query.dimensions[0]?.dimensionId ?? 'group');
-const metricId = computed(() => props.panel.query.metrics[0]?.metricId ?? 'flightCount');
+const metricId = computed(() => props.panel.query.metrics[0]?.metricId ?? '');
 const primaryMetric = computed(() => props.dataset?.metrics.find((definition) => definition.id === metricId.value));
 const primaryValue = computed(() => props.result.rows[0]?.[metricKey.value] ?? 0);
 const option = computed(() => {
@@ -94,7 +94,7 @@ const option = computed(() => {
 });
 
 function displayValue(value: unknown) {
-  return formatMetricValue(metricId.value, value, primaryMetric.value?.unit);
+  return formatMetricValue(value, primaryMetric.value);
 }
 
 function columnLabel(column: string) {
@@ -106,7 +106,8 @@ function columnLabel(column: string) {
 
 function cellValue(row: Record<string, unknown>, column: string) {
   const metric = props.panel.query.metrics.find((item) => (item.alias ?? item.metricId) === column);
-  return metric ? formatMetricValue(metric.metricId, row[column], props.dataset?.metrics.find((definition) => definition.id === metric.metricId)?.unit) : displayDimensionValue(row, column);
+  const definition = props.dataset?.metrics.find((item) => item.id === metric?.metricId);
+  return metric ? formatMetricValue(row[column], definition) : displayDimensionValue(row, column);
 }
 
 function displayDimensionValue(row: Record<string, unknown>, dimension: string) {
