@@ -43,15 +43,17 @@ type CapabilityEffect =
 ```ts
 interface EnchantPolicy {
   defaultExposure: 'aura' | 'local' | 'private'
-  allowDomWrite: boolean
   allowedEffects: CapabilityEffect[]
   requireConfirmationFor: CapabilityEffect[]
   blockedCapabilities?: string[]
+  blockedProviderEffects?: Record<string, CapabilityEffect[]>
   valuePolicy?: Record<string, 'expose' | 'mask' | 'omit'>
 }
 ```
 
 policy 可以在 Forge、页面、Enchant 和 capability 四个层级定义。更局部的 policy 只能进一步收紧权限，不能绕过应用级禁止规则。
+
+`blockedProviderEffects` 用于按技术 provider 和 effect 组合收紧权限，不在 Core 中为 DOM 或其他具体 Adapter 设置专用分支。例如 `{ dom: ['draft'] }` 禁止 DOM Adapter 写入草稿，但不影响其读取和视觉能力。
 
 ## 5. 执行前检查
 
@@ -136,9 +138,9 @@ DOM executor 用于降低初始接入成本，但可靠性低于 adapter 和 dom
 ```ts
 const policy: EnchantPolicy = {
   defaultExposure: 'aura',
-  allowDomWrite: true,
   allowedEffects: ['read', 'visual', 'draft'],
   requireConfirmationFor: [],
+  blockedProviderEffects: {},
 }
 ```
 

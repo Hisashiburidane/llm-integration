@@ -5,10 +5,10 @@ export type EnchantPolicyMode = 'read-only' | 'draft-only' | 'disabled';
 export interface EnchantPolicy {
   mode: EnchantPolicyMode;
   defaultExposure: 'aura' | 'local' | 'private';
-  allowDomWrite: boolean;
   allowedEffects: CapabilityEffect[];
   requireConfirmationFor: CapabilityEffect[];
   blockedCapabilities: string[];
+  blockedProviderEffects: Record<string, CapabilityEffect[]>;
   valuePolicy: Record<string, 'expose' | 'mask' | 'omit'>;
 }
 
@@ -21,10 +21,10 @@ export interface EnchantPolicyDecision {
 export const defaultEnchantPolicy: EnchantPolicy = {
   mode: 'draft-only',
   defaultExposure: 'aura',
-  allowDomWrite: true,
   allowedEffects: ['read', 'visual', 'draft'],
   requireConfirmationFor: [],
   blockedCapabilities: [],
+  blockedProviderEffects: {},
   valuePolicy: {
     password: 'omit',
     token: 'omit',
@@ -39,6 +39,10 @@ export function resolveEnchantPolicy(policy: Partial<EnchantPolicy> = {}): Encha
     allowedEffects: [...(policy.allowedEffects ?? defaultEnchantPolicy.allowedEffects)],
     requireConfirmationFor: [...(policy.requireConfirmationFor ?? defaultEnchantPolicy.requireConfirmationFor)],
     blockedCapabilities: [...(policy.blockedCapabilities ?? defaultEnchantPolicy.blockedCapabilities)],
+    blockedProviderEffects: Object.fromEntries(
+      Object.entries(policy.blockedProviderEffects ?? defaultEnchantPolicy.blockedProviderEffects)
+        .map(([provider, effects]) => [provider, [...effects]])
+    ),
     valuePolicy: { ...defaultEnchantPolicy.valuePolicy, ...policy.valuePolicy }
   };
 }
@@ -77,8 +81,12 @@ export function evaluateEnchantPolicy(
     return { allowed: false, requiresConfirmation: false, reason: 'Capability effect 未被 policy 允许。' };
   }
 
-  if (!policy.allowDomWrite && capability.effect === 'draft' && capability.provider === 'dom') {
-    return { allowed: false, requiresConfirmation: false, reason: 'DOM 写入已被 policy 禁止。' };
+  if (policy.blockedProviderEffects[capability.provider]?.includes(capability.effect)) {
+    return {
+      allowed: false,
+      requiresConfirmation: false,
+      reason: `Capability provider/effect 已被 policy 禁止：${capability.provider}/${capability.effect}。`
+    };
   }
 
   return {

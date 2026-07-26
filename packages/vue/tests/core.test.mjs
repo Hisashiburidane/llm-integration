@@ -193,7 +193,7 @@ test('registry ignores equivalent registration updates', () => {
   assert.equal(registry.version.value, initialVersion + 1);
 });
 
-test('policy blocks hidden enchantments and DOM writes', () => {
+test('policy blocks hidden enchantments and configured provider effects', () => {
   const capability = {
     id: 'dom:fill',
     enchantmentId: 'scope:test',
@@ -205,18 +205,24 @@ test('policy blocks hidden enchantments and DOM writes', () => {
     effect: 'draft'
   };
   const hiddenDecision = evaluateEnchantPolicy(
-    { defaultExposure: 'aura', allowDomWrite: true, allowedEffects: ['draft'], requireConfirmationFor: [], blockedCapabilities: [], valuePolicy: {} },
+    { mode: 'draft-only', defaultExposure: 'aura', allowedEffects: ['draft'], requireConfirmationFor: [], blockedCapabilities: [], blockedProviderEffects: {}, valuePolicy: {} },
     capability,
     { id: 'scope:test', exposure: 'aura', kind: 'form', status: status({ visible: false }) }
   );
   const domDecision = evaluateEnchantPolicy(
-    { defaultExposure: 'aura', allowDomWrite: false, allowedEffects: ['draft'], requireConfirmationFor: [], blockedCapabilities: [], valuePolicy: {} },
+    { mode: 'draft-only', defaultExposure: 'aura', allowedEffects: ['draft'], requireConfirmationFor: [], blockedCapabilities: [], blockedProviderEffects: { dom: ['draft'] }, valuePolicy: {} },
     capability,
+    { id: 'scope:test', exposure: 'aura', kind: 'form', status: status() }
+  );
+  const adapterDecision = evaluateEnchantPolicy(
+    { mode: 'draft-only', defaultExposure: 'aura', allowedEffects: ['draft'], requireConfirmationFor: [], blockedCapabilities: [], blockedProviderEffects: { dom: ['draft'] }, valuePolicy: {} },
+    { ...capability, provider: 'vue-model' },
     { id: 'scope:test', exposure: 'aura', kind: 'form', status: status() }
   );
 
   assert.equal(hiddenDecision.allowed, false);
   assert.equal(domDecision.allowed, false);
+  assert.equal(adapterDecision.allowed, true);
 });
 
 test('LLM client normalizes timeout and caller abort', async () => {
