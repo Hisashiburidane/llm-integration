@@ -42,6 +42,10 @@ export default defineConfig(({ mode }) => {
           target: `http://127.0.0.1:${dataPort}`,
           changeOrigin: true
         },
+        '/api/data-domains': {
+          target: `http://127.0.0.1:${dataPort}`,
+          changeOrigin: true
+        },
         '/api/llm': {
           target,
           changeOrigin: true,
