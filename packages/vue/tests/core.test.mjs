@@ -341,6 +341,34 @@ test('default agent can use an injected LLM client', async () => {
   assert.doesNotMatch(JSON.stringify(request.context), /initial/);
 });
 
+test('default agent forwards conversation history without mixing it into the snapshot', async () => {
+  let request;
+  const forge = createEnchantForge({
+    llmClient: {
+      async run() {
+        throw new Error('not used');
+      },
+      async runJson(value) {
+        request = value;
+        return { message: 'continued', calls: [] };
+      }
+    }
+  });
+  forge.registry.register(createRegistration());
+  const history = [
+    { role: 'user', content: '哪个机场延误最高？' },
+    { role: 'assistant', content: '首都机场。' }
+  ];
+
+  await forge.run({ input: '它的准点率呢？', history });
+
+  assert.deepEqual(request.messages.slice(1, 3), history);
+  assert.equal(request.messages.at(-1).role, 'user');
+  assert.match(request.messages.at(-1).content, /它的准点率呢？/);
+  assert.equal(request.context.structure.children[0].children[0].label, 'Test region');
+  assert.doesNotMatch(JSON.stringify(request.context), /首都机场/);
+});
+
 test('default agent maps native function calls back to capabilities', async () => {
   let request;
   let executionCount = 0;
@@ -392,10 +420,15 @@ test('forge synthesizes a response from successful read capability results', asy
     execute: () => ({ status: 'success', data: { airport: 'JFK', averageDelay: 31 } })
   }));
 
-  const result = await forge.run({ input: '当前哪个机场的平均延误最高？' });
+  const history = [
+    { role: 'user', content: '先查看机场延误。' },
+    { role: 'assistant', content: '可以继续询问具体指标。' }
+  ];
+  const result = await forge.run({ input: '当前哪个机场的平均延误最高？', history });
 
   assert.equal(result.message, 'JFK 的平均延误最高。');
   assert.equal(responseRequest.input, '当前哪个机场的平均延误最高？');
+  assert.deepEqual(responseRequest.history, history);
   assert.equal(responseRequest.results[0].ok, true);
   assert.deepEqual(responseRequest.results[0].value, { airport: 'JFK', averageDelay: 31 });
 });

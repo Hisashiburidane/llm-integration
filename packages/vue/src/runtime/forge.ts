@@ -14,7 +14,11 @@ import {
   type Plugin,
   type Ref
 } from 'vue';
-import { createDefaultEnchantAgent, type EnchantAgent } from './agent';
+import {
+  createDefaultEnchantAgent,
+  type EnchantAgent,
+  type EnchantConversationMessage
+} from './agent';
 import { vEnchant, vEnchantIgnore } from './dom-directives';
 import type {
   EnchantCapability,
@@ -55,6 +59,7 @@ export interface EnchantRunOptions {
   enchantmentId?: string;
   prompt?: string;
   agent?: EnchantAgent;
+  history?: readonly EnchantConversationMessage[];
   signal?: AbortSignal;
   confirmed?: boolean;
   confirm?: (request: EnchantConfirmationRequest) => boolean | Promise<boolean>;
@@ -612,6 +617,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         input: request.input,
         snapshot: current,
         instruction: request.prompt,
+        history: request.history,
         signal: request.signal
       });
       throwIfAborted(request.signal);
@@ -643,6 +649,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
             plan,
             results,
             instruction: request.prompt,
+            history: request.history,
             signal: request.signal
           });
         } catch (error) {

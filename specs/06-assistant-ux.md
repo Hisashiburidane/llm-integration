@@ -28,6 +28,44 @@ Aura 的可用上下文来自：
 
 两者同时存在时使用 agent。Aura 内部只保存一个归一化后的 agent 引用，caster 不改变 agent protocol。
 
+### 2.1 组件 API
+
+Aura 提供默认交互界面，但不能把应用锁定在鼠标点击路径中。应用可以受控展开面板，也可以通过组件实例接入 ASR、快捷命令和其他显式业务事件：
+
+```vue
+<script setup lang="ts">
+import { ref, useTemplateRef } from 'vue'
+import Aura, { type AuraInstance } from '@enchantforge/vue/aura'
+
+const open = ref(false)
+const aura = useTemplateRef<AuraInstance>('aura')
+
+function inspectCurrentPage() {
+  aura.value?.open()
+  void aura.value?.submit('分析当前页面中的异常指标')
+}
+</script>
+
+<template>
+  <Aura ref="aura" v-model:open="open" @complete="handleComplete" />
+</template>
+```
+
+组件实例提供：
+
+| 方法 | 作用 |
+| --- | --- |
+| `open()` / `close()` / `toggle()` | 控制展示状态 |
+| `focus()` | 聚焦输入框 |
+| `submit(message?)` | 提交输入框或外部文本，并返回本次运行结果 |
+| `cancel()` | 取消当前运行，不清空已有消息 |
+| `clear()` | 取消当前运行并清空当前会话 |
+| `getMessages()` | 读取可持久化的成功会话消息副本 |
+
+关键事件包括 `submit`、`complete`、`error`、`cancel` 和 `clear`。`initialMessages` 用于恢复已有会话，`historyLimit` 限制发送给 Agent 的最近消息数量。会话持久化介质由应用决定，Core 不默认读写本地存储或远端数据库。
+
+`clearOnPageChange` 默认为 `true`，避免路由切换后旧页面对话被误用于新页面。需要跨页面保留交互记录时，应用可以显式关闭，并自行决定哪些历史消息仍适合进入 Agent 上下文。
+
 orb 负责：
 
 - 以悬浮入口常驻；
@@ -112,6 +150,18 @@ Aura 可以由以下事件触发：
 - 高亮内存相关图表；
 - 创建维修工单草稿；
 - 恢复分享视图。
+
+## 5.1 连续会话
+
+Aura 会把限定数量的已完成用户消息和助手消息作为 `history` 传给 Agent，以支持“它的准点率呢”一类连续追问。历史消息与每次运行重新 capture 的页面结构共同进入模型请求，但边界不同：
+
+- history 只帮助模型理解语言上下文；
+- 当前 snapshot 仍是页面结构和 capability 的唯一运行时来源；
+- history 不修改 registry version，不作为 capability 存在、权限或业务事实的证据；
+- 失败消息不进入后续模型上下文；
+- 清空会话会中止当前请求，迟到的进度和结果不得写入新会话。
+
+`EnchantRunOptions.history` 和 `EnchantAgentRequest.history` 是低层扩展点。自定义交互界面可以复用同一契约，不必依赖 Aura 的消息组件。
 
 ## 6. 确认边界
 

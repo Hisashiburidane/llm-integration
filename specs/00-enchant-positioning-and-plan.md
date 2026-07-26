@@ -311,12 +311,18 @@ Aura 默认使用 orb 形态呈现可拖动的悬浮入口，并在展开后承�
 | `appearance` | `orb`、`dock` 或 `inline` 展示形态 | `orb` |
 | `agent` | 覆盖 Forge 默认 agent | Forge agent |
 | `caster` | `agent` 的主题化别名 | 空 |
+| `open` / `defaultOpen` | 受控或非受控的展开状态 | `false` |
+| `initialMessages` | 恢复应用持久化的会话消息 | 空 |
+| `historyLimit` | 发送给 Agent 的最近会话消息数量 | `20` |
+| `clearOnPageChange` | 页面标识变化时取消运行并清空会话 | `true` |
 
 agent 的解析顺序为 `agent ?? caster ?? forge.agent ?? builtInAgent`。同时传入 `agent` 和 `caster` 时使用 `agent`，开发模式下对不同实例给出警告。caster 不定义新的 agent 类型、生命周期或协议。
 
 Aura 的默认系统 Prompt 只描述稳定协议：如何读取 snapshot、选择 capability、输出计划和停止执行。具体页面能力由当前 registry 动态提供，不能将数百个页面的说明预先拼入固定 Prompt。
 
 应用可覆盖 LLM client、system instructions、context builder、tool exporter、plan parser、approval handler 和 Aura UI。
+
+Aura 组件实例提供 `open()`、`close()`、`toggle()`、`focus()`、`submit()`、`cancel()`、`clear()` 和 `getMessages()`，支持应用显式接入 ASR、快捷命令和会话持久化。组件事件只报告交互生命周期；任何页面 effect 仍必须通过 Forge capability 和 policy 执行。
 
 ## 7. Metadata 与 Capability
 

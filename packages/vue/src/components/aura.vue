@@ -1,65 +1,61 @@
 <script setup lang="ts">
 import { Bubble, Sender, ThoughtChain, type ThoughtChainProps } from 'ant-design-x-vue';
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, type Component } from 'vue';
-import { createDefaultEnchantAgent, type EnchantAgent } from '../runtime/agent';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { createDefaultEnchantAgent } from '../runtime/agent';
 import type { EnchantConfirmationRequest } from '../runtime/forge';
-import type { EnchantProgressEvent } from '../runtime/enchantment';
+import type { EnchantProgressEvent, EnchantRunResult } from '../runtime/enchantment';
 import { useEnchantForge } from '../runtime/forge';
-import {
-  formatAuraProgress,
-  type AuraActivityStep,
-  type AuraProgressMessages
-} from '../runtime/presentation';
+import type {
+  AuraActivity,
+  AuraClearReason,
+  AuraCompleteEvent,
+  AuraConversationItem,
+  AuraErrorEvent,
+  AuraInstance,
+  AuraMessage,
+  AuraProps,
+  AuraSubmitEvent
+} from '../runtime/aura';
+import { formatAuraProgress } from '../runtime/presentation';
 
-const props = withDefaults(defineProps<{
-  page?: string;
-  agent?: EnchantAgent;
-  caster?: EnchantAgent;
-  appearance?: 'orb' | 'dock' | 'inline';
-  orb?: Component;
-  title?: string;
-  prompt?: string;
-  suggestions?: string[];
-  progressMessages?: AuraProgressMessages;
-  model?: string;
-  endpoint?: string;
-  apiKey?: string;
-  configError?: string;
-  confirm?: (request: EnchantConfirmationRequest) => boolean | Promise<boolean>;
-}>(), {
+const props = withDefaults(defineProps<AuraProps>(), {
   page: '',
   appearance: 'orb',
   orb: undefined,
   title: 'Aura',
   prompt: '',
+  placeholder: '描述你要在当前界面完成的操作',
   suggestions: () => [],
   progressMessages: () => ({}),
   model: '',
   endpoint: '/api/llm/chat/completions',
   apiKey: '',
-  configError: ''
+  configError: '',
+  defaultOpen: false,
+  initialMessages: () => [],
+  historyLimit: 20,
+  clearOnPageChange: true
 });
 
-type ChatItem = { id: number; type: 'message'; role: 'assistant' | 'user'; content: string };
-type ActivityItem = {
-  id: number;
-  type: 'activity';
-  status: 'running' | 'done' | 'failed';
-  steps: AuraActivityStep[];
-  expandedKeys: string[];
-  startedAt: number;
-  finishedAt?: number;
-};
-type ConversationItem = ChatItem | ActivityItem;
+const emit = defineEmits<{
+  'update:open': [value: boolean];
+  submit: [event: AuraSubmitEvent];
+  complete: [event: AuraCompleteEvent];
+  error: [event: AuraErrorEvent];
+  cancel: [];
+  clear: [reason: AuraClearReason];
+}>();
 
 const ORB_SIZE = 56;
 const VIEWPORT_GAP = 16;
+let itemSequence = 0;
 const forge = useEnchantForge();
 const input = ref('');
 const loading = ref(false);
-const open = ref(false);
-const conversation = ref<ConversationItem[]>([]);
+const internalOpen = ref(props.defaultOpen);
+const conversation = ref<AuraConversationItem[]>(props.initialMessages.map((message) => createMessage(message.role, message.content)));
 const clock = ref(Date.now());
+const sender = ref<{ focus(options?: { cursor?: 'start' | 'end' | 'all' }): void }>();
 let clockTimer: number | undefined;
 let activeRunController: AbortController | undefined;
 let conversationVersion = 0;
@@ -73,6 +69,13 @@ const legacyAgent = computed(() => props.model ? createDefaultEnchantAgent({
   configError: props.configError
 }) : undefined);
 const resolvedAgent = computed(() => props.agent ?? props.caster ?? legacyAgent.value ?? forge.agent);
+const isOpen = computed({
+  get: () => props.open ?? internalOpen.value,
+  set: (value: boolean) => {
+    if (props.open === undefined) internalOpen.value = value;
+    emit('update:open', value);
+  }
+});
 const digest = computed(() => {
   forge.registry.version.value;
   return forge.digest({ page: props.page || undefined });
@@ -83,7 +86,7 @@ const panelSize = computed(() => ({
   height: Math.min(620, Math.max(360, viewport.height - VIEWPORT_GAP * 2))
 }));
 const displayPosition = computed(() => {
-  if (!open.value) return { x: anchor.x, y: anchor.y };
+  if (!isOpen.value) return { x: anchor.x, y: anchor.y };
   return {
     x: clamp(anchor.x + ORB_SIZE - panelSize.value.width, VIEWPORT_GAP, viewport.width - panelSize.value.width - VIEWPORT_GAP),
     y: clamp(anchor.y + ORB_SIZE - panelSize.value.height, VIEWPORT_GAP, viewport.height - panelSize.value.height - VIEWPORT_GAP)
@@ -93,6 +96,26 @@ const rootStyle = computed(() => props.appearance === 'inline' ? undefined : {
   left: `${displayPosition.value.x}px`,
   top: `${displayPosition.value.y}px`
 });
+
+function createItemId(prefix: string) {
+  itemSequence += 1;
+  return `${prefix}-${Date.now()}-${itemSequence}`;
+}
+
+function createMessage(role: AuraMessage['role'], content: string, status: AuraMessage['status'] = 'sent'): AuraMessage {
+  return { id: createItemId('message'), type: 'message', role, content, status };
+}
+
+function getMessages() {
+  return conversation.value
+    .filter((item): item is AuraMessage => item.type === 'message' && item.status === 'sent')
+    .map(({ role, content }) => ({ role, content }));
+}
+
+function getHistory() {
+  const limit = Math.max(0, props.historyLimit);
+  return limit ? getMessages().slice(-limit) : [];
+}
 
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(value, Math.max(minimum, maximum)));
@@ -136,7 +159,7 @@ function moveDrag(event: PointerEvent) {
   const left = event.clientX - drag.offsetX;
   const top = event.clientY - drag.offsetY;
   if (Math.abs(left - displayPosition.value.x) > 2 || Math.abs(top - displayPosition.value.y) > 2) drag.moved = true;
-  if (open.value) {
+  if (isOpen.value) {
     anchor.x = left + panelSize.value.width - ORB_SIZE;
     anchor.y = top + panelSize.value.height - ORB_SIZE;
   } else {
@@ -154,10 +177,10 @@ function endDrag() {
 
 function toggleOpen() {
   if (drag.moved) return;
-  open.value = !open.value;
+  toggleAura();
 }
 
-function progressHandler(activity: ActivityItem) {
+function progressHandler(activity: AuraActivity) {
   return (event: EnchantProgressEvent) => {
     activity.steps.forEach((step) => {
       if (step.status === 'running') step.status = event.phase === 'failed' ? 'failed' : 'done';
@@ -185,21 +208,21 @@ function progressHandler(activity: ActivityItem) {
   };
 }
 
-function latestActivityStep(activity: ActivityItem) {
+function latestActivityStep(activity: AuraActivity) {
   return activity.steps[activity.steps.length - 1];
 }
 
-function toggleActivity(activity: ActivityItem) {
+function toggleActivity(activity: AuraActivity) {
   const index = activity.expandedKeys.indexOf('history');
   if (index === -1) activity.expandedKeys.push('history');
   else activity.expandedKeys.splice(index, 1);
 }
 
-function activityStatusClass(activity: ActivityItem) {
+function activityStatusClass(activity: AuraActivity) {
   return `activity-status-${activity.status}`;
 }
 
-function thoughtChainItems(activity: ActivityItem): ThoughtChainProps['items'] {
+function thoughtChainItems(activity: AuraActivity): ThoughtChainProps['items'] {
   return activity.steps.map((step) => ({
     key: step.id,
     title: step.label,
@@ -221,7 +244,7 @@ function stopClock() {
   clockTimer = undefined;
 }
 
-function formatActivityDuration(activity: ActivityItem) {
+function formatActivityDuration(activity: AuraActivity) {
   const elapsed = Math.max(0, (activity.finishedAt ?? clock.value) - activity.startedAt);
   if (elapsed < 1000) return '< 1 秒';
   const seconds = Math.floor(elapsed / 1000);
@@ -229,16 +252,19 @@ function formatActivityDuration(activity: ActivityItem) {
   return `${Math.floor(seconds / 60)} 分 ${seconds % 60} 秒`;
 }
 
-async function submit(message?: string) {
+async function submit(message?: string): Promise<EnchantRunResult | undefined> {
   const question = (message ?? input.value).trim();
   if (!question || loading.value) return;
+  const history = getHistory();
+  const submitEvent = { input: question, history };
+  emit('submit', submitEvent);
   const version = conversationVersion;
   const controller = new AbortController();
   activeRunController = controller;
   input.value = '';
-  conversation.value.push({ id: Date.now(), type: 'message', role: 'user', content: question });
-  const activity = reactive<ActivityItem>({
-    id: Date.now() + 1,
+  conversation.value.push(createMessage('user', question));
+  const activity = reactive<AuraActivity>({
+    id: createItemId('activity'),
     type: 'activity',
     status: 'running',
     steps: [],
@@ -255,6 +281,7 @@ async function submit(message?: string) {
       page: props.page || undefined,
       prompt: props.prompt || undefined,
       agent: resolvedAgent.value,
+      history,
       signal: controller.signal,
       confirm: requestConfirmation,
       onProgress: (event) => {
@@ -262,20 +289,18 @@ async function submit(message?: string) {
       }
     });
     if (version !== conversationVersion) return;
-    conversation.value.push({
-      id: Date.now() + 2,
-      type: 'message',
-      role: 'assistant',
-      content: result.message || '操作已完成。'
-    });
+    conversation.value.push(createMessage('assistant', result.message || '操作已完成。'));
+    emit('complete', { ...submitEvent, result });
+    return result;
   } catch (error) {
     if (version !== conversationVersion) return;
-    conversation.value.push({
-      id: Date.now() + 2,
-      type: 'message',
-      role: 'assistant',
-      content: error instanceof Error ? error.message : '执行失败。'
-    });
+    if (controller.signal.aborted) return;
+    conversation.value.push(createMessage(
+      'assistant',
+      error instanceof Error ? error.message : '执行失败。',
+      'error'
+    ));
+    emit('error', { ...submitEvent, error });
   } finally {
     if (version === conversationVersion) {
       activity.finishedAt = Date.now();
@@ -289,7 +314,13 @@ async function submit(message?: string) {
   }
 }
 
-function clearConversation() {
+function cancel() {
+  if (!activeRunController) return;
+  activeRunController.abort(new Error('操作已取消。'));
+  emit('cancel');
+}
+
+function clearConversation(reason: AuraClearReason = 'api') {
   conversationVersion += 1;
   activeRunController?.abort(new Error('聊天记录已清空。'));
   activeRunController = undefined;
@@ -297,6 +328,25 @@ function clearConversation() {
   input.value = '';
   stopClock();
   loading.value = false;
+  emit('clear', reason);
+}
+
+function openAura() {
+  isOpen.value = true;
+  focus();
+}
+
+function closeAura() {
+  isOpen.value = false;
+}
+
+function toggleAura() {
+  isOpen.value = !isOpen.value;
+  if (isOpen.value) focus();
+}
+
+function focus() {
+  void nextTick(() => sender.value?.focus({ cursor: 'end' }));
 }
 
 function requestConfirmation(request: EnchantConfirmationRequest) {
@@ -306,7 +356,7 @@ function requestConfirmation(request: EnchantConfirmationRequest) {
 }
 
 watch(() => props.page, () => {
-  clearConversation();
+  if (props.clearOnPageChange) clearConversation('page-change');
 });
 
 onMounted(() => {
@@ -320,19 +370,30 @@ onBeforeUnmount(() => {
   stopClock();
   window.removeEventListener('resize', updateViewport);
 });
+
+defineExpose<AuraInstance>({
+  open: openAura,
+  close: closeAura,
+  toggle: toggleAura,
+  focus,
+  submit,
+  cancel,
+  clear: () => clearConversation('api'),
+  getMessages
+});
 </script>
 
 <template>
   <div
     class="enchant-aura"
-    :class="[`appearance-${appearance}`, { open, dragging: drag.active }]"
+    :class="[`appearance-${appearance}`, { open: isOpen, dragging: drag.active }]"
     :style="rootStyle"
     @pointermove="moveDrag"
     @pointerup="endDrag"
     @pointercancel="endDrag"
   >
     <button
-      v-if="!open"
+      v-if="!isOpen"
       class="aura-trigger"
       type="button"
       aria-label="打开 Aura"
@@ -369,11 +430,11 @@ onBeforeUnmount(() => {
             aria-label="清空聊天记录"
             title="清空聊天记录"
             @pointerdown.stop
-            @click="clearConversation"
+            @click="clearConversation('user')"
           >
             清空
           </button>
-          <button type="button" class="aura-close" aria-label="关闭 Aura" @pointerdown.stop @click="open = false">×</button>
+          <button type="button" class="aura-close" aria-label="关闭 Aura" @pointerdown.stop @click="closeAura">×</button>
         </div>
       </header>
 
@@ -428,13 +489,15 @@ onBeforeUnmount(() => {
 
       <div class="aura-input">
         <Sender
+          ref="sender"
           v-model:value="input"
           :loading="loading"
-          :disabled="loading"
+          :read-only="loading"
           :send-disabled="loading || !input.trim()"
           :auto-size="{ minRows: 2, maxRows: 4 }"
           submit-type="enter"
-          placeholder="描述你要在当前界面完成的操作"
+          :placeholder="placeholder"
+          @cancel="cancel"
           @submit="submit"
         />
       </div>

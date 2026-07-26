@@ -2,6 +2,8 @@ export { buildEnchantLlmContext, createDefaultEnchantAgent } from './runtime/age
 export type {
   EnchantAgent,
   EnchantAgentRequest,
+  EnchantAgentResponseRequest,
+  EnchantConversationMessage,
   EnchantLlmContext
 } from './runtime/agent';
 export { useEnchantAction, useEnchantForm } from './runtime/actions';

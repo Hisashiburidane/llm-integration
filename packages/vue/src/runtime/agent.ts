@@ -7,11 +7,18 @@ import type {
   EnchantPlanCall,
   EnchantSnapshot
 } from './enchantment';
+import type { LlmMessage } from './llm-client';
+
+export interface EnchantConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 export interface EnchantAgentRequest {
   input: string;
   snapshot: EnchantSnapshot;
   instruction?: string;
+  history?: readonly EnchantConversationMessage[];
   signal?: AbortSignal;
 }
 
@@ -26,6 +33,7 @@ export interface EnchantAgentResponseRequest {
   plan: EnchantPlan;
   results: EnchantExecutionResult[];
   instruction?: string;
+  history?: readonly EnchantConversationMessage[];
   signal?: AbortSignal;
 }
 
@@ -120,6 +128,19 @@ function buildInstructions(snapshot: EnchantSnapshot) {
     .map((enchantment) => `区域 ${enchantment.name ?? enchantment.id} 的规则：${enchantment.instruction}`);
 }
 
+function buildConversationMessages(
+  prompt: string,
+  history: readonly EnchantConversationMessage[],
+  input: string,
+  context: unknown
+): LlmMessage[] {
+  return [
+    { role: 'system', content: prompt },
+    ...history.map((message) => ({ role: message.role, content: message.content })),
+    { role: 'user', content: `Context:\n${JSON.stringify(context)}\n\nInput:\n${input}` }
+  ];
+}
+
 function planFromToolCalls(value: unknown, snapshot: EnchantSnapshot, bindings: ToolBinding[]): EnchantPlan | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const response = value as { content?: unknown; toolCalls?: LlmToolCall[] };
@@ -172,14 +193,20 @@ export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client
   return {
     async plan(request) {
       const bindings = buildToolBindings(request.snapshot);
+      const prompt = [
+        DEFAULT_AGENT_PROMPT,
+        ...buildInstructions(request.snapshot),
+        request.instruction,
+        bindings.length ? undefined : '只返回 JSON，不要返回 Markdown。'
+      ].filter(Boolean).join('\n\n');
+      const context = buildEnchantLlmContext(request.snapshot);
       const plan = await client.runJson<unknown>({
-        prompt: [
-          DEFAULT_AGENT_PROMPT,
-          ...buildInstructions(request.snapshot),
-          request.instruction
-        ].filter(Boolean).join('\n\n'),
+        prompt,
         input: request.input,
-        context: buildEnchantLlmContext(request.snapshot),
+        context,
+        ...(request.history?.length
+          ? { messages: buildConversationMessages(prompt, request.history, request.input, context) }
+          : {}),
         tools: bindings.map((binding) => binding.definition),
         signal: request.signal
       });
@@ -200,20 +227,25 @@ export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client
           value: result.value
         };
       });
+      const prompt = [
+        '你负责根据用户问题和已执行 capability 结果生成最终回答。',
+        '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的面板结果。',
+        '如果结果不足以回答问题，明确说明缺少什么数据。只有 executionResults 中 effect 为 visual 且 ok 为 true 的结果，才可以声称界面发生了变化；没有成功执行 highlight capability 时，不得声称面板已高亮。',
+        '直接回答用户问题，使用简洁的中文，可列出关键指标和证据。',
+        request.instruction
+      ].filter(Boolean).join('\n');
+      const context = {
+        page: buildEnchantLlmContext(request.snapshot),
+        plan: request.plan,
+        executionResults: resultContext
+      };
       const response = await client.run({
-        prompt: [
-          '你负责根据用户问题和已执行 capability 结果生成最终回答。',
-          '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的面板结果。',
-          '如果结果不足以回答问题，明确说明缺少什么数据。只有 executionResults 中 effect 为 visual 且 ok 为 true 的结果，才可以声称界面发生了变化；没有成功执行 highlight capability 时，不得声称面板已高亮。',
-          '直接回答用户问题，使用简洁的中文，可列出关键指标和证据。',
-          request.instruction
-        ].filter(Boolean).join('\n'),
+        prompt,
         input: request.input,
-        context: {
-          page: buildEnchantLlmContext(request.snapshot),
-          plan: request.plan,
-          executionResults: resultContext
-        },
+        context,
+        ...(request.history?.length
+          ? { messages: buildConversationMessages(prompt, request.history, request.input, context) }
+          : {}),
         signal: request.signal,
         toolChoice: 'none'
       });
