@@ -74,6 +74,22 @@ const catalog = [
     transformations: ['join pickup/drop-off location IDs with taxi_zone_lookup.csv', 'derive trip duration and pickup hour', 'validate fare and distance ranges'],
     limitations: ['TLC notes that trip records are supplied by technology providers and may not be complete or fully accurate', 'Parquet schema can change across periods'],
   },
+  {
+    id: 'otel-demo',
+    name: 'OpenTelemetry Demo Observability',
+    topic: 'cloud-observability',
+    status: 'collect',
+    provider: 'OpenTelemetry project',
+    sourcePage: 'https://opentelemetry.io/docs/demo/',
+    license: 'Apache-2.0',
+    files: [],
+    commands: [
+      'pnpm --filter @enchantforge/data-sources data:collect:otel -- --help',
+      'pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --scenario baseline',
+    ],
+    transformations: ['capture OTLP JSON for traces, metrics, and logs', 'record the exact upstream revision and capture window', 'derive service health, latency, error, and dependency rollups'],
+    limitations: ['generated from the OpenTelemetry Demo rather than a production system', 'Docker Compose requires approximately 6 GB RAM and 14 GB disk', 'scenario labels describe operator intent and do not prove root cause'],
+  },
 ]
 
 function parseArgs(argv) {

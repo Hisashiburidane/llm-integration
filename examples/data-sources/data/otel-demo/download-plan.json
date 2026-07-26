@@ -5,20 +5,20 @@
   "status": "collect",
   "provider": "OpenTelemetry project",
   "sourcePage": "https://opentelemetry.io/docs/demo/",
-  "license": "See the OpenTelemetry Demo repository license",
+  "license": "Apache-2.0",
   "files": [],
   "commands": [
-    "git clone https://github.com/open-telemetry/opentelemetry-demo.git",
-    "cd opentelemetry-demo && make start",
-    "capture metrics, logs, and traces from the running demo before creating a fixture"
+    "pnpm --filter @enchantforge/data-sources data:collect:otel -- --help",
+    "pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --scenario baseline"
   ],
   "transformations": [
-    "export telemetry from the running demo",
-    "record fault injection and recovery windows",
-    "preserve service, instance, node, and trace relationships"
+    "capture OTLP JSON for traces, metrics, and logs",
+    "record the exact upstream revision and capture window",
+    "derive service health, latency, error, and dependency rollups"
   ],
   "limitations": [
-    "this is a reproducible collection workflow, not a static download",
-    "do not present synthetic demo telemetry as production data"
+    "generated from the OpenTelemetry Demo rather than a production system",
+    "Docker Compose requires approximately 6 GB RAM and 14 GB disk",
+    "scenario labels describe operator intent and do not prove root cause"
   ]
 }

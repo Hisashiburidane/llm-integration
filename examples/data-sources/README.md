@@ -42,6 +42,7 @@ pnpm --filter @enchantforge/data-sources data:plan -- --dataset online-retail-ii
 | `online-retail-ii` | 电商交易 | `ready` | UCI Online Retail II ZIP | 直接下载到 `data/online-retail-ii/raw/` |
 | `beijing-air-quality` | 空气质量 | `ready` | 北京多站点空气质量 ZIP | 直接下载到 `data/beijing-air-quality/raw/` |
 | `nyc-taxi` | 城市出行 | `ready` | NYC Yellow Taxi Parquet、Taxi Zone CSV | 直接下载到 `data/nyc-taxi/raw/` |
+| `otel-demo` | 云原生可观测性 | `collect` | OTLP traces、metrics、logs | 启动官方 Demo 后采集到 `data/otel-demo/raw/<capture-id>/` |
 
 例如，以下命令只处理 NYC Taxi：
 
@@ -87,6 +88,26 @@ HTTPS_PROXY=http://127.0.0.1:7890 \
 ```
 
 If a previous download left a `.part` file and the server does not support byte-range resume, the script automatically removes the partial file and retries from the beginning.
+
+## 生成 OpenTelemetry Demo 数据
+
+`otel-demo` 没有静态下载地址。它使用官方 OpenTelemetry Demo、内置负载生成器和 Collector `file` exporter 生成可复现的 OTLP JSON：
+
+```bash
+pnpm --filter @enchantforge/data-sources data:plan -- --dataset otel-demo
+pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --scenario baseline
+```
+
+采集脚本支持：
+
+- `--duration <seconds>`：预热结束后的采集时长，默认 300 秒；
+- `--warmup <seconds>`：正式采集前的预热时长，默认 60 秒；
+- `--ref <git-ref>`：OpenTelemetry Demo 的 branch、tag 或 commit，默认 `main`；manifest 会记录最终 commit；
+- `--scenario <label>`：写入 manifest 的场景标签，例如 `baseline` 或 `payment-failure`；
+- `--demo-dir <path>`：复用指定的干净 OpenTelemetry Demo checkout；
+- `--help`：显示参数和运行说明。
+
+脚本要求 Docker、Docker Compose、Git 和 Node.js。完整 Demo 按官方说明约需 6 GB 内存和 14 GB 磁盘。脚本会启动完整 Compose，预热后重新启动 Collector 并采集 `traces.jsonl`、`metrics.jsonl`、`logs.jsonl`，完成后关闭整个 Compose stack。需要故障样本时，在采集期间打开 `http://localhost:8080/feature` 启用官方 feature flag，并使用对应的 `--scenario` 标签记录操作意图。
 
 The source choices follow the planned topics: BTS On-Time Performance for aviation, UCI Online Retail II for retail, UCI Beijing Multi-Site Air Quality for environment, and NYC TLC Yellow Taxi records for mobility. Each plan records its provider page, license note, transformations, and limitations.
 

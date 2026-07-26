@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "data:collect:otel": "bash scripts/collect-otel-demo.sh",
     "data:process": "bash scripts/run-process-data.sh",
     "data:plan": "node scripts/generate-data-plans.mjs",
     "data:download": "bash scripts/download-data-plans.sh"
