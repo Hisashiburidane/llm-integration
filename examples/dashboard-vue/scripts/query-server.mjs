@@ -20,6 +20,7 @@ const dashboards = new Map([
   [taxiDashboard.id, taxiDashboard],
   [otelDashboard.id, otelDashboard]
 ]);
+const dashboardDefinitions = [...dashboards.values()];
 const datasetDefinitions = {
   aviation_ontime_demo: {
     dimensions: { date: 'flight_date', hour: 'hour', airport: 'origin', destination: 'destination', carrier: 'carrier', direction: 'direction', delayCause: 'delay_cause', flightId: 'flight_id' },
@@ -351,7 +352,7 @@ async function ensureDashboardConfig() {
   } catch (error) {
     if (!String(error).includes('duplicate column name')) throw error;
   }
-  const configs = [aviationDashboard, airQualityDashboard, taxiDashboard, otelDashboard];
+  const configs = dashboardDefinitions;
   const configInserts = configs.map((config) => `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json) VALUES (${sqlString(config.id)}, ${sqlString(config.topicId)}, ${sqlString(config.title)}, ${sqlString(config.description)}, ${sqlString(JSON.stringify(config.sourceManifest))}, ${sqlString(JSON.stringify(config.dataset))}) ON CONFLICT(id) DO UPDATE SET topic_id = excluded.topic_id, title = excluded.title, description = excluded.description, source_manifest_json = excluded.source_manifest_json, dataset_json = excluded.dataset_json`);
   const allPanels = configs.flatMap((config) => [
     ...config.panels.map((panel, index) => ({ ...panel, dashboardId: config.id, sortOrder: index, isTemplate: 0, templateId: null })),
@@ -417,16 +418,6 @@ async function readConfig(dashboardId = aviationDashboard.id) {
     delete resolved.defaultFromFacet;
     return resolved;
   });
-  const parsePanel = (panel) => {
-    const parsedQuery = JSON.parse(panel.query_json || '{}');
-    const query = {
-      ...parsedQuery,
-      metrics: Array.isArray(parsedQuery.metrics) ? parsedQuery.metrics : [],
-      dimensions: Array.isArray(parsedQuery.dimensions) ? parsedQuery.dimensions : [],
-      filters: Array.isArray(parsedQuery.filters) ? parsedQuery.filters : []
-    };
-    return { id: panel.id, type: panel.type, title: panel.title, description: panel.description, query, ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}), layout: { width: Number(panel.width), minHeight: Number(panel.min_height) } };
-  };
   return {
     id: config.id,
     topicId: config.topic_id,
@@ -434,14 +425,39 @@ async function readConfig(dashboardId = aviationDashboard.id) {
     description: config.description,
     sourceManifest: JSON.parse(config.source_manifest_json),
     dataset: JSON.parse(config.dataset_json),
-    panels: panels.map(parsePanel),
-    panelLibrary: panelLibrary.map(parsePanel),
+    panels: panels.map(parsePanelRow),
+    panelLibrary: panelLibrary.map(parsePanelRow),
     panelTemplates: dashboard.panelTemplates,
+    querySources: dashboard.querySources ?? [{ datasetId: dashboard.dataset.id, metricIds: dashboard.dataset.metrics.map((metric) => metric.id) }],
     facets,
     filterDefinitions,
     assistantPrompt: dashboard.assistantPrompt ?? '',
     suggestions: dashboard.suggestions ?? []
   };
+}
+
+function parsePanelRow(panel) {
+  const parsedQuery = JSON.parse(panel.query_json || '{}');
+  const query = {
+    ...parsedQuery,
+    metrics: Array.isArray(parsedQuery.metrics) ? parsedQuery.metrics : [],
+    dimensions: Array.isArray(parsedQuery.dimensions) ? parsedQuery.dimensions : [],
+    filters: Array.isArray(parsedQuery.filters) ? parsedQuery.filters : []
+  };
+  return {
+    id: panel.id,
+    type: panel.type,
+    title: panel.title,
+    description: panel.description,
+    query,
+    ...(panel.visualization_json ? { visualization: JSON.parse(panel.visualization_json) } : {}),
+    layout: { width: Number(panel.width), minHeight: Number(panel.min_height) }
+  };
+}
+
+async function readPanelLibrary() {
+  const rows = await runSql('SELECT id, type, title, description, query_json, visualization_json, default_width AS width, default_min_height AS min_height FROM panel_definitions ORDER BY title, id');
+  return { panels: rows.map(parsePanelRow) };
 }
 
 function validatePanelPayload(value) {
@@ -451,16 +467,25 @@ function validatePanelPayload(value) {
   if (typeof panel.title !== 'string' || !panel.title.trim()) throw new Error('Panel 标题不能为空。');
   if (typeof panel.description !== 'string' || !panel.description.trim()) throw new Error('Panel 描述不能为空。');
   if (!['metric', 'line', 'bar', 'donut', 'table', 'timeline', 'graph'].includes(panel.type)) throw new Error('Panel 类型不支持。');
-  if (!panel.query || panel.query.datasetId !== aviationDashboard.dataset.id) throw new Error('Panel QuerySpec 数据集不支持。');
-  if (!Array.isArray(panel.query.metrics) || panel.query.metrics.length !== 1) throw new Error('Panel 必须选择一个指标。');
+  if (!panel.query || !datasetDefinitions[panel.query.datasetId]) throw new Error('Panel QuerySpec 数据集不支持。');
+  if (!Array.isArray(panel.query.metrics) || panel.query.metrics.length < 1 || panel.query.metrics.length > 6) throw new Error('Panel 必须选择 1 到 6 个指标。');
   if (!Array.isArray(panel.query.dimensions) || !Array.isArray(panel.query.filters)) throw new Error('Panel QuerySpec 结构无效。');
-  const metric = aviationDashboard.dataset.metrics.find((item) => item.id === panel.query.metrics[0].metricId);
-  if (!metric) throw new Error(`未知指标：${panel.query.metrics[0].metricId}。`);
+  if (panel.query.dimensions.length > 4) throw new Error('Panel 最多支持 4 个维度。');
+  validateQuery(panel.query);
+  const semanticDataset = dashboardDefinitions
+    .map((dashboard) => dashboard.dataset)
+    .find((dataset) => panel.query.metrics.every((metric) => dataset.metrics.some((item) => item.id === metric.metricId))
+      && panel.query.dimensions.every((dimension) => dataset.dimensions.some((item) => item.id === dimension.dimensionId)));
+  if (!semanticDataset) throw new Error('Panel 指标和维度不属于同一个逻辑数据集。');
+  const metrics = panel.query.metrics.map((item) => semanticDataset.metrics.find((metric) => metric.id === item.metricId));
+  if (metrics.some((metric) => !metric)) throw new Error('Panel 包含未知指标。');
   for (const dimension of panel.query.dimensions) {
-    if (!aviationDashboard.dataset.dimensions.some((item) => item.id === dimension.dimensionId)) throw new Error(`未知维度：${dimension.dimensionId}。`);
-    if (!metric.supportedDimensions.includes(dimension.dimensionId)) throw new Error(`指标「${metric.label}」不支持维度「${dimension.dimensionId}」。`);
+    for (const metric of metrics) {
+      if (!metric.supportedDimensions.includes(dimension.dimensionId)) throw new Error(`指标「${metric.label}」不支持维度「${dimension.dimensionId}」。`);
+    }
   }
-  if (panel.query.limit !== undefined && (!Number.isInteger(panel.query.limit) || panel.query.limit < 1 || panel.query.limit > 100)) throw new Error('Query limit 必须是 1 到 100 的整数。');
+  if (panel.type === 'metric' && panel.query.dimensions.length) throw new Error('指标卡不能包含分组维度。');
+  if (panel.type === 'graph' && panel.query.dimensions.length !== 2) throw new Error('拓扑图必须选择两个维度。');
   if (!panel.layout || !Number.isInteger(panel.layout.width) || panel.layout.width < 3 || panel.layout.width > 12 || !Number.isInteger(panel.layout.minHeight) || panel.layout.minHeight < 120 || panel.layout.minHeight > 800) throw new Error('Panel 布局参数无效。');
   return panel;
 }
@@ -468,7 +493,8 @@ function validatePanelPayload(value) {
 async function savePanel(value) {
   const panel = validatePanelPayload(value);
   const existing = await runSql(`SELECT id FROM panel_definitions WHERE id = ${sqlString(panel.id)}`);
-  if (!existing.length && aviationDashboard.panelTemplates.some((item) => item.id === panel.id)) throw new Error(`Panel ID 已被模板占用：${panel.id}。`);
+  const templateIds = dashboardDefinitions.flatMap((dashboard) => dashboard.panelTemplates).map((item) => item.id);
+  if (!existing.length && templateIds.includes(panel.id)) throw new Error(`Panel ID 已被模板占用：${panel.id}。`);
   const visualization = panel.visualization ? sqlString(JSON.stringify(panel.visualization)) : 'NULL';
   const query = sqlString(JSON.stringify(panel.query));
   if (existing.length) {
@@ -477,7 +503,8 @@ async function savePanel(value) {
     await runSql(`INSERT INTO panel_definitions (id, type, title, description, query_json, visualization_json, default_width, default_min_height) VALUES (${sqlString(panel.id)}, ${sqlString(panel.type)}, ${sqlString(panel.title.trim())}, ${sqlString(panel.description.trim())}, ${query}, ${visualization}, ${panel.layout.width}, ${panel.layout.minHeight})`, { readonly: false });
   }
   queryCache.clear();
-  return readConfig();
+  const saved = await runSql(`SELECT id, type, title, description, query_json, visualization_json, default_width AS width, default_min_height AS min_height FROM panel_definitions WHERE id = ${sqlString(panel.id)}`);
+  return { panel: parsePanelRow(saved[0]) };
 }
 
 async function readBody(request) {
@@ -509,6 +536,14 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && requestUrl.pathname === '/api/dashboard/config') {
     try {
       sendJson(response, 200, await readConfig(requestUrl.searchParams.get('dashboard') || aviationDashboard.id));
+    } catch (error) {
+      sendJson(response, 503, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+  if (request.method === 'GET' && requestUrl.pathname === '/api/dashboard/panels') {
+    try {
+      sendJson(response, 200, await readPanelLibrary());
     } catch (error) {
       sendJson(response, 503, { error: error instanceof Error ? error.message : String(error) });
     }

@@ -30,6 +30,8 @@ pnpm --filter @enchantforge/dashboard-vue data:serve
 
 打开 `http://localhost:5175/dashboard/#taxi` 可进入 NYC Taxi Dashboard。出租车 Panel 使用 `nyc_taxi_dashboard_rollup`，支持日期范围、行政区和上车区域筛选。`http://localhost:5175/dashboard/#panels` 是跨专题的统一 Panel Library。
 
+Panel Library 读取独立的 `panel_definitions`，支持跨数据域搜索、点击真实渲染单个 Panel，以及新增和编辑定义。Panel 编辑不会自动改变任何 Dashboard 的排列；Dashboard 继续通过 `dashboard_panel_placements` 组合已有 Panel。
+
 打开 `http://localhost:5175/dashboard/#otel` 可进入 OpenTelemetry Dashboard。它使用真实采集后生成的服务、依赖、Metric 和日志分钟聚合表，并默认选择最新采集批次。首次准备数据：
 
 ```bash
