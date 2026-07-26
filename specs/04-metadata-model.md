@@ -45,6 +45,8 @@ interface Enchantment {
 
 `prompt` 和 `spell` 在组件 props 层归一化为 `instruction`。Enchantment 不同时保存 prompt 和 spell，避免下游出现优先级分歧。
 
+应用知道边界语义时应显式传入 `kind`。Core 只在发现字段 metadata 时将未声明的边界推断为 `form`；其他未声明边界使用 `custom`，不得默认猜测为 page、panel、chart 或其他应用结构。
+
 ## 3. Metadata node
 
 ```ts

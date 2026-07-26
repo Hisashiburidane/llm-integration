@@ -163,7 +163,7 @@ function capture() {
     name: props.name,
     page: props.page,
     route: props.route,
-    kind: props.kind ?? (metadata.some((node) => node.kind === 'field') ? 'form' : 'panel'),
+    kind: props.kind ?? (metadata.some((node) => node.kind === 'field') ? 'form' : 'custom'),
     exposure: currentExposure(),
     instruction: props.prompt || props.spell || undefined,
     status: currentStatus(),

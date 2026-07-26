@@ -52,6 +52,7 @@ function clearComposed() {
     <Enchant
       name="focus-dashboard"
       page="focus-view"
+      kind="page"
       prompt="根据用户要求高亮、打开或组合监控面板。只要求查看或定位时高亮；明确要求打开或放大时打开；明确要求组合或对比时组合。"
       :capabilities="focusViewCapabilities"
     >
