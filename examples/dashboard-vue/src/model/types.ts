@@ -17,7 +17,8 @@ export interface DimensionDefinition {
   id: string;
   label: string;
   description: string;
-  field: keyof FlightRecord;
+  /** Physical query field; datasets are not limited to the aviation example. */
+  field: string;
   dataType: DataType;
   semanticType?: 'category' | 'time' | 'entity';
 }
@@ -38,8 +39,8 @@ export interface RelationDefinition {
   description: string;
   sourceEntity: string;
   targetEntity: string;
-  sourceField: keyof FlightRecord;
-  targetField: keyof FlightRecord;
+  sourceField: string;
+  targetField: string;
 }
 
 export interface DatasetDefinition {

@@ -4,6 +4,7 @@ import type { DashboardConfig, DatasetDefinition, FacetOption, FilterOperator, P
 
 export interface DashboardFilterDefinition {
   id: string;
+  label?: string;
   dimensionId: string;
   operator: FilterOperator;
   defaultValue?: Scalar | Scalar[];

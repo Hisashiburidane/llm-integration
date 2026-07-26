@@ -2,10 +2,11 @@
 import { computed } from 'vue';
 import ChartCanvas from './ChartCanvas.vue';
 import { formatMetricValue } from '../query/format';
-import type { PanelConfig, QueryResult } from '../model/types';
+import type { DatasetDefinition, PanelConfig, QueryResult } from '../model/types';
 
 const props = defineProps<{
   panel: PanelConfig;
+  dataset?: DatasetDefinition;
   result: QueryResult;
   highlighted: boolean;
   lowlight: boolean;
@@ -19,12 +20,14 @@ const emit = defineEmits<{
 const metricKey = computed(() => props.panel.query.metrics[0]?.alias ?? props.panel.query.metrics[0]?.metricId ?? 'value');
 const dimensionKey = computed(() => props.panel.query.dimensions[0]?.alias ?? props.panel.query.dimensions[0]?.dimensionId ?? 'group');
 const metricId = computed(() => props.panel.query.metrics[0]?.metricId ?? 'flightCount');
+const primaryMetric = computed(() => props.dataset?.metrics.find((definition) => definition.id === metricId.value));
 const primaryValue = computed(() => props.result.rows[0]?.[metricKey.value] ?? 0);
 const option = computed(() => {
   const rows = props.result.rows;
   const x = rows.map((row) => displayDimensionValue(row, dimensionKey.value));
   const values = rows.map((row) => Number(row[metricKey.value] ?? 0));
   const metricKeys = props.panel.query.metrics.map((metric) => metric.alias ?? metric.metricId);
+  const metricLabels = props.panel.query.metrics.map((metric) => props.dataset?.metrics.find((definition) => definition.id === metric.metricId)?.label ?? metric.metricId);
   const common = {
     animation: false,
     color: ['#3b82f6', '#f59e0b', '#ef4444', '#14b8a6', '#8b5cf6'],
@@ -35,8 +38,8 @@ const option = computed(() => {
   if (metricKeys.length > 1) {
     const category = props.panel.query.dimensions.length ? x : metricKeys;
     const series = props.panel.query.dimensions.length
-      ? metricKeys.map((key) => ({ name: key, type: props.panel.type === 'bar' ? 'bar' : 'line', smooth: props.panel.type !== 'timeline', data: rows.map((row) => Number(row[key] ?? 0)), barMaxWidth: 28 }))
-      : [{ name: metricKeys[0], type: 'bar', data: metricKeys.map((key) => Number(rows[0]?.[key] ?? 0)), barMaxWidth: 28 }];
+      ? metricKeys.map((key, index) => ({ name: metricLabels[index], type: props.panel.type === 'bar' ? 'bar' : 'line', smooth: props.panel.type !== 'timeline', data: rows.map((row) => Number(row[key] ?? 0)), barMaxWidth: 28 }))
+      : [{ name: metricLabels[0], type: 'bar', data: metricKeys.map((key) => Number(rows[0]?.[key] ?? 0)), barMaxWidth: 28 }];
     return { ...common, legend: { top: 0, textStyle: { fontSize: 9 } }, grid: { top: 32, right: 16, bottom: 34, left: 42 }, xAxis: { type: 'category', data: category, axisLabel: { color: '#64748b', fontSize: 10 }, axisLine: { lineStyle: { color: '#cbd5e1' } } }, yAxis: { type: 'value', axisLabel: { color: '#64748b', fontSize: 10 }, splitLine: { lineStyle: { color: '#edf1f5' } } }, series };
   }
   return {
@@ -49,7 +52,19 @@ const option = computed(() => {
 });
 
 function displayValue(value: unknown) {
-  return formatMetricValue(metricId.value, value);
+  return formatMetricValue(metricId.value, value, primaryMetric.value?.unit);
+}
+
+function columnLabel(column: string) {
+  const metric = props.panel.query.metrics.find((item) => (item.alias ?? item.metricId) === column);
+  if (metric) return props.dataset?.metrics.find((definition) => definition.id === metric.metricId)?.label ?? column;
+  const dimension = props.panel.query.dimensions.find((item) => (item.alias ?? item.dimensionId) === column);
+  return props.dataset?.dimensions.find((definition) => definition.id === dimension?.dimensionId)?.label ?? column;
+}
+
+function cellValue(row: Record<string, unknown>, column: string) {
+  const metric = props.panel.query.metrics.find((item) => (item.alias ?? item.metricId) === column);
+  return metric ? formatMetricValue(metric.metricId, row[column], props.dataset?.metrics.find((definition) => definition.id === metric.metricId)?.unit) : displayDimensionValue(row, column);
 }
 
 function displayDimensionValue(row: Record<string, unknown>, dimension: string) {
@@ -81,14 +96,14 @@ function displayDimensionValue(row: Record<string, unknown>, dimension: string) 
     </div>
     <div v-else-if="panel.type === 'metric'" class="metric-value">
       <strong>{{ displayValue(primaryValue) }}</strong>
-      <span>{{ metricId }}</span>
+      <span>{{ primaryMetric?.label ?? metricId }}<template v-if="primaryMetric?.unit"> · {{ primaryMetric.unit }}</template></span>
     </div>
     <div v-else-if="panel.type === 'table' || panel.type === 'airport-status'" class="table-wrap">
       <table>
-        <thead><tr><th v-for="column in result.columns" :key="column">{{ column }}</th></tr></thead>
+        <thead><tr><th v-for="column in result.columns" :key="column">{{ columnLabel(column) }}</th></tr></thead>
         <tbody>
           <tr v-for="(row, index) in result.rows" :key="`${panel.id}-${index}`">
-            <td v-for="column in result.columns" :key="column">{{ displayDimensionValue(row, column) }}</td>
+            <td v-for="column in result.columns" :key="column">{{ cellValue(row, column) }}</td>
           </tr>
         </tbody>
       </table>
