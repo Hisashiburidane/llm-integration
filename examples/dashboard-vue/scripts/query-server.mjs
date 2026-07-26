@@ -1,7 +1,6 @@
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { aviationDashboard } from './dashboard-config.mjs';
 import {
   dashboardDefinitions,
   dashboards,
@@ -326,19 +325,20 @@ async function readConfig(dashboardId) {
   const panels = await runSql(`SELECT d.id, d.type, d.title, d.description, d.query_json, d.visualization_json, p.width, p.min_height FROM dashboard_panel_placements AS p JOIN panel_definitions AS d ON d.id = p.panel_id WHERE p.dashboard_id = ${sqlString(config.id)} ORDER BY p.sort_order`);
   const panelIds = [...dashboard.panels, ...dashboard.panelTemplates].map((panel) => sqlString(panel.id)).join(', ');
   const panelLibrary = await runSql(`SELECT id, type, title, description, query_json, visualization_json, default_width AS width, default_min_height AS min_height FROM panel_definitions WHERE id IN (${panelIds}) ORDER BY title, id`);
-  const airports = dashboard.id === aviationDashboard.id
+  const datasetIds = new Set((dashboard.querySources ?? [{ datasetId: dashboard.dataset.id }]).map((source) => source.datasetId));
+  const airports = datasetIds.has('aviation_ontime_demo')
     ? await runSql("SELECT DISTINCT f.origin AS code, COALESCE(d.name_zh, '机场（' || f.origin || '）') AS label FROM aviation_flights AS f LEFT JOIN aviation_airport_dictionary AS d ON d.code = f.origin WHERE f.origin <> '' ORDER BY f.origin")
     : [];
-  const carriers = dashboard.id === aviationDashboard.id
+  const carriers = datasetIds.has('aviation_ontime_demo')
     ? await runSql('SELECT DISTINCT carrier AS value FROM aviation_flights WHERE carrier <> \'\' ORDER BY carrier')
     : [];
-  const stations = dashboard.id === airQualityDashboard.id
+  const stations = datasetIds.has('beijing_air_quality_demo')
     ? await runSql('SELECT DISTINCT station AS code, station AS label FROM air_quality_observations WHERE station <> \'\' ORDER BY station')
     : [];
-  const taxiZones = dashboard.id === taxiDashboard.id
+  const taxiZones = datasetIds.has('nyc_taxi_demo')
     ? await runSql("SELECT COALESCE(zone, '区域 ' || location_id) AS code, COALESCE(zone, '区域 ' || location_id) AS label FROM nyc_taxi_zones WHERE location_id IS NOT NULL ORDER BY label")
     : [];
-  const captures = dashboard.id === otelDashboard.id
+  const captures = [...datasetIds].some((datasetId) => datasetId.startsWith('otel_'))
     ? await runSql("SELECT capture_id AS code, scenario || ' · ' || started_at || ' · ' || duration_seconds || 's' AS label FROM otel_capture_runs ORDER BY started_at DESC")
     : [];
   const facets = {
