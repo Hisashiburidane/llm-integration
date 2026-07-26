@@ -10,10 +10,11 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 import sqlite3
 import sys
 import zipfile
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from enum import Enum
 from typing import Any
@@ -26,6 +27,7 @@ DATASETS = (
     "online-retail-ii",
     "beijing-air-quality",
     "nyc-taxi",
+    "otel-demo",
 )
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Clean downloaded example data into SQLite.")
 
@@ -36,6 +38,7 @@ class DatasetName(str, Enum):
     RETAIL = "online-retail-ii"
     AIR_QUALITY = "beijing-air-quality"
     TAXI = "nyc-taxi"
+    OTEL = "otel-demo"
 MISSING = {"", "NA", "N/A", "NULL", "NONE", "-", "NAN"}
 
 AIRPORT_NAMES_ZH = {
@@ -302,6 +305,113 @@ def create_schema(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_taxi_rollup_date ON nyc_taxi_dashboard_rollup(pickup_date);
         CREATE INDEX IF NOT EXISTS idx_taxi_rollup_borough ON nyc_taxi_dashboard_rollup(pickup_borough, pickup_date);
         CREATE INDEX IF NOT EXISTS idx_taxi_rollup_zone ON nyc_taxi_dashboard_rollup(pickup_location_id, pickup_date);
+
+        CREATE TABLE IF NOT EXISTS otel_capture_runs (
+          capture_id TEXT PRIMARY KEY,
+          source_revision TEXT NOT NULL,
+          started_at TEXT NOT NULL,
+          ended_at TEXT NOT NULL,
+          duration_seconds INTEGER NOT NULL,
+          scenario TEXT NOT NULL,
+          source_path TEXT NOT NULL,
+          manifest_json TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS otel_services (
+          capture_id TEXT NOT NULL,
+          service_name TEXT NOT NULL,
+          service_namespace TEXT,
+          service_version TEXT,
+          environment TEXT,
+          resource_attributes_json TEXT NOT NULL,
+          PRIMARY KEY (capture_id, service_name)
+        ) WITHOUT ROWID;
+        CREATE TABLE IF NOT EXISTS otel_spans (
+          capture_id TEXT NOT NULL,
+          trace_id TEXT NOT NULL,
+          span_id TEXT NOT NULL,
+          parent_span_id TEXT,
+          service_name TEXT NOT NULL,
+          operation_name TEXT NOT NULL,
+          span_kind TEXT,
+          started_at TEXT NOT NULL,
+          ended_at TEXT NOT NULL,
+          duration_ms REAL NOT NULL,
+          status_code TEXT,
+          status_message TEXT,
+          attributes_json TEXT NOT NULL,
+          resource_attributes_json TEXT NOT NULL,
+          PRIMARY KEY (capture_id, trace_id, span_id)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_otel_spans_service_time ON otel_spans(capture_id, service_name, started_at);
+        CREATE INDEX IF NOT EXISTS idx_otel_spans_trace ON otel_spans(capture_id, trace_id, span_id);
+        CREATE INDEX IF NOT EXISTS idx_otel_spans_parent ON otel_spans(capture_id, trace_id, parent_span_id);
+        CREATE TABLE IF NOT EXISTS otel_metric_points (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          capture_id TEXT NOT NULL,
+          observed_at TEXT NOT NULL,
+          service_name TEXT NOT NULL,
+          metric_name TEXT NOT NULL,
+          unit TEXT,
+          metric_kind TEXT NOT NULL,
+          value REAL,
+          sample_count INTEGER,
+          sample_sum REAL,
+          sample_min REAL,
+          sample_max REAL,
+          attributes_json TEXT NOT NULL,
+          resource_attributes_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_otel_metrics_name_time ON otel_metric_points(capture_id, metric_name, observed_at);
+        CREATE INDEX IF NOT EXISTS idx_otel_metrics_service_time ON otel_metric_points(capture_id, service_name, observed_at);
+        CREATE TABLE IF NOT EXISTS otel_logs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          capture_id TEXT NOT NULL,
+          observed_at TEXT NOT NULL,
+          trace_id TEXT,
+          span_id TEXT,
+          service_name TEXT NOT NULL,
+          severity TEXT,
+          body TEXT,
+          attributes_json TEXT NOT NULL,
+          resource_attributes_json TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_otel_logs_service_time ON otel_logs(capture_id, service_name, observed_at);
+        CREATE INDEX IF NOT EXISTS idx_otel_logs_trace ON otel_logs(capture_id, trace_id);
+        CREATE TABLE IF NOT EXISTS otel_service_minute_rollup (
+          capture_id TEXT NOT NULL,
+          observed_minute TEXT NOT NULL,
+          service_name TEXT NOT NULL,
+          span_count INTEGER NOT NULL,
+          error_count INTEGER NOT NULL,
+          average_duration_ms REAL NOT NULL,
+          p95_duration_ms REAL NOT NULL,
+          max_duration_ms REAL NOT NULL,
+          PRIMARY KEY (capture_id, observed_minute, service_name)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_otel_service_rollup_time ON otel_service_minute_rollup(capture_id, observed_minute);
+        CREATE TABLE IF NOT EXISTS otel_service_edge_rollup (
+          capture_id TEXT NOT NULL,
+          source_service TEXT NOT NULL,
+          target_service TEXT NOT NULL,
+          call_count INTEGER NOT NULL,
+          error_count INTEGER NOT NULL,
+          average_duration_ms REAL NOT NULL,
+          p95_duration_ms REAL NOT NULL,
+          PRIMARY KEY (capture_id, source_service, target_service)
+        ) WITHOUT ROWID;
+        CREATE TABLE IF NOT EXISTS otel_metric_minute_rollup (
+          capture_id TEXT NOT NULL,
+          observed_minute TEXT NOT NULL,
+          service_name TEXT NOT NULL,
+          metric_name TEXT NOT NULL,
+          unit TEXT NOT NULL,
+          point_count INTEGER NOT NULL,
+          average_value REAL NOT NULL,
+          max_value REAL NOT NULL,
+          total_value REAL NOT NULL,
+          PRIMARY KEY (capture_id, observed_minute, service_name, metric_name, unit)
+        ) WITHOUT ROWID;
+        CREATE INDEX IF NOT EXISTS idx_otel_metric_rollup_time ON otel_metric_minute_rollup(capture_id, observed_minute);
         """
     )
     try:
@@ -313,6 +423,317 @@ def create_schema(connection: sqlite3.Connection) -> None:
 
 def reset_table(connection: sqlite3.Connection, table: str) -> None:
     connection.execute(f"DELETE FROM {table}")
+
+
+def compact_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+
+
+def otel_value(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    scalar_keys = ("stringValue", "boolValue", "intValue", "doubleValue", "bytesValue")
+    for key in scalar_keys:
+        if key in value:
+            parsed = value[key]
+            if key == "intValue":
+                try:
+                    return int(parsed)
+                except (TypeError, ValueError):
+                    return parsed
+            return parsed
+    if "arrayValue" in value:
+        return [otel_value(item) for item in value["arrayValue"].get("values", [])]
+    if "kvlistValue" in value:
+        return otel_attributes(value["kvlistValue"].get("values", []))
+    return value
+
+
+def otel_attributes(items: Any) -> dict[str, Any]:
+    if not isinstance(items, list):
+        return {}
+    return {
+        str(item.get("key", "")): otel_value(item.get("value"))
+        for item in items
+        if isinstance(item, dict) and item.get("key")
+    }
+
+
+def otel_timestamp(value: Any) -> str | None:
+    try:
+        nanoseconds = int(value)
+    except (TypeError, ValueError):
+        return None
+    if nanoseconds <= 0:
+        return None
+    return datetime.fromtimestamp(nanoseconds / 1_000_000_000, tz=timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+
+
+def otel_service(resource_attributes: dict[str, Any]) -> tuple[str, str | None, str | None, str | None]:
+    return (
+        str(resource_attributes.get("service.name") or "unknown_service"),
+        text_value(resource_attributes.get("service.namespace")),
+        text_value(resource_attributes.get("service.version")),
+        text_value(resource_attributes.get("deployment.environment.name") or resource_attributes.get("deployment.environment")),
+    )
+
+
+def iter_json_lines(path: Path) -> Any:
+    with path.open("r", encoding="utf-8") as stream:
+        for line_number, line in enumerate(stream, start=1):
+            if not line.strip():
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError as error:
+                raise ValueError(f"{path}:{line_number}: invalid OTLP JSON: {error}") from error
+
+
+def verify_checksums(directory: Path) -> None:
+    checksum_path = directory / "checksums.sha256"
+    if not checksum_path.is_file():
+        return
+    for line in checksum_path.read_text(encoding="utf-8").splitlines():
+        expected, separator, name = line.strip().partition("  ")
+        if not separator or not name:
+            raise ValueError(f"{checksum_path}: invalid checksum line")
+        path = directory / name
+        if not path.is_file():
+            raise DatasetUnavailable(f"checksum target not found: {path}")
+        actual = sha256(path)
+        if actual != expected:
+            raise ValueError(f"{path}: SHA-256 mismatch; expected {expected}, got {actual}")
+
+
+def register_otel_service(
+    connection: sqlite3.Connection,
+    capture_id: str,
+    resource_attributes: dict[str, Any],
+) -> str:
+    service_name, namespace, version, environment = otel_service(resource_attributes)
+    connection.execute(
+        """
+        INSERT OR REPLACE INTO otel_services
+        (capture_id, service_name, service_namespace, service_version, environment, resource_attributes_json)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (capture_id, service_name, namespace, version, environment, compact_json(resource_attributes)),
+    )
+    return service_name
+
+
+def process_otel_traces(connection: sqlite3.Connection, capture_id: str, path: Path) -> int:
+    insert_sql = """
+      INSERT OR REPLACE INTO otel_spans
+      (capture_id, trace_id, span_id, parent_span_id, service_name, operation_name,
+       span_kind, started_at, ended_at, duration_ms, status_code, status_message,
+       attributes_json, resource_attributes_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    count = 0
+    for payload in iter_json_lines(path):
+        rows: list[tuple[Any, ...]] = []
+        for resource_span in payload.get("resourceSpans", []):
+            resource_attributes = otel_attributes(resource_span.get("resource", {}).get("attributes", []))
+            service_name = register_otel_service(connection, capture_id, resource_attributes)
+            for scope_span in resource_span.get("scopeSpans", []):
+                for span in scope_span.get("spans", []):
+                    started_at = otel_timestamp(span.get("startTimeUnixNano"))
+                    ended_at = otel_timestamp(span.get("endTimeUnixNano"))
+                    if not started_at or not ended_at:
+                        continue
+                    duration_ms = max(0.0, (int(span["endTimeUnixNano"]) - int(span["startTimeUnixNano"])) / 1_000_000)
+                    status = span.get("status") or {}
+                    rows.append((
+                        capture_id,
+                        str(span.get("traceId") or ""),
+                        str(span.get("spanId") or ""),
+                        text_value(span.get("parentSpanId")),
+                        service_name,
+                        str(span.get("name") or "unknown_operation"),
+                        text_value(span.get("kind")),
+                        started_at,
+                        ended_at,
+                        duration_ms,
+                        text_value(status.get("code")),
+                        text_value(status.get("message")),
+                        compact_json(otel_attributes(span.get("attributes", []))),
+                        compact_json(resource_attributes),
+                    ))
+        connection.executemany(insert_sql, rows)
+        count += len(rows)
+    return count
+
+
+def metric_data_points(metric: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
+    for kind in ("gauge", "sum", "histogram", "exponentialHistogram", "summary"):
+        value = metric.get(kind)
+        if isinstance(value, dict):
+            points = value.get("dataPoints", [])
+            return kind, points if isinstance(points, list) else []
+    return "unknown", []
+
+
+def process_otel_metrics(connection: sqlite3.Connection, capture_id: str, path: Path) -> int:
+    insert_sql = """
+      INSERT INTO otel_metric_points
+      (capture_id, observed_at, service_name, metric_name, unit, metric_kind,
+       value, sample_count, sample_sum, sample_min, sample_max,
+       attributes_json, resource_attributes_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    count = 0
+    for payload in iter_json_lines(path):
+        rows: list[tuple[Any, ...]] = []
+        for resource_metric in payload.get("resourceMetrics", []):
+            resource_attributes = otel_attributes(resource_metric.get("resource", {}).get("attributes", []))
+            service_name = register_otel_service(connection, capture_id, resource_attributes)
+            for scope_metric in resource_metric.get("scopeMetrics", []):
+                for metric in scope_metric.get("metrics", []):
+                    kind, points = metric_data_points(metric)
+                    for point in points:
+                        observed_at = otel_timestamp(point.get("timeUnixNano") or point.get("startTimeUnixNano"))
+                        if not observed_at:
+                            continue
+                        sample_count = int_value(point.get("count"))
+                        sample_sum = float_value(point.get("sum"))
+                        value = float_value(point.get("asDouble"))
+                        if value is None:
+                            value = float_value(point.get("asInt"))
+                        if value is None and sample_count and sample_sum is not None:
+                            value = sample_sum / sample_count
+                        rows.append((
+                            capture_id,
+                            observed_at,
+                            service_name,
+                            str(metric.get("name") or "unknown_metric"),
+                            text_value(metric.get("unit")),
+                            kind,
+                            value,
+                            sample_count,
+                            sample_sum,
+                            float_value(point.get("min")),
+                            float_value(point.get("max")),
+                            compact_json(otel_attributes(point.get("attributes", []))),
+                            compact_json(resource_attributes),
+                        ))
+        connection.executemany(insert_sql, rows)
+        count += len(rows)
+    return count
+
+
+def process_otel_logs(connection: sqlite3.Connection, capture_id: str, path: Path) -> int:
+    insert_sql = """
+      INSERT INTO otel_logs
+      (capture_id, observed_at, trace_id, span_id, service_name, severity, body,
+       attributes_json, resource_attributes_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """
+    count = 0
+    for payload in iter_json_lines(path):
+        rows: list[tuple[Any, ...]] = []
+        for resource_log in payload.get("resourceLogs", []):
+            resource_attributes = otel_attributes(resource_log.get("resource", {}).get("attributes", []))
+            service_name = register_otel_service(connection, capture_id, resource_attributes)
+            for scope_log in resource_log.get("scopeLogs", []):
+                for record in scope_log.get("logRecords", []):
+                    observed_at = otel_timestamp(record.get("timeUnixNano") or record.get("observedTimeUnixNano"))
+                    if not observed_at:
+                        continue
+                    body = otel_value(record.get("body"))
+                    rows.append((
+                        capture_id,
+                        observed_at,
+                        text_value(record.get("traceId")),
+                        text_value(record.get("spanId")),
+                        service_name,
+                        text_value(record.get("severityText") or record.get("severityNumber")),
+                        body if isinstance(body, str) else compact_json(body),
+                        compact_json(otel_attributes(record.get("attributes", []))),
+                        compact_json(resource_attributes),
+                    ))
+        connection.executemany(insert_sql, rows)
+        count += len(rows)
+    return count
+
+
+def build_otel_rollups(connection: sqlite3.Connection) -> tuple[int, int, int]:
+    for table in ("otel_service_minute_rollup", "otel_service_edge_rollup", "otel_metric_minute_rollup"):
+        reset_table(connection, table)
+    connection.executescript(
+        """
+        INSERT INTO otel_service_minute_rollup
+        (capture_id, observed_minute, service_name, span_count, error_count,
+         average_duration_ms, p95_duration_ms, max_duration_ms)
+        WITH ranked AS (
+          SELECT capture_id, substr(started_at, 1, 16) || ':00Z' AS observed_minute,
+                 service_name, duration_ms,
+                 CASE WHEN upper(COALESCE(status_code, '')) LIKE '%ERROR%'
+                           OR status_code = '2' THEN 1 ELSE 0 END AS is_error,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY capture_id, substr(started_at, 1, 16), service_name
+                   ORDER BY duration_ms
+                 ) AS duration_rank,
+                 COUNT(*) OVER (
+                   PARTITION BY capture_id, substr(started_at, 1, 16), service_name
+                 ) AS group_count
+          FROM otel_spans
+        )
+        SELECT capture_id, observed_minute, service_name, COUNT(*), SUM(is_error),
+               AVG(duration_ms),
+               MIN(CASE WHEN duration_rank >= CAST((group_count * 95 + 99) / 100 AS INTEGER)
+                        THEN duration_ms END),
+               MAX(duration_ms)
+        FROM ranked
+        GROUP BY capture_id, observed_minute, service_name;
+
+        INSERT INTO otel_service_edge_rollup
+        (capture_id, source_service, target_service, call_count, error_count,
+         average_duration_ms, p95_duration_ms)
+        WITH edges AS (
+          SELECT child.capture_id, parent.service_name AS source_service,
+                 child.service_name AS target_service, child.duration_ms,
+                 CASE WHEN upper(COALESCE(child.status_code, '')) LIKE '%ERROR%'
+                           OR child.status_code = '2' THEN 1 ELSE 0 END AS is_error
+          FROM otel_spans AS child
+          JOIN otel_spans AS parent
+            ON parent.capture_id = child.capture_id
+           AND parent.trace_id = child.trace_id
+           AND parent.span_id = child.parent_span_id
+          WHERE parent.service_name <> child.service_name
+        ),
+        ranked AS (
+          SELECT *,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY capture_id, source_service, target_service
+                   ORDER BY duration_ms
+                 ) AS duration_rank,
+                 COUNT(*) OVER (
+                   PARTITION BY capture_id, source_service, target_service
+                 ) AS group_count
+          FROM edges
+        )
+        SELECT capture_id, source_service, target_service, COUNT(*), SUM(is_error),
+               AVG(duration_ms),
+               MIN(CASE WHEN duration_rank >= CAST((group_count * 95 + 99) / 100 AS INTEGER)
+                        THEN duration_ms END)
+        FROM ranked
+        GROUP BY capture_id, source_service, target_service;
+
+        INSERT INTO otel_metric_minute_rollup
+        (capture_id, observed_minute, service_name, metric_name, unit,
+         point_count, average_value, max_value, total_value)
+        SELECT capture_id, substr(observed_at, 1, 16) || ':00Z', service_name,
+               metric_name, COALESCE(unit, ''), COUNT(*), AVG(value), MAX(value), SUM(value)
+        FROM otel_metric_points
+        WHERE value IS NOT NULL
+        GROUP BY capture_id, substr(observed_at, 1, 16), service_name, metric_name, COALESCE(unit, '');
+        """
+    )
+    service_rows = int(connection.execute("SELECT COUNT(*) FROM otel_service_minute_rollup").fetchone()[0])
+    edge_rows = int(connection.execute("SELECT COUNT(*) FROM otel_service_edge_rollup").fetchone()[0])
+    metric_rows = int(connection.execute("SELECT COUNT(*) FROM otel_metric_minute_rollup").fetchone()[0])
+    return service_rows, edge_rows, metric_rows
 
 
 def build_aviation_rollup(connection: sqlite3.Connection) -> int:
@@ -705,17 +1126,85 @@ def process_taxi(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, 
     return parquet, count
 
 
+def process_otel(data_dir: Path, connection: sqlite3.Connection) -> tuple[Path, int]:
+    raw_dir = data_dir / "otel-demo" / "raw"
+    manifests = sorted(raw_dir.glob("*/manifest.json"))
+    if not manifests:
+        raise DatasetUnavailable(
+            f"otel-demo capture not found in {raw_dir}; run `pnpm data:collect:otel -- --duration 300`"
+        )
+    for table in (
+        "otel_metric_minute_rollup",
+        "otel_service_edge_rollup",
+        "otel_service_minute_rollup",
+        "otel_logs",
+        "otel_metric_points",
+        "otel_spans",
+        "otel_services",
+        "otel_capture_runs",
+    ):
+        reset_table(connection, table)
+    total_rows = 0
+    for manifest_path in manifests:
+        verify_checksums(manifest_path.parent)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        capture_id = str(manifest.get("captureId") or manifest_path.parent.name)
+        source = manifest.get("source") if isinstance(manifest.get("source"), dict) else {}
+        traces_path = manifest_path.parent / "traces.jsonl"
+        metrics_path = manifest_path.parent / "metrics.jsonl"
+        logs_path = manifest_path.parent / "logs.jsonl"
+        missing = [path.name for path in (traces_path, metrics_path, logs_path) if not path.is_file()]
+        if missing:
+            raise DatasetUnavailable(f"otel-demo capture {capture_id} is missing: {', '.join(missing)}")
+        connection.execute(
+            """
+            INSERT INTO otel_capture_runs
+            (capture_id, source_revision, started_at, ended_at, duration_seconds,
+             scenario, source_path, manifest_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                capture_id,
+                str(source.get("revision") or "unknown"),
+                str(manifest.get("startedAt") or ""),
+                str(manifest.get("endedAt") or ""),
+                int(manifest.get("durationSeconds") or 0),
+                str(manifest.get("scenario") or "unspecified"),
+                str(manifest_path.parent),
+                compact_json(manifest),
+            ),
+        )
+        span_count = process_otel_traces(connection, capture_id, traces_path)
+        metric_count = process_otel_metrics(connection, capture_id, metrics_path)
+        log_count = process_otel_logs(connection, capture_id, logs_path)
+        total_rows += span_count + metric_count + log_count
+        connection.commit()
+        print(
+            f"otel-demo: {capture_id} loaded {span_count} spans, "
+            f"{metric_count} metric points, {log_count} logs",
+            flush=True,
+        )
+    service_rows, edge_rows, metric_rows = build_otel_rollups(connection)
+    print(
+        f"otel-demo: built {service_rows} service-minute, {edge_rows} service-edge, "
+        f"{metric_rows} metric-minute aggregate rows",
+        flush=True,
+    )
+    return manifests[-1], total_rows
+
+
 PROCESSORS = {
     "aviation-ontime": process_aviation,
     "online-retail-ii": process_retail,
     "beijing-air-quality": process_air_quality,
     "nyc-taxi": process_taxi,
+    "otel-demo": process_otel,
 }
 
 
 @app.command()
 def process(
-    dataset: DatasetName = typer.Option(DatasetName.ALL, "--dataset", help="Dataset to process; defaults to all four supported datasets."),
+    dataset: DatasetName = typer.Option(DatasetName.ALL, "--dataset", help="Dataset to process; defaults to all supported datasets."),
     db: Path | None = typer.Option(None, "--db", help="SQLite output path; defaults to data/dashboard.sqlite."),
     strict: bool = typer.Option(False, "--strict", help="Fail when raw data or optional dependencies are missing."),
 ) -> None:

@@ -132,9 +132,10 @@ SQLite 默认写入 `data/dashboard.sqlite`。也可以只处理一个数据集�
 ```bash
 pnpm --filter @enchantforge/data-sources data:process -- --dataset aviation-ontime
 pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi --db data/nyc.sqlite
+pnpm --filter @enchantforge/data-sources data:process -- --dataset otel-demo
 ```
 
-`data:process` 由 Typer 提供 CLI。运行 `pnpm --filter @enchantforge/data-sources data:process -- --help` 可查看完整帮助；它支持 `--dataset all|aviation-ontime|online-retail-ii|beijing-air-quality|nyc-taxi`、`--db PATH` 和 `--strict`。默认缺少原始文件或 Python 依赖时跳过并报告；`--strict` 会将这类情况视为失败。脚本只读取原始文件并重建对应表，不生成模拟记录。
+`data:process` 由 Typer 提供 CLI。运行 `pnpm --filter @enchantforge/data-sources data:process -- --help` 可查看完整帮助；它支持 `--dataset all|aviation-ontime|online-retail-ii|beijing-air-quality|nyc-taxi|otel-demo`、`--db PATH` 和 `--strict`。默认缺少原始文件或 Python 依赖时跳过并报告；`--strict` 会将这类情况视为失败。脚本只读取原始文件并重建对应表，不生成模拟记录。
 
 也可以绕过 pnpm 直接使用 Typer CLI：
 
@@ -142,4 +143,17 @@ pnpm --filter @enchantforge/data-sources data:process -- --dataset nyc-taxi --db
 uv run python scripts/process-data.py --help
 ```
 
-生成的表包括 `aviation_flights`、`aviation_dashboard_rollup`、`aviation_airport_dictionary`、`aviation_delay_cause_dictionary`、`retail_transactions`、`air_quality_observations`、`air_quality_dashboard_rollup`、`nyc_taxi_trips`、`nyc_taxi_zones`、`nyc_taxi_dashboard_rollup` 和 `dataset_runs`。其中 `aviation_dashboard_rollup` 按机场、航空公司、方向、小时和延误原因预聚合航班指标；`air_quality_dashboard_rollup` 按日期和监测站预聚合污染物、气象和观测覆盖指标；`nyc_taxi_dashboard_rollup` 按日期和上车区域预聚合需求、收入和运行效率指标。Node 查询服务会优先使用对应 rollup。
+生成的业务表包括 `aviation_flights`、`retail_transactions`、`air_quality_observations`、`nyc_taxi_trips` 和对应字典、rollup。OpenTelemetry 采集生成：
+
+| 表 | 用途 |
+| --- | --- |
+| `otel_capture_runs` | 采集窗口、场景标签和上游 commit |
+| `otel_services` | 从 Resource attributes 提取的服务目录 |
+| `otel_spans` | Trace/Span、服务、操作、耗时、状态和属性 |
+| `otel_metric_points` | Gauge、Sum、Histogram 等 OTLP 指标点 |
+| `otel_logs` | 日志正文、严重级别及 Trace/Span 关联 |
+| `otel_service_minute_rollup` | 每分钟服务 Span 数、错误数、平均/P95/最大耗时 |
+| `otel_service_edge_rollup` | 跨服务调用次数、错误数、平均/P95 耗时 |
+| `otel_metric_minute_rollup` | 每分钟服务指标聚合 |
+
+这些表只保存实际采集到的 OTLP 信号。服务关系由父子 Span 确定，错误由 Span status 确定；场景标签不会被当作根因证据。

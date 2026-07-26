@@ -48,6 +48,14 @@ done
 command -v git >/dev/null || { echo "git is required" >&2; exit 1; }
 command -v docker >/dev/null || { echo "Docker is required" >&2; exit 1; }
 command -v node >/dev/null || { echo "Node.js is required" >&2; exit 1; }
+if command -v shasum >/dev/null 2>&1; then
+  sha256_files() { shasum -a 256 "$@"; }
+elif command -v sha256sum >/dev/null 2>&1; then
+  sha256_files() { sha256sum "$@"; }
+else
+  echo "shasum or sha256sum is required" >&2
+  exit 1
+fi
 docker compose version >/dev/null
 docker info >/dev/null
 
@@ -186,7 +194,7 @@ NODE
 
 (
   cd "$CAPTURE_DIR"
-  shasum -a 256 traces.jsonl metrics.jsonl logs.jsonl manifest.json > checksums.sha256
+  sha256_files traces.jsonl metrics.jsonl logs.jsonl manifest.json > checksums.sha256
 )
 trap - EXIT INT TERM
 cleanup
