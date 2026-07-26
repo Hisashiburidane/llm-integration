@@ -24,6 +24,7 @@ export type DemoSpec = {
   title: string;
   status: '真实 API' | 'TODO';
   summary: string;
+  suggestions: string[];
   component: Component;
   codeBlocks: CodeBlock[];
 };
@@ -32,13 +33,15 @@ function stripVueStyleBlock(code: string) {
   return code.replace(/\n<style[\s\S]*?<\/style>\s*$/i, '').trimEnd();
 }
 
-function assistantUsageCode(page: string) {
+function assistantUsageCode(page: string, suggestions: string[]) {
   return `<script setup lang="ts">
 import { Aura } from '@enchantforge/vue';
+
+const suggestions = ${JSON.stringify(suggestions, null, 2)};
 </script>
 
 <template>
-  <Aura page="${page}" />
+  <Aura page="${page}" :suggestions="suggestions" />
 </template>`;
 }
 
@@ -168,11 +171,25 @@ function clearComposed() {
   </div>
 </template>`;
 
+const shippingSuggestions = [
+  '收件人张伟，手机号 13800138000，地址浙江省杭州市余杭区仓前街道文一西路 998 号，寄送文件，备注工作日送达。',
+  '寄给李娜，18600001234，北京市朝阳区望京街道阜通东大街 6 号，物品是书籍，备注请放前台。',
+  '王强，13912345678，上海市浦东新区张江路 88 号，电子配件，易碎，请电话联系，不要提交。'
+];
+
+const focusViewSuggestions = [
+  '高亮当前所有 critical 状态的监控面板。',
+  '定位节点内存压力和 Pod OOM 相关面板。',
+  '打开 Ingress 5xx Rate 面板查看详情。',
+  '组合一个包含节点 CPU、节点内存和 Pending Pods 的子 Dashboard。'
+];
+
 const todo = (id: string, title: string, summary: string): DemoSpec => ({
   id,
   title,
   status: 'TODO',
   summary,
+  suggestions: [],
   component: TodoDemo,
   codeBlocks: []
 });
@@ -183,13 +200,14 @@ export const demos: DemoSpec[] = [
     title: '快递填表：组件 API',
     status: '真实 API',
     summary: '推荐接入方式。表单通过 useEnchantForm 提供字段 metadata 和响应式写入 capability，不读取 DOM。',
+    suggestions: shippingSuggestions,
     component: TextToFormDemo,
     codeBlocks: [
       { key: 'form', tab: '原表单组件', code: expressFormCode, language: 'xml' },
       { key: 'enhanced-form', tab: '接入后的表单', code: enchantExpressFormCode, language: 'xml', compareTo: 'form' },
       { key: 'wrapper', tab: 'Enchant 边界', code: apiExpressFormCode, language: 'xml' },
       { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
-      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form'), language: 'xml' }
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form', shippingSuggestions), language: 'xml' }
     ]
   },
   {
@@ -197,13 +215,14 @@ export const demos: DemoSpec[] = [
     title: '快递填表：DOM 扫描',
     status: '真实 API',
     summary: '最低改造成本的兼容模式。显式配置 scan="auto" 后扫描局部 DOM，并通过浏览器 input/change/blur 事件写入表单。',
+    suggestions: shippingSuggestions,
     component: DomTextToFormDemo,
     codeBlocks: [
       { key: 'form', tab: '表单组件', code: expressFormCode, language: 'xml' },
       { key: 'page-before', tab: '页面接入前', code: originalTextToFormPageCode, language: 'xml' },
       { key: 'wrapper', tab: 'DOM 扫描接入', code: domScanExpressFormCode, language: 'xml' },
       { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
-      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form-dom'), language: 'xml' }
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form-dom', shippingSuggestions), language: 'xml' }
     ]
   },
   todo('asr-ticket', 'ASR 转工单', '等待接入真实 ASR 输入、工单表单和受限 executor。'),
@@ -215,12 +234,13 @@ export const demos: DemoSpec[] = [
     title: 'K8s Focus View',
     status: '真实 API',
     summary: 'Enchant 负责采集 panel metadata；Dashboard 在应用层注册高亮、详情和组合 capability，并拥有对应视图状态。',
+    suggestions: focusViewSuggestions,
     component: FocusViewDemo,
     codeBlocks: [
       { key: 'original', tab: '原组件', code: originalFocusViewCode, language: 'xml' },
       { key: 'component', tab: '接入组件', code: focusViewCode, language: 'xml', compareTo: 'original' },
       { key: 'capabilities', tab: '页面能力', code: focusViewCapabilitiesCodeRaw, language: 'typescript' },
-      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('focus-view'), language: 'xml' }
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('focus-view', focusViewSuggestions), language: 'xml' }
     ]
   }
 ];
