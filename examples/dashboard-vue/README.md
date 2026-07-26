@@ -24,19 +24,38 @@ pnpm --filter @enchantforge/data-sources data:process -- --dataset otel-demo
 pnpm --filter @enchantforge/dashboard-vue data:serve
 ```
 
-默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把航班明细打包进浏览器。常用指标查询优先使用 `aviation_dashboard_rollup`，航班明细和 P95 查询才读取 `aviation_flights`。
+首次准备数据库，或者需要将演示配置恢复到仓库初始状态时，运行：
 
-打开 `http://localhost:5175/dashboard/#air-quality` 可进入 Beijing Air Quality Dashboard。空气质量 Panel 使用 `air_quality_dashboard_rollup`，支持日期范围、监测站筛选和 Air Quality Assistant 分析。
+```bash
+pnpm --filter @enchantforge/dashboard-vue config:reset
+```
 
-打开 `http://localhost:5175/dashboard/#taxi` 可进入 NYC Taxi Dashboard。出租车 Panel 使用 `nyc_taxi_dashboard_rollup`，支持日期范围、行政区和上车区域筛选。`http://localhost:5175/dashboard/#panels` 是跨专题的统一 Panel Library，`http://localhost:5175/dashboard/#dashboards` 是 Dashboard Library。
+该命令会清空并重新创建 Dashboard/Panel 配置，恢复 4 个初始 Dashboard、76 个 Panel 定义和 70 个 placement。它只操作 `dashboard_configs`、`panel_definitions`、`dashboard_panel_placements` 以及迁移时发现的旧 `dashboard_panels` 配置表，不修改原始数据、明细表、字典表、处理记录或 rollup 表。
 
-Panel Library 读取独立的 `panel_definitions`，支持跨数据域搜索、点击真实渲染单个 Panel，以及自定义 Panel CRUD。Panel 编辑不会自动改变任何 Dashboard 的排列；Dashboard 继续通过 `dashboard_panel_placements` 组合已有 Panel。系统 Panel 不可删除，被 Dashboard 引用的自定义 Panel 必须先移除 placement。
+命令支持：
 
-Dashboard Library 支持创建、查看、修改和删除自定义 Dashboard，并可从兼容数据域的 Panel Library 快速加入 Panel、调整顺序、宽度和高度。系统示例保持只读，但可以复制为自定义 Dashboard 后编辑。
+```text
+--database <path>  指定 SQLite 文件
+-h, --help         查看帮助
+```
+
+未传入 `--database` 时依次读取 `DASHBOARD_DB` 和默认的 `examples/data-sources/data/dashboard.sqlite`。例如：
+
+```bash
+pnpm --filter @enchantforge/dashboard-vue config:reset -- --database ./examples/data-sources/data/dashboard.sqlite
+```
+
+默认服务地址为 `http://127.0.0.1:5176`，可用 `DASHBOARD_DB` 指向其他 SQLite 文件，使用 `DASHBOARD_DATA_PORT` 修改端口。查询服务启动时只确保配置表结构存在，不会自动创建或恢复 Dashboard/Panel。页面只通过 `/api/dashboard/config` 和 `/api/dashboard/query` 读取配置、QuerySpec 和查询结果，不把明细数据打包进浏览器。
+
+`http://localhost:5175/dashboard/#dashboards` 是默认入口，打开 Dashboard Library；`http://localhost:5175/dashboard/#panels` 打开跨数据域的 Panel Library。具体 Dashboard 从 Library 中打开，不在平台导航中硬编码。
+
+Panel Library 读取独立的 `panel_definitions`，支持跨数据域搜索、点击真实渲染单个 Panel，以及完整 CRUD。Panel 编辑不会自动改变 Dashboard placement；删除 Panel 时会同时移除所有 Dashboard 对它的 placement 引用。
+
+Dashboard Library 中没有只读或不可删除的内置 Dashboard。所有 Dashboard 都支持查看、编辑、复制和删除，并可从兼容数据域的 Panel Library 快速加入 Panel、调整顺序、宽度和高度。仓库中的四套专题配置只是 `config:reset` 使用的初始配置来源。
 
 Panel 和 Dashboard 编辑器都使用 `Enchant + useEnchantForm` 提供 Text-to-Form。自然语言只填写受约束的配置草稿，不直接生成 SQL/Vue，也不会自动保存；用户检查草稿并提交后，Node API 仍会校验数据源、指标维度和 Panel 引用。
 
-打开 `http://localhost:5175/dashboard/#otel` 可进入 OpenTelemetry Dashboard。它使用真实采集后生成的服务、依赖、Metric 和日志分钟聚合表，并默认选择最新采集批次。首次准备数据：
+从 Dashboard Library 打开 `otel-demo-observability` 可进入 OpenTelemetry Dashboard。它使用真实采集后生成的服务、依赖、Metric 和日志分钟聚合表，并默认选择最新采集批次。首次准备数据：
 
 ```bash
 pnpm --filter @enchantforge/data-sources data:collect:otel -- --duration 300 --scenario baseline
