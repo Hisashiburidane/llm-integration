@@ -292,7 +292,7 @@ Core 只允许保留无业务含义的回退文案，例如：
 - Core 已移除 page-focus、visual state 和组合视图结果文案；
 - 默认 agent prompt 不包含特定业务操作的禁止列表，也不包含 panel、highlight 或组合视图的领域完成规则；
 - DOM scanner 已移除 Ant Design Vue 私有 class 选择器，改用标准 label、ARIA 和通用结构推断；
-- 已移除从 metadata 直接生成无 provider tools 的 legacy helper。
+- 已移除从 metadata 直接生成无 provider tools 的 legacy helper，以及映射字段动作并持有全局 DOM handle 的 legacy scope facade。
 
 保留在 Core 的 DOM field fill 具有明确的 DOM Adapter provider，并通过原生 input、change 和 blur 事件执行。后续 Ant Design Vue 等组件实例级写入应进入独立 Adapter，不得再次向 generic DOM scanner 添加私有 class 或实例协议。
 

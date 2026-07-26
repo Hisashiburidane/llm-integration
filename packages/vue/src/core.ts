@@ -82,17 +82,6 @@ export type {
   JsonSchema,
   MetadataSource
 } from './runtime/enchantment';
-export {
-  buildMetadataTree,
-  clearScopeFieldHandles,
-  executePageTool,
-  getLlmScopeSnapshots,
-  llmScopeKey,
-  registerScopeFieldHandles,
-  useActiveLlmPage,
-  useLlmScopeRegistry
-} from './runtime/scope';
-export type { LlmMetadataTreeNode, LlmPageTool, LlmScopeSnapshot, MetadataNode } from './runtime/scope';
 export { createLlmClient, parseLlmJson } from './runtime/llm-client';
 export type {
   LlmClient,
