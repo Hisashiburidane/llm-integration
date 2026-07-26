@@ -491,6 +491,20 @@ defineExpose<AuraInstance>({
       </div>
 
       <div class="aura-input">
+        <div
+          v-if="conversation.length && suggestions.length && !loading"
+          class="aura-follow-up-suggestions"
+          aria-label="继续提问"
+        >
+          <button
+            v-for="suggestion in suggestions"
+            :key="suggestion"
+            type="button"
+            @click="submit(suggestion)"
+          >
+            {{ suggestion }}
+          </button>
+        </div>
         <Sender
           ref="sender"
           v-model:value="input"
@@ -539,6 +553,9 @@ defineExpose<AuraInstance>({
 .aura-suggestions button { padding: 6px 8px; border: 1px solid #dbe3ec; border-radius: 5px; color: #36516f; background: #f8fafc; cursor: pointer; font: 11px/1.4 inherit; text-align: left; transition: border-color 140ms ease, color 140ms ease, background 140ms ease; }
 .aura-suggestions button:hover:not(:disabled) { border-color: #91b8ec; color: #165dba; background: #eff6ff; }
 .aura-suggestions button:disabled { cursor: not-allowed; opacity: .55; }
+.aura-follow-up-suggestions { display: flex; gap: 6px; padding: 0 0 9px; overflow-x: auto; scrollbar-width: thin; }
+.aura-follow-up-suggestions button { flex: 0 0 auto; max-width: 280px; padding: 5px 8px; overflow: hidden; border: 1px solid #dbe3ec; border-radius: 5px; color: #36516f; background: #f8fafc; cursor: pointer; font-size: 10px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.aura-follow-up-suggestions button:hover { border-color: #91b8ec; color: #165dba; background: #eff6ff; }
 .aura-chat-bubble { width: 100%; font-size: 12px; }
 .aura-activity-bubble { margin: -4px 0; }
 .aura-progress-collapse { width: min(100%, 340px); }
