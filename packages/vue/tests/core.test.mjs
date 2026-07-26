@@ -339,6 +339,7 @@ test('default agent can use an injected LLM client', async () => {
   assert.equal(result.message, 'custom client');
   assert.equal(request.input, 'inspect');
   assert.doesNotMatch(request.prompt, /snapshotVersion/);
+  assert.match(request.prompt, /组合 read 和 visual capability/);
   assert.equal(request.context.version, undefined);
   assert.equal(request.context.structure.children[0].children[0].label, 'Test region');
   assert.equal(request.tools[0].function.name, 'enchant_tool_0');

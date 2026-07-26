@@ -139,6 +139,10 @@ Aura 可以由以下事件触发：
 
 进度文案由 runtime phase 映射，不由 LLM 临时生成。Aura 提供 `progressMessages` 配置和 `#progress` slot，允许应用替换为领域或主题文案。最终助手消息必须使用 executor 结果兜底，不能渲染空消息。
 
+一个计划可以同时包含读取和界面操作。例如 Dashboard 应用可以要求分析问题同时调用 `dashboard.read_data` 和 `dashboard.highlight`，Forge 会按计划执行两项 capability，再基于真实读取结果生成回答。Core 只提供组合执行机制，不自行推断哪个业务 Panel 应成为证据；该语义由应用 prompt 和 capability description 声明。
+
+如果后续操作的参数必须依赖前一个 capability 的返回值，则不能伪装成同一轮静态计划。此类场景需要独立的多阶段 Tool Loop 规格，包括调用上限、重复调用检测、每阶段 policy 和确认点；在该机制落地前，应用应只组合规划前即可确定参数的操作。
+
 ## 5. 快捷建议
 
 快捷建议根据当前 snapshot 和 capability 动态生成，不维护覆盖全部页面的固定列表。

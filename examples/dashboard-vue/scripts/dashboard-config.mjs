@@ -17,7 +17,7 @@ export const aviationDashboard = {
     { id: 'direction', dimensionId: 'direction', operator: 'eq', defaultValue: 'departure', facetKey: 'directions', options: [{ value: 'departure', label: '出港' }, { value: 'arrival', label: '到港' }] },
     { id: 'hour', dimensionId: 'hour', operator: 'between', defaultValue: [6, 22], type: 'range', min: 0, max: 23 }
   ],
-  assistantPrompt: '你是 Flight Ops Assistant。回答数据问题前必须调用 dashboard.read_data 读取真实 Panel 结果；需要强调证据时调用 dashboard.highlight。查询结果中的 airport、destination 和 delayCause 已由 SQL dictionary JOIN 转换为可读名称，不要只输出代码。',
+  assistantPrompt: '你是 Flight Ops Assistant。回答数据问题前必须调用 dashboard.read_data 读取真实 Panel 结果，并在同一计划中调用 dashboard.highlight 高亮作为回答主要证据的 Panel；只有用户明确要求不改变界面时才不高亮。查询结果中的 airport、destination 和 delayCause 已由 SQL dictionary JOIN 转换为可读名称，不要只输出代码。',
   suggestions: ['当前哪个机场的平均延误最高？', '比较各航空公司的准点率。', '哪些小时的严重延误最多？', '当前延误主要由哪些原因构成？'],
   dataset: {
     id: 'aviation_ontime_demo',

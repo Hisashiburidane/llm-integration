@@ -10,7 +10,7 @@ export function createDashboardCapabilities(runtime: DashboardRuntime<Record<str
     },
     {
       id: `${state.config.id}:read-data`, owner: 'application', provider: 'dashboard-runtime', name: 'dashboard.read_data', label: '读取 Dashboard 数据',
-      description: '读取指定 Panel 的真实查询结果，用于回答数据问题。', effect: 'read',
+      description: '读取指定 Panel 的真实查询结果，用于回答数据问题；可以在同一计划中配合 dashboard.highlight 聚焦主要证据。', effect: 'read',
       inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string' } } } },
       execute(input) {
         const panelIds = input && typeof input === 'object' && Array.isArray((input as { panelIds?: unknown }).panelIds) ? (input as { panelIds: unknown[] }).panelIds.map(String) : [];
@@ -31,7 +31,7 @@ export function createDashboardCapabilities(runtime: DashboardRuntime<Record<str
     },
     {
       id: `${state.config.id}:highlight`, owner: 'application', provider: 'dashboard-runtime', name: 'dashboard.highlight', label: '高亮 Dashboard Panel',
-      description: '高亮当前 Dashboard 中已注册的 Panel。', effect: 'visual', inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', items: { type: 'string' } } } },
+      description: '高亮当前 Dashboard 中已注册的 Panel，用于聚焦分析回答所依据的指标和图表。', effect: 'visual', inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', items: { type: 'string' } } } },
       execute(input) {
         const panelIds = input && typeof input === 'object' && Array.isArray((input as { panelIds?: unknown }).panelIds) ? (input as { panelIds: unknown[] }).panelIds.map(String) : [];
         if (!panelIds.length) throw new Error('panelIds 不能为空。');
@@ -45,7 +45,7 @@ export function createDashboardCapabilities(runtime: DashboardRuntime<Record<str
 export function createPanelCapabilities(runtime: DashboardRuntime<Record<string, unknown>>, panelId: string): EnchantCapabilityDefinition[] {
   return [
     { id: `${panelId}:read-data`, owner: 'application', provider: 'dashboard-runtime', name: 'panel.read_data', label: '读取 Panel 数据', description: '读取当前 Panel 的真实结果。', effect: 'read', execute: () => ({ status: 'success', data: panelContext(runtime, panelId) }) },
-    { id: `${panelId}:highlight`, owner: 'application', provider: 'dashboard-runtime', name: 'panel.highlight', label: '高亮当前 Panel', description: '将当前 Panel 标记为分析重点。', effect: 'visual', execute: () => { runtime.highlightPanels([panelId]); return { status: 'success', summary: `已高亮 Panel：${panelId}。` }; } }
+    { id: `${panelId}:highlight`, owner: 'application', provider: 'dashboard-runtime', name: 'panel.highlight', label: '高亮当前 Panel', description: '将当前 Panel 标记为分析回答的证据焦点。', effect: 'visual', execute: () => { runtime.highlightPanels([panelId]); return { status: 'success', summary: `已高亮 Panel：${panelId}。` }; } }
   ];
 }
 
