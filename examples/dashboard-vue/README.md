@@ -48,6 +48,8 @@ Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；�
 ```bash
 pnpm --filter @enchantforge/data-sources data:plan -- --dataset aviation-ontime
 pnpm --filter @enchantforge/data-sources data:download -- --dataset aviation-ontime
+pnpm --filter @enchantforge/data-sources data:plan -- --dataset nyc-taxi
+pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi
 ```
 
 地址清单、下载文件和清洗后的 SQLite 会写入 `examples/data-sources/data/`。如果数据库不存在，Node 服务会返回明确错误，不会回退到伪造的分析结果。
