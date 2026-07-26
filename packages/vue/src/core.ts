@@ -1,6 +1,8 @@
 export { buildEnchantLlmContext, createDefaultEnchantAgent } from './runtime/agent';
 export type {
   EnchantAgent,
+  EnchantAgentContinuation,
+  EnchantAgentContinuationRequest,
   EnchantAgentRequest,
   EnchantAgentResponseRequest,
   EnchantConversationMessage,

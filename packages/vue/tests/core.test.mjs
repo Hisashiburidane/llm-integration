@@ -74,6 +74,69 @@ function createRegistration({ effect = 'visual', execute = () => ({ status: 'suc
   };
 }
 
+function createToolLoopRegistration(executions) {
+  return {
+    id: 'scope:analysis',
+    name: 'analysis',
+    page: 'test-page',
+    exposure: 'aura',
+    getStatus: () => status(),
+    capture: () => ({
+      enchantment: {
+        id: 'scope:analysis',
+        name: 'analysis',
+        page: 'test-page',
+        kind: 'panel',
+        exposure: 'aura',
+        status: status(),
+        metadata: [{
+          id: 'panel:latency',
+          scopeId: 'scope:analysis',
+          kind: 'panel',
+          label: 'P95 latency ranking',
+          visible: true,
+          enabled: true,
+          source: 'registered',
+          children: []
+        }],
+        capabilities: ['capability:read', 'capability:highlight'],
+        source: { scopeId: 'scope:analysis' },
+        version: 1
+      },
+      capabilities: [
+        {
+          id: 'capability:read',
+          enchantmentId: 'scope:analysis',
+          owner: 'application',
+          provider: 'test',
+          name: 'dashboard.read_data',
+          label: 'Read latency',
+          description: 'Read P95 latency data.',
+          effect: 'read',
+          execute() {
+            executions.push('read');
+            return { status: 'success', data: { service: 'checkout', p95: 320 } };
+          }
+        },
+        {
+          id: 'capability:highlight',
+          enchantmentId: 'scope:analysis',
+          owner: 'application',
+          provider: 'test',
+          name: 'dashboard.highlight',
+          label: 'Highlight latency',
+          description: 'Highlight the evidence panel.',
+          effect: 'visual',
+          execute() {
+            executions.push('highlight');
+            return { status: 'success', summary: 'Evidence highlighted.' };
+          }
+        }
+      ]
+    })
+  };
+}
+
 function createTestForge(options = {}) {
   let executionCount = 0;
   const forge = createEnchantForge({
@@ -374,6 +437,51 @@ test('default agent forwards conversation history without mixing it into the sna
   assert.match(request.messages.at(-1).content, /它的准点率呢？/);
   assert.equal(request.context.structure.children[0].children[0].label, 'Test region');
   assert.doesNotMatch(JSON.stringify(request.context), /首都机场/);
+});
+
+test('default agent continues from read results to visual tools and a final answer', async () => {
+  const executions = [];
+  const continuationRequests = [];
+  let continuationRound = 0;
+  const forge = createEnchantForge({
+    llmClient: {
+      async runJson() {
+        return {
+          content: '',
+          toolCalls: [{ name: 'enchant_tool_0', arguments: '{}' }]
+        };
+      },
+      async run(request) {
+        continuationRequests.push(request);
+        continuationRound += 1;
+        if (continuationRound === 1) {
+          return {
+            content: '',
+            payload: {},
+            toolCalls: [{ name: 'enchant_tool_1', arguments: '{}' }]
+          };
+        }
+        return {
+          content: '**checkout** 的 P95 延迟最高，已高亮对应 Panel。',
+          payload: {}
+        };
+      }
+    }
+  });
+  forge.registry.register(createToolLoopRegistration(executions));
+
+  const result = await forge.run({
+    input: '当前哪个服务的 P95 延迟最高？',
+    prompt: '读取真实数据并高亮主要证据。'
+  });
+
+  assert.deepEqual(executions, ['read', 'highlight']);
+  assert.deepEqual(result.plan.calls.map((call) => call.capabilityId), ['capability:read', 'capability:highlight']);
+  assert.equal(result.results.length, 2);
+  assert.match(result.message, /checkout/);
+  assert.equal(continuationRequests.length, 2);
+  assert.equal(continuationRequests[0].context.executionResults[0].value.service, 'checkout');
+  assert.equal(continuationRequests[1].context.executionResults[1].effect, 'visual');
 });
 
 test('Aura markdown renders common syntax and rejects executable content', () => {

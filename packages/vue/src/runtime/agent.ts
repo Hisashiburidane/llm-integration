@@ -24,7 +24,23 @@ export interface EnchantAgentRequest {
 
 export interface EnchantAgent {
   plan(request: EnchantAgentRequest): Promise<EnchantPlan>;
+  planNext?(request: EnchantAgentContinuationRequest): Promise<EnchantAgentContinuation | undefined>;
   respond?(request: EnchantAgentResponseRequest): Promise<string>;
+}
+
+export interface EnchantAgentContinuationRequest {
+  input: string;
+  snapshot: EnchantSnapshot;
+  plans: readonly EnchantPlan[];
+  results: readonly EnchantExecutionResult[];
+  instruction?: string;
+  history?: readonly EnchantConversationMessage[];
+  signal?: AbortSignal;
+}
+
+export interface EnchantAgentContinuation {
+  plan?: EnchantPlan;
+  message?: string;
 }
 
 export interface EnchantAgentResponseRequest {
@@ -141,6 +157,23 @@ function buildConversationMessages(
   ];
 }
 
+function buildExecutionResultContext(snapshot: EnchantSnapshot, results: readonly EnchantExecutionResult[]) {
+  return results.map((result) => {
+    const tool = snapshot.tools.find((item) => item.capabilityId === result.capabilityId);
+    return {
+      capabilityId: result.capabilityId,
+      name: tool?.name,
+      label: tool?.label,
+      effect: tool?.effect,
+      ok: result.ok,
+      status: result.status,
+      summary: result.summary,
+      error: result.error,
+      value: result.value
+    };
+  });
+}
+
 function planFromToolCalls(value: unknown, snapshot: EnchantSnapshot, bindings: ToolBinding[]): EnchantPlan | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const response = value as { content?: unknown; toolCalls?: LlmToolCall[] };
@@ -212,21 +245,49 @@ export function createDefaultEnchantAgent(options: LlmClientOptions = {}, client
       });
       return planFromToolCalls(plan, request.snapshot, bindings) ?? validatePlan(plan, request.snapshot);
     },
-    async respond(request) {
-      const resultContext = request.results.map((result) => {
-        const tool = request.snapshot.tools.find((item) => item.capabilityId === result.capabilityId);
-        return {
-          capabilityId: result.capabilityId,
-          name: tool?.name,
-          label: tool?.label,
-          effect: tool?.effect,
-          ok: result.ok,
-          status: result.status,
-          summary: result.summary,
-          error: result.error,
-          value: result.value
-        };
+    async planNext(request) {
+      const bindings = buildToolBindings(request.snapshot);
+      const prompt = [
+        '你负责根据已经执行的 capability 结果决定是否还需要调用其他 capability。',
+        '只能调用请求中提供的 function tools，不得重复完全相同的已完成调用。',
+        '应用 instruction 描述了本次任务的完成条件；如果仍缺少明确要求的界面操作，继续调用对应 capability。',
+        'executionResults 是业务事实来源。不得根据页面 structure 或先前回答编造数据。',
+        '如果任务已经完成，直接生成最终回答，不再调用工具。',
+        '如果服务端未执行 function tool calling，但仍需调用工具，返回 JSON：{"message":"","calls":[{"capabilityId":"","input":{},"reason":""}]}。',
+        request.instruction
+      ].filter(Boolean).join('\n\n');
+      const context = {
+        page: buildEnchantLlmContext(request.snapshot),
+        completedPlans: request.plans,
+        executionResults: buildExecutionResultContext(request.snapshot, request.results)
+      };
+      const response = await client.run({
+        prompt,
+        input: request.input,
+        context,
+        ...(request.history?.length
+          ? { messages: buildConversationMessages(prompt, request.history, request.input, context) }
+          : {}),
+        tools: bindings.map((binding) => binding.definition),
+        signal: request.signal
       });
+      const nativePlan = planFromToolCalls(response, request.snapshot, bindings);
+      if (nativePlan?.calls.length) return { plan: nativePlan };
+
+      const content = response.content.trim();
+      if (content.startsWith('{')) {
+        try {
+          const fallbackPlan = validatePlan(parseLlmJson(content), request.snapshot);
+          if (fallbackPlan.calls.length) return { plan: fallbackPlan };
+          return { message: fallbackPlan.message };
+        } catch {
+          // A JSON-looking final answer remains ordinary assistant content.
+        }
+      }
+      return content ? { message: content } : undefined;
+    },
+    async respond(request) {
+      const resultContext = buildExecutionResultContext(request.snapshot, request.results);
       const prompt = [
         '你负责根据用户问题和已执行 capability 结果生成最终回答。',
         '只能引用 executionResults 中实际返回的数据，不得编造数值、原因或未读取的面板结果。',

@@ -27,7 +27,7 @@ export const otelDashboard = {
       defaultFromFacet: 'first'
     }
   ],
-  assistantPrompt: '你是 OpenTelemetry Incident Assistant。回答问题前必须调用 dashboard.read_data 读取真实 Panel 结果，并在同一计划中调用 dashboard.highlight 高亮作为回答主要证据的 Panel；只有用户明确要求不改变界面时才不高亮。P95 服务排名问题读取并高亮 otel-latency-ranking；综合服务性能问题优先使用 otel-service-health 和 otel-latency-ranking；调用路径问题使用 otel-service-topology 和 otel-edge-latency；日志问题使用 otel-log-severity 和 otel-log-trend。Span 是一次操作，不要把 Span 数直接表述为用户请求数；没有错误证据时不要推断故障根因。',
+  assistantPrompt: '你是 OpenTelemetry Incident Assistant。回答问题前必须调用 dashboard.read_data 读取真实 Panel 结果，并在分析过程中调用 dashboard.highlight 高亮作为回答主要证据的 Panel；只有用户明确要求不改变界面时才不高亮。P95 服务排名问题读取并高亮 otel-latency-ranking；综合服务性能问题优先使用 otel-service-health 和 otel-latency-ranking；调用路径问题使用 otel-service-topology 和 otel-edge-latency；日志问题使用 otel-log-severity 和 otel-log-trend。Span 是一次操作，不要把 Span 数直接表述为用户请求数；没有错误证据时不要推断故障根因。',
   suggestions: [
     '当前哪个服务的 P95 延迟最高？',
     '调用量最大的服务依赖是哪一条？',

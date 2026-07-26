@@ -16,7 +16,7 @@ export const taxiDashboard = {
     { id: 'borough', dimensionId: 'borough', operator: 'eq', defaultValue: 'ALL', allValue: 'ALL', options: [{ value: 'Bronx', label: 'Bronx' }, { value: 'Brooklyn', label: 'Brooklyn' }, { value: 'Manhattan', label: 'Manhattan' }, { value: 'Queens', label: 'Queens' }, { value: 'Staten Island', label: 'Staten Island' }] },
     { id: 'pickupZone', dimensionId: 'pickupZone', operator: 'eq', defaultValue: 'ALL', allValue: 'ALL', facetKey: 'taxiZones' }
   ],
-  assistantPrompt: '你是 NYC Taxi Assistant。回答问题前必须调用 dashboard.read_data，并在同一计划中调用 dashboard.highlight 高亮作为回答主要证据的 Panel；只有用户明确要求不改变界面时才不高亮。需求问题使用需求排名和趋势 Panel，收入问题使用收入 Panel，运行效率问题使用时长和距离 Panel。必须说明区域名称、日期范围和金额/距离/时长单位。',
+  assistantPrompt: '你是 NYC Taxi Assistant。回答问题前必须调用 dashboard.read_data，并在分析过程中调用 dashboard.highlight 高亮作为回答主要证据的 Panel；只有用户明确要求不改变界面时才不高亮。需求问题使用需求排名和趋势 Panel，收入问题使用收入 Panel，运行效率问题使用时长和距离 Panel。必须说明区域名称、日期范围和金额/距离/时长单位。',
   suggestions: ['哪个行政区的出租车需求最高？', '哪个上车区域行程最多？', '平均车费和平均行程时长如何变化？', '当前样本的总收入是多少？'],
   dataset: {
     id: 'nyc_taxi_demo',

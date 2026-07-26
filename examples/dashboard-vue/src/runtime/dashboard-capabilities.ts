@@ -10,7 +10,7 @@ export function createDashboardCapabilities(runtime: DashboardRuntime<Record<str
     },
     {
       id: `${state.config.id}:read-data`, owner: 'application', provider: 'dashboard-runtime', name: 'dashboard.read_data', label: '读取 Dashboard 数据',
-      description: '读取指定 Panel 的真实查询结果，用于回答数据问题；可以在同一计划中配合 dashboard.highlight 聚焦主要证据。', effect: 'read',
+      description: '读取指定 Panel 的真实查询结果，用于回答数据问题；后续分析步骤可调用 dashboard.highlight 聚焦主要证据。', effect: 'read',
       inputSchema: { type: 'object', required: ['panelIds'], properties: { panelIds: { type: 'array', minItems: 1, maxItems: 8, items: { type: 'string' } } } },
       execute(input) {
         const panelIds = input && typeof input === 'object' && Array.isArray((input as { panelIds?: unknown }).panelIds) ? (input as { panelIds: unknown[] }).panelIds.map(String) : [];

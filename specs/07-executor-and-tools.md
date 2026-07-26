@@ -42,6 +42,19 @@ This is important for the product feeling:
 - uncertain fields highlight
 - assistant explains progress
 
+## Tool Loop
+
+工具调用分为初始计划和可选的继续规划：
+
+1. Agent 根据当前 snapshot 和用户输入生成初始 capability 调用。
+2. Forge 执行调用，并收集结构化 execution results。
+3. 如果产生成功的 read 结果且 Agent 实现 `planNext`，Forge 将已完成 plans 和 results 交回 Agent。
+4. Agent 可以返回新的 capability 调用，或返回最终 assistant content 结束循环。
+
+`maxPlanRounds` 默认是 `3`，`maxPlanCalls` 约束整个 run 的累计调用数。Core 跳过 capabilityId 和 input 完全相同的重复调用。每一轮只复用本次 run 的 snapshot 作为 capability 合约来源，但每次执行仍读取当前 registration status 并重新经过 policy。
+
+多个 tools 能否由模型在同一响应中并行返回属于 provider 能力，不能成为框架正确性的前提。读取结果驱动的后续操作必须通过 Tool Loop 表达，不能要求模型在看到结果之前生成依赖结果的参数。
+
 ## Fill Fields
 
 Fill fields should support write modes:

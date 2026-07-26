@@ -90,6 +90,7 @@ export interface EnchantForgeOptions {
   policy?: Partial<EnchantPolicy>;
   snapshots?: Partial<EnchantSnapshotConfig>;
   maxPlanCalls?: number;
+  maxPlanRounds?: number;
   traceLimit?: number;
   onTrace?: (event: EnchantTraceEvent) => void;
 }
@@ -290,6 +291,17 @@ function hasReadableResult(snapshot: EnchantSnapshot, results: EnchantExecutionR
   return results.some((result) => result.ok && effects.get(result.capabilityId) === 'read');
 }
 
+function planCallKey(call: EnchantPlanCall) {
+  return `${call.capabilityId}:${JSON.stringify(call.input ?? {})}`;
+}
+
+function combinePlans(plans: readonly EnchantPlan[]): EnchantPlan {
+  return {
+    message: [...plans].reverse().find((plan) => plan.message.trim())?.message ?? '',
+    calls: plans.flatMap((plan) => plan.calls)
+  };
+}
+
 export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantForge {
   const registry = createEnchantRegistry();
   const policyState = shallowReactive(resolveEnchantPolicy(options.policy));
@@ -317,6 +329,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   };
   const traceLimit = Math.max(20, options.traceLimit ?? 200);
   const maxPlanCalls = Math.max(1, options.maxPlanCalls ?? 20);
+  const maxPlanRounds = Math.max(0, options.maxPlanRounds ?? 3);
   const pluginCleanups: Array<() => void> = [];
   const plugins: EnchantForgePlugin[] = [];
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
@@ -598,8 +611,8 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   }
 
   async function run(value: EnchantRunOptions | string): Promise<EnchantRunResult> {
-      const request = typeof value === 'string' ? { input: value } : value;
-      const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const request = typeof value === 'string' ? { input: value } : value;
+    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     try {
       throwIfAborted(request.signal);
       emitProgress(runId, 'capturing', request.onProgress);
@@ -611,9 +624,10 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         includeLocal: Boolean(request.enchantmentId)
       };
       let current = capture(captureOptions);
+      const selectedAgent = request.agent ?? agent;
       trace({ source: current.pageId, kind: 'request', title: 'Agent request', detail: { input: request.input, snapshotId: current.id } });
       emitProgress(runId, 'planning', request.onProgress);
-      const plan = await (request.agent ?? agent).plan({
+      const initialPlan = await selectedAgent.plan({
         input: request.input,
         snapshot: current,
         instruction: request.prompt,
@@ -621,26 +635,73 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         signal: request.signal
       });
       throwIfAborted(request.signal);
-      if (plan.calls.length > maxPlanCalls) {
-        throw new Error(`Agent 计划包含 ${plan.calls.length} 个调用，超过上限 ${maxPlanCalls}。`);
-      }
-      trace({ source: current.pageId, kind: 'plan', title: 'Agent plan', detail: plan });
-
+      const plans: EnchantPlan[] = [];
       const results: EnchantExecutionResult[] = [];
-      for (const call of plan.calls) {
-        throwIfAborted(request.signal);
-        results.push(await execute(call, {
-          snapshot: current,
-          runId,
-          confirmed: request.confirmed,
-          confirm: request.confirm,
-          signal: request.signal,
-          onProgress: request.onProgress
-        }));
+      const executedCalls = new Set<string>();
+
+      async function executePlan(plan: EnchantPlan, title: string) {
+        const calls = plan.calls.filter((call) => {
+          const key = planCallKey(call);
+          if (executedCalls.has(key)) {
+            trace({ source: current.pageId, kind: 'info', title: 'Duplicate capability call skipped', detail: call });
+            return false;
+          }
+          executedCalls.add(key);
+          return true;
+        });
+        if (!calls.length && plan.calls.length) return [];
+        if (executedCalls.size > maxPlanCalls) {
+          throw new Error(`Agent 计划累计包含 ${executedCalls.size} 个调用，超过上限 ${maxPlanCalls}。`);
+        }
+        const acceptedPlan = calls.length === plan.calls.length ? plan : { ...plan, calls };
+        plans.push(acceptedPlan);
+        trace({ source: current.pageId, kind: 'plan', title, detail: acceptedPlan });
+        const roundResults: EnchantExecutionResult[] = [];
+        for (const call of calls) {
+          throwIfAborted(request.signal);
+          const result = await execute(call, {
+            snapshot: current,
+            runId,
+            confirmed: request.confirmed,
+            confirm: request.confirm,
+            signal: request.signal,
+            onProgress: request.onProgress
+          });
+          results.push(result);
+          roundResults.push(result);
+        }
+        return roundResults;
       }
-      let message = createFinalMessage(plan, results);
-      const responder = (request.agent ?? agent).respond;
-      if (responder && hasReadableResult(current, results)) {
+
+      const initialResults = await executePlan(initialPlan, 'Agent plan');
+      let continuationMessage = '';
+      if (selectedAgent.planNext && hasReadableResult(current, initialResults)) {
+        for (let round = 1; round <= maxPlanRounds; round += 1) {
+          throwIfAborted(request.signal);
+          emitProgress(runId, 'planning', request.onProgress);
+          const continuation = await selectedAgent.planNext({
+            input: request.input,
+            snapshot: current,
+            plans,
+            results,
+            instruction: request.prompt,
+            history: request.history,
+            signal: request.signal
+          });
+          throwIfAborted(request.signal);
+          if (!continuation?.plan?.calls.length) {
+            continuationMessage = continuation?.message?.trim() ?? '';
+            break;
+          }
+          const roundResults = await executePlan(continuation.plan, `Agent continuation ${round}`);
+          if (!roundResults.length) break;
+        }
+      }
+
+      const plan = combinePlans(plans);
+      let message = continuationMessage || createFinalMessage(plan, results);
+      const responder = selectedAgent.respond;
+      if (!continuationMessage && responder && hasReadableResult(current, results)) {
         emitProgress(runId, 'responding', request.onProgress);
         try {
           message = await responder({
