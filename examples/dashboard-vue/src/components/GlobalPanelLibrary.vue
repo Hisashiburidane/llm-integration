@@ -21,7 +21,8 @@ async function load() {
     const responses = await Promise.all([
       fetch('/api/dashboard/config'),
       fetch('/api/dashboard/config?dashboard=air-quality-operations'),
-      fetch('/api/dashboard/config?dashboard=nyc-taxi-operations')
+      fetch('/api/dashboard/config?dashboard=nyc-taxi-operations'),
+      fetch('/api/dashboard/config?dashboard=otel-demo-observability')
     ]);
     const payloads = await Promise.all(responses.map((response) => response.json() as Promise<{ panelLibrary?: PanelConfig[]; title?: string; topicId?: string; error?: string }>));
     if (responses.some((response) => !response.ok) || payloads.some((payload) => payload.error)) throw new Error(payloads.find((payload) => payload.error)?.error || 'Panel Library 加载失败。');

@@ -11,5 +11,6 @@ function runtime(configUrl: string) {
 export const dashboardRuntimes = {
   aviation: runtime('/api/dashboard/config'),
   airQuality: runtime('/api/dashboard/config?dashboard=air-quality-operations'),
-  taxi: runtime('/api/dashboard/config?dashboard=nyc-taxi-operations')
+  taxi: runtime('/api/dashboard/config?dashboard=nyc-taxi-operations'),
+  otel: runtime('/api/dashboard/config?dashboard=otel-demo-observability')
 };

@@ -8,11 +8,12 @@ import { dashboardRuntimes } from './runtime/dashboard-registry';
 type View = keyof typeof dashboardRuntimes | 'panels';
 const view = ref<View>(readView());
 const activeRuntimeKey = computed(() => view.value === 'panels' ? 'aviation' : view.value);
-const menuView = computed<'aviation' | 'air-quality' | 'taxi' | 'panels'>(() => view.value === 'airQuality' ? 'air-quality' : view.value);
+const menuView = computed<'aviation' | 'air-quality' | 'taxi' | 'otel' | 'panels'>(() => view.value === 'airQuality' ? 'air-quality' : view.value);
 
 function readView(): View {
   if (window.location.hash === '#air-quality') return 'airQuality';
   if (window.location.hash === '#taxi') return 'taxi';
+  if (window.location.hash === '#otel') return 'otel';
   if (window.location.hash === '#panels') return 'panels';
   return 'aviation';
 }

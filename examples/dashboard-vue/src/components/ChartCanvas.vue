@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, shallowRef, toRaw, watch } from 'vue';
-import { BarChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
+import { BarChart, GraphChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, MarkPointComponent, TooltipComponent } from 'echarts/components';
 import { init, use, type ECharts, type EChartsCoreOption } from 'echarts/core';
 import { SVGRenderer } from 'echarts/renderers';
 
-use([SVGRenderer, BarChart, LineChart, PieChart, ScatterChart, GridComponent, LegendComponent, MarkPointComponent, TooltipComponent]);
+use([SVGRenderer, BarChart, GraphChart, LineChart, PieChart, ScatterChart, GridComponent, LegendComponent, MarkPointComponent, TooltipComponent]);
 
 const props = defineProps<{ option: EChartsCoreOption }>();
 const root = shallowRef<HTMLElement>();

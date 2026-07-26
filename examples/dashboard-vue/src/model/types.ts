@@ -1,6 +1,6 @@
 export type Scalar = string | number | boolean;
 export interface FacetOption { code: string; label: string; }
-export type PanelType = 'metric' | 'line' | 'bar' | 'donut' | 'table' | 'timeline';
+export type PanelType = 'metric' | 'line' | 'bar' | 'donut' | 'table' | 'timeline' | 'graph';
 export type DataType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
 export type Aggregation = 'sum' | 'avg' | 'min' | 'max' | 'count' | 'p95' | 'ratio';
 export type FilterOperator = 'eq' | 'neq' | 'in' | 'between' | 'gte' | 'lte';
@@ -82,6 +82,10 @@ export interface QuerySpec {
   filters: FilterCondition[];
   timeRange?: TimeRange;
   limit?: number;
+  orderBy?: {
+    fieldId: string;
+    direction: 'asc' | 'desc';
+  };
 }
 
 export interface QueryResult {

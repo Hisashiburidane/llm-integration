@@ -35,6 +35,48 @@ const option = computed(() => {
     textStyle: { fontFamily: 'IBM Plex Mono, monospace', fontSize: 10 }
   };
   if (props.panel.type === 'donut') return { ...common, legend: { bottom: 0, textStyle: { fontSize: 10 } }, series: [{ type: 'pie', radius: ['46%', '72%'], center: ['50%', '45%'], data: rows.map((row) => ({ name: String(row[dimensionKey.value] ?? '-'), value: Number(row[metricKey.value] ?? 0) })) }] };
+  if (props.panel.type === 'graph') {
+    const sourceKey = props.panel.query.dimensions[0]?.alias ?? props.panel.query.dimensions[0]?.dimensionId ?? 'source';
+    const targetKey = props.panel.query.dimensions[1]?.alias ?? props.panel.query.dimensions[1]?.dimensionId ?? 'target';
+    const activity = new Map<string, number>();
+    const links = rows.flatMap((row) => {
+      const source = String(row[sourceKey] ?? '');
+      const target = String(row[targetKey] ?? '');
+      const value = Number(row[metricKey.value] ?? 0);
+      if (!source || !target) return [];
+      activity.set(source, (activity.get(source) ?? 0) + value);
+      activity.set(target, (activity.get(target) ?? 0) + value);
+      return [{ source, target, value }];
+    });
+    const maxActivity = Math.max(...activity.values(), 1);
+    const maxLinkValue = Math.max(...links.map((link) => link.value), 1);
+    return {
+      ...common,
+      tooltip: { trigger: 'item' },
+      series: [{
+        type: 'graph',
+        layout: 'force',
+        roam: true,
+        draggable: true,
+        data: [...activity].map(([name, value]) => ({
+          name,
+          value,
+          symbolSize: 18 + 24 * Math.sqrt(value / maxActivity)
+        })),
+        links: links.map((link) => ({
+          ...link,
+          lineStyle: { width: 1 + 4 * Math.sqrt(link.value / maxLinkValue) }
+        })),
+        label: { show: props.panel.visualization?.showLabels !== false, color: '#334155', fontSize: 9 },
+        edgeSymbol: ['none', 'arrow'],
+        edgeSymbolSize: 6,
+        lineStyle: { color: '#94a3b8', curveness: 0.08, opacity: 0.72 },
+        itemStyle: { color: '#2563eb', borderColor: '#dbeafe', borderWidth: 3 },
+        force: { repulsion: 220, edgeLength: [72, 150], gravity: 0.08 },
+        emphasis: { focus: 'adjacency', lineStyle: { color: '#f59e0b', width: 3 } }
+      }]
+    };
+  }
   if (metricKeys.length > 1) {
     const category = props.panel.query.dimensions.length ? x : metricKeys;
     const series = props.panel.query.dimensions.length

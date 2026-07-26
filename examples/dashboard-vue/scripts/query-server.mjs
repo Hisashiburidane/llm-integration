@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { aviationDashboard } from './dashboard-config.mjs';
 import { airQualityDashboard } from './air-quality-config.mjs';
+import { otelDashboard } from './otel-config.mjs';
 import { taxiDashboard } from './taxi-config.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -16,7 +17,8 @@ const maxBodySize = 1024 * 1024;
 const dashboards = new Map([
   [aviationDashboard.id, aviationDashboard],
   [airQualityDashboard.id, airQualityDashboard],
-  [taxiDashboard.id, taxiDashboard]
+  [taxiDashboard.id, taxiDashboard],
+  [otelDashboard.id, otelDashboard]
 ]);
 const datasetDefinitions = {
   aviation_ontime_demo: {
@@ -52,6 +54,82 @@ const datasetDefinitions = {
     rollupDimensions: new Set(['date', 'borough', 'pickupZone', 'pickupLocation']),
     taxiJoins: true,
     rowCountExpression: 'SUM(trip_count)'
+  },
+  otel_service_demo: {
+    dimensions: { capture: 'capture_id', minute: 'observed_minute', service: 'service_name' },
+    rawMetricSql: {
+      serviceCount: 'COUNT(DISTINCT service_name)',
+      spanCount: 'SUM(span_count)',
+      spanErrorCount: 'SUM(error_count)',
+      spanErrorRate: 'SUM(error_count) * 1.0 / NULLIF(SUM(span_count), 0)',
+      averageLatency: 'SUM(average_duration_ms * span_count) * 1.0 / NULLIF(SUM(span_count), 0)',
+      p95Latency: 'MAX(p95_duration_ms)'
+    },
+    rollupMetricSql: {
+      serviceCount: 'COUNT(DISTINCT service_name)',
+      spanCount: 'SUM(span_count)',
+      spanErrorCount: 'SUM(error_count)',
+      spanErrorRate: 'SUM(error_count) * 1.0 / NULLIF(SUM(span_count), 0)',
+      averageLatency: 'SUM(average_duration_ms * span_count) * 1.0 / NULLIF(SUM(span_count), 0)',
+      p95Latency: 'MAX(p95_duration_ms)'
+    },
+    rawTable: 'otel_service_minute_rollup',
+    rollupTable: 'otel_service_minute_rollup',
+    rollupFields: { capture: 'capture_id', minute: 'observed_minute', service: 'service_name' },
+    rollupDimensions: new Set(['capture', 'minute', 'service']),
+    rowCountExpression: 'SUM(span_count)'
+  },
+  otel_edge_demo: {
+    dimensions: { capture: 'capture_id', sourceService: 'source_service', targetService: 'target_service' },
+    rawMetricSql: {
+      callCount: 'SUM(call_count)',
+      edgeErrorRate: 'SUM(error_count) * 1.0 / NULLIF(SUM(call_count), 0)',
+      edgeAverageLatency: 'SUM(average_duration_ms * call_count) * 1.0 / NULLIF(SUM(call_count), 0)',
+      edgeP95Latency: 'MAX(p95_duration_ms)'
+    },
+    rollupMetricSql: {
+      callCount: 'SUM(call_count)',
+      edgeErrorRate: 'SUM(error_count) * 1.0 / NULLIF(SUM(call_count), 0)',
+      edgeAverageLatency: 'SUM(average_duration_ms * call_count) * 1.0 / NULLIF(SUM(call_count), 0)',
+      edgeP95Latency: 'MAX(p95_duration_ms)'
+    },
+    rawTable: 'otel_service_edge_rollup',
+    rollupTable: 'otel_service_edge_rollup',
+    rollupFields: { capture: 'capture_id', sourceService: 'source_service', targetService: 'target_service' },
+    rollupDimensions: new Set(['capture', 'sourceService', 'targetService']),
+    rowCountExpression: 'SUM(call_count)'
+  },
+  otel_log_demo: {
+    dimensions: { capture: 'capture_id', minute: 'observed_minute', service: 'service_name', severity: 'severity' },
+    rawMetricSql: {
+      logCount: 'SUM(log_count)',
+      logErrorRate: "SUM(CASE WHEN severity IN ('ERROR', 'FATAL') THEN log_count ELSE 0 END) * 1.0 / NULLIF(SUM(log_count), 0)"
+    },
+    rollupMetricSql: {
+      logCount: 'SUM(log_count)',
+      logErrorRate: "SUM(CASE WHEN severity IN ('ERROR', 'FATAL') THEN log_count ELSE 0 END) * 1.0 / NULLIF(SUM(log_count), 0)"
+    },
+    rawTable: 'otel_log_minute_rollup',
+    rollupTable: 'otel_log_minute_rollup',
+    rollupFields: { capture: 'capture_id', minute: 'observed_minute', service: 'service_name', severity: 'severity' },
+    rollupDimensions: new Set(['capture', 'minute', 'service', 'severity']),
+    rowCountExpression: 'SUM(log_count)'
+  },
+  otel_metric_demo: {
+    dimensions: { capture: 'capture_id', minute: 'observed_minute', service: 'service_name', metricName: 'metric_name', unit: 'unit' },
+    rawMetricSql: {
+      metricPointCount: 'SUM(point_count)',
+      metricSeriesCount: 'COUNT(DISTINCT metric_name)'
+    },
+    rollupMetricSql: {
+      metricPointCount: 'SUM(point_count)',
+      metricSeriesCount: 'COUNT(DISTINCT metric_name)'
+    },
+    rawTable: 'otel_metric_minute_rollup',
+    rollupTable: 'otel_metric_minute_rollup',
+    rollupFields: { capture: 'capture_id', minute: 'observed_minute', service: 'service_name', metricName: 'metric_name', unit: 'unit' },
+    rollupDimensions: new Set(['capture', 'minute', 'service', 'metricName', 'unit']),
+    rowCountExpression: 'SUM(point_count)'
   }
 };
 const rollupAvailable = new Map();
@@ -92,6 +170,12 @@ function validateQuery(query) {
   }
   if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
     throw new Error('QuerySpec limit 必须是 1 到 100 的整数。');
+  }
+  if (query.orderBy && (
+    typeof query.orderBy.fieldId !== 'string'
+    || !['asc', 'desc'].includes(query.orderBy.direction)
+  )) {
+    throw new Error('QuerySpec orderBy 无效。');
   }
   if (query.timeRange && (!Number.isInteger(query.timeRange.startHour) || !Number.isInteger(query.timeRange.endHour)
     || query.timeRange.startHour < 0 || query.timeRange.endHour > 23 || query.timeRange.startHour > query.timeRange.endHour)) {
@@ -184,7 +268,16 @@ function buildSql(query) {
     }),
     'MAX(__row_count) AS __row_count'
   ];
-  const grouping = groupSql ? ` GROUP BY ${groupSql} ORDER BY ${groupSql}` : '';
+  const availableOrderFields = new Map([
+    ...query.dimensions.map((item) => [item.dimensionId, item.alias || item.dimensionId]),
+    ...query.metrics.map((item) => [item.metricId, item.alias || item.metricId])
+  ]);
+  const orderAlias = query.orderBy ? availableOrderFields.get(query.orderBy.fieldId) : undefined;
+  if (query.orderBy && !orderAlias) throw new Error(`排序字段不在查询结果中：${query.orderBy.fieldId}。`);
+  const orderSql = orderAlias
+    ? ` ORDER BY ${orderAlias} ${query.orderBy.direction.toUpperCase()}`
+    : groupSql ? ` ORDER BY ${groupSql}` : '';
+  const grouping = `${groupSql ? ` GROUP BY ${groupSql}` : ''}${orderSql}`;
   return { sql: `WITH base AS (${base}), ${source} SELECT ${selections.join(', ')} FROM ranked ${joins.join(' ')}${grouping} LIMIT ${query.limit || 100}`, useRollup };
 }
 
@@ -258,7 +351,7 @@ async function ensureDashboardConfig() {
   } catch (error) {
     if (!String(error).includes('duplicate column name')) throw error;
   }
-  const configs = [aviationDashboard, airQualityDashboard, taxiDashboard];
+  const configs = [aviationDashboard, airQualityDashboard, taxiDashboard, otelDashboard];
   const configInserts = configs.map((config) => `INSERT INTO dashboard_configs (id, topic_id, title, description, source_manifest_json, dataset_json) VALUES (${sqlString(config.id)}, ${sqlString(config.topicId)}, ${sqlString(config.title)}, ${sqlString(config.description)}, ${sqlString(JSON.stringify(config.sourceManifest))}, ${sqlString(JSON.stringify(config.dataset))}) ON CONFLICT(id) DO UPDATE SET topic_id = excluded.topic_id, title = excluded.title, description = excluded.description, source_manifest_json = excluded.source_manifest_json, dataset_json = excluded.dataset_json`);
   const allPanels = configs.flatMap((config) => [
     ...config.panels.map((panel, index) => ({ ...panel, dashboardId: config.id, sortOrder: index, isTemplate: 0, templateId: null })),
@@ -305,6 +398,25 @@ async function readConfig(dashboardId = aviationDashboard.id) {
   const taxiZones = dashboard.id === taxiDashboard.id
     ? await runSql("SELECT COALESCE(zone, '区域 ' || location_id) AS code, COALESCE(zone, '区域 ' || location_id) AS label FROM nyc_taxi_zones WHERE location_id IS NOT NULL ORDER BY label")
     : [];
+  const captures = dashboard.id === otelDashboard.id
+    ? await runSql("SELECT capture_id AS code, scenario || ' · ' || started_at || ' · ' || duration_seconds || 's' AS label FROM otel_capture_runs ORDER BY started_at DESC")
+    : [];
+  const facets = {
+    airports: airports.map((item) => ({ code: item.code, label: item.label })),
+    carriers: carriers.map((item) => item.value),
+    stations: stations.map((item) => ({ code: item.code, label: item.label })),
+    taxiZones: taxiZones.map((item) => ({ code: item.code, label: item.label })),
+    captures: captures.map((item) => ({ code: item.code, label: item.label }))
+  };
+  const filterDefinitions = (dashboard.filterDefinitions ?? []).map((definition) => {
+    const resolved = { ...definition };
+    if (resolved.defaultFromFacet === 'first' && resolved.facetKey && facets[resolved.facetKey]?.length) {
+      const first = facets[resolved.facetKey][0];
+      resolved.defaultValue = typeof first === 'string' ? first : first.code;
+    }
+    delete resolved.defaultFromFacet;
+    return resolved;
+  });
   const parsePanel = (panel) => {
     const parsedQuery = JSON.parse(panel.query_json || '{}');
     const query = {
@@ -325,8 +437,8 @@ async function readConfig(dashboardId = aviationDashboard.id) {
     panels: panels.map(parsePanel),
     panelLibrary: panelLibrary.map(parsePanel),
     panelTemplates: dashboard.panelTemplates,
-    facets: { airports: airports.map((item) => ({ code: item.code, label: item.label })), carriers: carriers.map((item) => item.value), stations: stations.map((item) => ({ code: item.code, label: item.label })), taxiZones: taxiZones.map((item) => ({ code: item.code, label: item.label })) },
-    filterDefinitions: dashboard.filterDefinitions ?? [],
+    facets,
+    filterDefinitions,
     assistantPrompt: dashboard.assistantPrompt ?? '',
     suggestions: dashboard.suggestions ?? []
   };
@@ -338,7 +450,7 @@ function validatePanelPayload(value) {
   if (typeof panel.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(panel.id)) throw new Error('Panel ID 只能使用小写字母、数字和连字符。');
   if (typeof panel.title !== 'string' || !panel.title.trim()) throw new Error('Panel 标题不能为空。');
   if (typeof panel.description !== 'string' || !panel.description.trim()) throw new Error('Panel 描述不能为空。');
-  if (!['metric', 'line', 'bar', 'donut', 'table', 'timeline'].includes(panel.type)) throw new Error('Panel 类型不支持。');
+  if (!['metric', 'line', 'bar', 'donut', 'table', 'timeline', 'graph'].includes(panel.type)) throw new Error('Panel 类型不支持。');
   if (!panel.query || panel.query.datasetId !== aviationDashboard.dataset.id) throw new Error('Panel QuerySpec 数据集不支持。');
   if (!Array.isArray(panel.query.metrics) || panel.query.metrics.length !== 1) throw new Error('Panel 必须选择一个指标。');
   if (!Array.isArray(panel.query.dimensions) || !Array.isArray(panel.query.filters)) throw new Error('Panel QuerySpec 结构无效。');
