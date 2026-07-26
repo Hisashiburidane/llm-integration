@@ -10,7 +10,7 @@ const model = defineModel<Record<string, string>>({ required: true });
     name="shipping-form"
     page="text-to-form-dom"
     scan="auto"
-    prompt="把用户提供的收件信息填写到当前表单，不要提交。"
+    prompt="把用户提供的收件人与物品信息填写到当前寄件单，不要提交。"
   >
     <ExpressForm v-model="model" />
   </Enchant>

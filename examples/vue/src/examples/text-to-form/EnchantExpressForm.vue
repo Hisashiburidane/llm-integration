@@ -3,7 +3,18 @@ import { useEnchantForm } from '@enchantforge/vue';
 
 const model = defineModel<Record<string, string>>({ required: true });
 
-useEnchantForm(model);
+useEnchantForm(model, {
+  fields: {
+    receiverName: '收件人',
+    receiverPhone: '手机号',
+    province: '省份',
+    city: '城市',
+    district: '区县',
+    receiverAddress: '详细地址',
+    itemType: '物品类型',
+    remark: '备注'
+  }
+});
 </script>
 
 <template>
