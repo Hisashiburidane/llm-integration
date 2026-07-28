@@ -67,29 +67,4 @@ function handleModeChange(blockKey: string, value: string | number) {
   </a-card>
 </template>
 
-<style scoped>
-.code-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-}
-.code-comparison {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.code-comparison section {
-  min-width: 0;
-}
-.code-comparison strong {
-  display: block;
-  margin-bottom: 7px;
-  color: #6e7681;
-  font: 700 10px/1.2 "IBM Plex Mono", monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-@media (max-width: 900px) {
-  .code-comparison { grid-template-columns: 1fr; }
-}
-</style>
+<style scoped src="./CodeTabs.css"></style>

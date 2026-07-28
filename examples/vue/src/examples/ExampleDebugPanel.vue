@@ -58,9 +58,4 @@ function formatDetail(detail: unknown) {
   </div>
 </template>
 
-<style scoped>
-.debug-panel { min-height: 0; }
-.debug-heading { margin-bottom: 12px; }
-.debug-heading strong, .debug-heading small { display: block; }
-.debug-heading small { margin-top: 3px; color: #7a818c; font-size: 11px; }
-</style>
+<style scoped src="./ExampleDebugPanel.css"></style>
