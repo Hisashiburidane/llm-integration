@@ -1,6 +1,17 @@
 import { reactive } from 'vue';
 
-function createEmptyShippingForm() {
+export interface ShippingForm extends Record<string, string> {
+  receiverName: string;
+  receiverPhone: string;
+  province: string;
+  city: string;
+  district: string;
+  receiverAddress: string;
+  itemType: string;
+  remark: string;
+}
+
+function createEmptyShippingForm(): ShippingForm {
   return {
     receiverName: '',
     receiverPhone: '',

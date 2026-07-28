@@ -1,12 +1,15 @@
 import type { Component } from 'vue';
 import TextToFormDemo from './TextToFormDemo.vue';
 import DomTextToFormDemo from './DomTextToFormDemo.vue';
+import UseEnchantActionDemo from './UseEnchantActionDemo.vue';
 import TodoDemo from './TodoDemo.vue';
 import FocusViewDemo from './FocusViewDemo.vue';
 
 import expressFormCode from './text-to-form/ExpressForm.vue?raw';
 import enchantExpressFormCodeRaw from './text-to-form/EnchantExpressForm.vue?raw';
 import apiExpressFormCodeRaw from './text-to-form/ApiExpressForm.vue?raw';
+import actionExpressFormCodeRaw from './text-to-form/ActionExpressForm.vue?raw';
+import apiActionExpressFormCodeRaw from './text-to-form/ApiActionExpressForm.vue?raw';
 import domScanExpressFormCodeRaw from './text-to-form/DomScanExpressForm.vue?raw';
 
 export type CodeBlock = {
@@ -64,6 +67,8 @@ createApp(App).use(Antd).use(forge).mount('#app');`;
 
 const enchantExpressFormCode = stripVueStyleBlock(enchantExpressFormCodeRaw);
 const apiExpressFormCode = stripVueStyleBlock(apiExpressFormCodeRaw);
+const actionExpressFormCode = stripVueStyleBlock(actionExpressFormCodeRaw);
+const apiActionExpressFormCode = stripVueStyleBlock(apiActionExpressFormCodeRaw);
 const domScanExpressFormCode = stripVueStyleBlock(domScanExpressFormCodeRaw);
 
 const originalTextToFormPageCode = `<script setup lang="ts">
@@ -212,6 +217,21 @@ export const demos: DemoSpec[] = [
       { key: 'wrapper', tab: 'Enchant 边界', code: apiExpressFormCode, language: 'xml' },
       { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
       { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form', shippingSuggestions), language: 'xml' }
+    ]
+  },
+  {
+    id: 'use-enchant-action',
+    title: '快递填表：定制 Action',
+    status: '真实 API',
+    summary: '只暴露一个应用拥有的异步填表函数，不暴露 model 或通用字段写入能力；执行进度通过 Aura 实时展示。',
+    suggestions: shippingSuggestions,
+    component: UseEnchantActionDemo,
+    codeBlocks: [
+      { key: 'form', tab: '原表单组件', code: expressFormCode, language: 'xml' },
+      { key: 'action', tab: '定制 Action', code: actionExpressFormCode, language: 'xml', compareTo: 'form' },
+      { key: 'wrapper', tab: 'Enchant 边界', code: apiActionExpressFormCode, language: 'xml' },
+      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
+      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('use-enchant-action', shippingSuggestions), language: 'xml' }
     ]
   },
   {
