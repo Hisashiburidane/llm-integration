@@ -111,12 +111,11 @@ export function createHttpKnowledgeProvider(
       const headers = typeof options.headers === 'function'
         ? await options.headers()
         : options.headers;
+      const requestHeaders = new Headers(headers);
+      if (!requestHeaders.has('Content-Type')) requestHeaders.set('Content-Type', 'application/json');
       const response = await fetcher(options.endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers
-        },
+        headers: requestHeaders,
         body: JSON.stringify({
           query: query.query,
           topK: query.topK,

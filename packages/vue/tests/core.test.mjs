@@ -532,6 +532,7 @@ test('HTTP knowledge provider uses a backend-neutral request and response contra
   let request;
   const provider = createHttpKnowledgeProvider({
     endpoint: '/api/knowledge/retrieve',
+    headers: new Headers({ Authorization: 'Bearer test-token' }),
     fetch: async (input, init) => {
       request = { input, init };
       return new Response(JSON.stringify({
@@ -547,6 +548,8 @@ test('HTTP knowledge provider uses a backend-neutral request and response contra
   });
 
   assert.equal(request.input, '/api/knowledge/retrieve');
+  assert.equal(request.init.headers.get('Authorization'), 'Bearer test-token');
+  assert.equal(request.init.headers.get('Content-Type'), 'application/json');
   assert.deepEqual(JSON.parse(request.init.body), {
     query: '换新规则',
     topK: 3,
