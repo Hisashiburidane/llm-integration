@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n';
+import CodeBlock from '../components/CodeBlock.vue';
 import { apiDocsUrl, examplesUrl } from '../urls';
 
 const { t, tm } = useI18n();
@@ -79,7 +80,7 @@ function levelNotes(name: string) {
         <span></span><span></span><span></span>
         <strong>form-integration.vue</strong>
       </div>
-      <pre><code>{{ installCode }}</code></pre>
+      <CodeBlock :code="installCode" language="vue" />
     </aside>
   </section>
 
@@ -126,7 +127,7 @@ function levelNotes(name: string) {
       <h2>{{ t('home.fallback.title') }}</h2>
       <p>{{ t('home.fallback.body') }}</p>
     </div>
-    <pre><code>{{ directiveCode }}</code></pre>
+    <CodeBlock :code="directiveCode" language="vue" />
   </section>
 
   <section class="section code-pair reversed">
@@ -135,7 +136,7 @@ function levelNotes(name: string) {
       <h2>{{ t('home.register.title') }}</h2>
       <p>{{ t('home.register.body') }}</p>
     </div>
-    <pre><code>{{ registerCode }}</code></pre>
+    <CodeBlock :code="registerCode" language="typescript" />
   </section>
 
   <section class="section examples-entry">

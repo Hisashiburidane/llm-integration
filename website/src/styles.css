@@ -129,6 +129,13 @@ a {
   font-weight: 700;
 }
 
+.hero-copy > .kicker {
+  margin-bottom: 20px;
+  font-size: clamp(16px, 1.5vw, 20px);
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
 h1,
 h2,
 h3,

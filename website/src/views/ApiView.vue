@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { apiDocGroups, installCommand, quickStartCode, type ApiDocEntry } from '../api-docs';
+import CodeBlock from '../components/CodeBlock.vue';
 
 const { t, tm } = useI18n();
 const query = ref('');
@@ -73,11 +74,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', focusSearch));
         <div class="api-setup-grid">
           <article>
             <span>{{ t('api.install') }}</span>
-            <pre><code>{{ installCommand }}</code></pre>
+            <CodeBlock :code="installCommand" language="shell" />
           </article>
           <article>
             <span>main.ts</span>
-            <pre><code>{{ quickStartCode }}</code></pre>
+            <CodeBlock :code="quickStartCode" language="typescript" />
           </article>
         </div>
       </section>
@@ -112,17 +113,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', focusSearch));
             <div class="api-reference-grid">
               <section>
                 <strong>{{ t('api.import') }}</strong>
-                <pre><code>{{ entry.importCode }}</code></pre>
+                <CodeBlock :code="entry.importCode" language="typescript" />
               </section>
               <section>
                 <strong>{{ t('api.signature') }}</strong>
-                <pre><code>{{ entry.signature }}</code></pre>
+                <CodeBlock :code="entry.signature" language="typescript" />
               </section>
             </div>
 
             <section v-if="entry.example" class="api-example">
               <strong>{{ t('api.example') }}</strong>
-              <pre><code>{{ entry.example }}</code></pre>
+              <CodeBlock :code="entry.example" />
             </section>
 
             <section class="api-notes">

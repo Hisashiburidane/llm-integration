@@ -1,0 +1,40 @@
+.syntax-block {
+  overflow-x: auto;
+}
+
+.syntax-block code {
+  color: #c9d1d9;
+}
+
+:deep(.syntax-comment) {
+  color: #8b949e;
+  font-style: italic;
+}
+
+:deep(.syntax-keyword) {
+  color: #ff7b72;
+}
+
+:deep(.syntax-string) {
+  color: #a5d6ff;
+}
+
+:deep(.syntax-tag) {
+  color: #7ee787;
+}
+
+:deep(.syntax-attribute) {
+  color: #d2a8ff;
+}
+
+:deep(.syntax-function) {
+  color: #d2a8ff;
+}
+
+:deep(.syntax-property) {
+  color: #ffa657;
+}
+
+:deep(.syntax-number) {
+  color: #79c0ff;
+}
