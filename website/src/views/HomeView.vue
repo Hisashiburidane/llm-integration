@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { examplesUrl } from '../urls';
+import { useI18n } from 'vue-i18n';
+import { apiDocsUrl, examplesUrl } from '../urls';
+
+const { t, tm } = useI18n();
 
 const installCode = `<!-- Page.vue -->
 <script setup>
@@ -37,42 +40,38 @@ const registerCode = `useEnchantAction({
   execute: resetForm
 })`;
 
-const principles = [
-  ['Explicit by default', 'A boundary aggregates component metadata and capabilities without reading its DOM.'],
-  ['Stable contracts first', 'Vue contributions and component adapters take precedence over browser-level inference.'],
-  ['Generic tools, local context', 'Tools stay small. Fields, actions, and regions are passed as scoped metadata.'],
-  ['Visible execution', 'The executor changes UI state step by step. Users can inspect the result before submit.'],
-  ['DOM is optional', 'Marked and full DOM scans are compatibility modes enabled by application code.']
-];
+const principles = ['explicit', 'stable', 'local', 'visible', 'optional'];
 
 const levels = [
-  { name: 'contribute', title: 'Vue contribution', api: 'useEnchantForm / useEnchantAction', notes: ['controlled state', 'typed functions', 'component lifecycle', 'no DOM scan'] },
-  { name: 'adapt', title: 'Component adapter', api: 'adapter plugins', notes: ['public component APIs', 'validation', 'stable execution', 'shared integration'] },
-  { name: 'fallback', title: 'DOM compatibility', api: 'scan="marked" / scan="auto"', notes: ['explicit opt-in', 'legacy pages', 'lower confidence', 'browser events'] },
-  { name: 'reuse', title: 'Executor reuse', api: 'workflow / snapshot', notes: ['saved steps', 'visible replay', 'localStorage POC', 'future backend'] }
+  { name: 'contribute', api: 'useEnchantForm / useEnchantAction' },
+  { name: 'adapt', api: 'adapter plugins' },
+  { name: 'fallback', api: 'scan="marked" / scan="auto"' },
+  { name: 'reuse', api: 'workflow / snapshot' }
 ];
 
 const architecture = [
-  ['EnchantForge', 'client, policy, registry, agent runtime'],
-  ['Enchant', 'lifecycle, contribution boundary, local Enchantment'],
-  ['Adapters', 'stable component metadata and executors'],
-  ['Executor', 'fill, focus, highlight, invoke, replay'],
-  ['Aura', 'application-level interaction over active Enchantments']
+  ['EnchantForge', 'forge'],
+  ['Enchant', 'enchant'],
+  ['Adapters', 'adapters'],
+  ['Executor', 'executor'],
+  ['Aura', 'aura']
 ];
 
+function levelNotes(name: string) {
+  return tm(`home.model.levels.${name}.notes`) as readonly string[];
+}
 </script>
 
 <template>
   <section id="top" class="hero">
     <div class="hero-copy">
-      <p class="kicker">Progressive AI interaction for Vue</p>
-      <h1>Make Vue interfaces readable and executable by AI.</h1>
-      <p class="lead">
-        Add a scope boundary. Components contribute metadata and constrained functions. DOM access remains an explicit compatibility option.
-      </p>
+      <p class="kicker">{{ t('home.hero.kicker') }}</p>
+      <h1>{{ t('home.hero.title') }}</h1>
+      <p class="lead">{{ t('home.hero.lead') }}</p>
       <div class="actions">
-        <a class="button primary" href="#start">Start with one wrapper</a>
-        <a class="button secondary" :href="examplesUrl">Open examples</a>
+        <a class="button primary" href="#start">{{ t('home.hero.start') }}</a>
+        <a class="button secondary" :href="examplesUrl">{{ t('home.hero.examples') }}</a>
+        <a class="button text" :href="apiDocsUrl">{{ t('home.hero.api') }} →</a>
       </div>
     </div>
     <aside class="terminal" aria-label="quick start code">
@@ -86,38 +85,36 @@ const architecture = [
 
   <section id="start" class="section split">
     <div>
-      <p class="kicker">Minimum surface</p>
-      <h2>One wrapper creates one AI scope.</h2>
-      <p>
-        The first integration point is a Vue subtree. By default, the boundary only aggregates metadata and capabilities explicitly contributed by its descendants and installed adapters.
-      </p>
+      <p class="kicker">{{ t('home.minimum.kicker') }}</p>
+      <h2>{{ t('home.minimum.title') }}</h2>
+      <p>{{ t('home.minimum.body') }}</p>
     </div>
     <div class="note-list">
       <div>
-        <strong>No DOM traversal by default.</strong>
-        <span>Rendered markup is not treated as a stable component contract.</span>
+        <strong>{{ t('home.minimum.notes.domTitle') }}</strong>
+        <span>{{ t('home.minimum.notes.domBody') }}</span>
       </div>
       <div>
-        <strong>No global exposure by default.</strong>
-        <span>Scopes can be local, global, or private.</span>
+        <strong>{{ t('home.minimum.notes.globalTitle') }}</strong>
+        <span>{{ t('home.minimum.notes.globalBody') }}</span>
       </div>
       <div>
-        <strong>No submit by default.</strong>
-        <span>The executor prepares visible UI state. Final commit remains explicit.</span>
+        <strong>{{ t('home.minimum.notes.submitTitle') }}</strong>
+        <span>{{ t('home.minimum.notes.submitBody') }}</span>
       </div>
     </div>
   </section>
 
   <section id="model" class="section">
-    <p class="kicker">Progressive model</p>
-    <h2>Contribute first. Scan only by choice.</h2>
+    <p class="kicker">{{ t('home.model.kicker') }}</p>
+    <h2>{{ t('home.model.title') }}</h2>
     <div class="levels">
       <article v-for="level in levels" :key="level.name" class="level">
         <code>{{ level.name }}</code>
-        <h3>{{ level.title }}</h3>
+        <h3>{{ t(`home.model.levels.${level.name}.title`) }}</h3>
         <p>{{ level.api }}</p>
         <ul>
-          <li v-for="note in level.notes" :key="note">{{ note }}</li>
+          <li v-for="note in levelNotes(level.name)" :key="note">{{ note }}</li>
         </ul>
       </article>
     </div>
@@ -125,62 +122,54 @@ const architecture = [
 
   <section class="section code-pair">
     <div>
-      <p class="kicker">Marked fallback</p>
-      <h2>Restrict DOM access to declared regions.</h2>
-      <p>
-        Marked scanning keeps the compatibility surface local and visible in source code.
-      </p>
+      <p class="kicker">{{ t('home.fallback.kicker') }}</p>
+      <h2>{{ t('home.fallback.title') }}</h2>
+      <p>{{ t('home.fallback.body') }}</p>
     </div>
     <pre><code>{{ directiveCode }}</code></pre>
   </section>
 
   <section class="section code-pair reversed">
     <div>
-      <p class="kicker">Register</p>
-      <h2>Use registered APIs when state matters.</h2>
-      <p>
-        Controlled components, validation, and business actions should use explicit registration instead of DOM fallback.
-      </p>
+      <p class="kicker">{{ t('home.register.kicker') }}</p>
+      <h2>{{ t('home.register.title') }}</h2>
+      <p>{{ t('home.register.body') }}</p>
     </div>
     <pre><code>{{ registerCode }}</code></pre>
   </section>
 
   <section class="section examples-entry">
     <div>
-      <p class="kicker">Examples</p>
-      <h2>Examples live on a separate page.</h2>
-      <p>
-        The examples page is organized like a small lab: a left-side demo menu, a right-side scenario panel, and later an interactive runtime preview.
-      </p>
+      <p class="kicker">{{ t('home.examples.kicker') }}</p>
+      <h2>{{ t('home.examples.title') }}</h2>
+      <p>{{ t('home.examples.body') }}</p>
     </div>
-    <a class="button primary" :href="examplesUrl">Open examples</a>
+    <a class="button primary" :href="examplesUrl">{{ t('home.examples.action') }}</a>
   </section>
 
   <section id="runtime" class="section runtime">
     <div>
-      <p class="kicker">Runtime</p>
-      <h2>Local scopes, global assistant, shared executor.</h2>
-      <p>
-        Components can keep metadata local. The global assistant only sees scopes explicitly exposed to the global registry. Both paths use the same executor model.
-      </p>
+      <p class="kicker">{{ t('home.runtime.kicker') }}</p>
+      <h2>{{ t('home.runtime.title') }}</h2>
+      <p>{{ t('home.runtime.body') }}</p>
     </div>
     <table>
       <tbody>
         <tr v-for="row in architecture" :key="row[0]">
           <th>{{ row[0] }}</th>
-          <td>{{ row[1] }}</td>
+          <td>{{ t(`home.runtime.rows.${row[1]}`) }}</td>
         </tr>
       </tbody>
     </table>
   </section>
 
   <section class="section principles">
-    <p class="kicker">Design constraints</p>
-    <h2>Constraints before features.</h2>
+    <p class="kicker">{{ t('home.principles.kicker') }}</p>
+    <h2>{{ t('home.principles.title') }}</h2>
     <div class="principle-list">
-      <article v-for="item in principles" :key="item[0]">
-        <h3>{{ item[0] }}</h3>
-        <p>{{ item[1] }}</p>
+      <article v-for="item in principles" :key="item">
+        <h3>{{ t(`home.principles.${item}.title`) }}</h3>
+        <p>{{ t(`home.principles.${item}.body`) }}</p>
       </article>
     </div>
   </section>
