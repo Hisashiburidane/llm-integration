@@ -65,6 +65,12 @@ LLM 返回 tool call 后，Core 使用请求内的 name-to-capability 映射恢�
 
 用户输入作为普通 user message 发送。它不改变工具白名单，也不能覆盖 policy 或 wrapper instruction。
 
+### 2.5 Knowledge retrieval
+
+Knowledge Provider 不自动把检索结果拼进 system prompt 或页面 structure。应用需要注册显式 read capability，由 Agent 根据当前任务调用；检索 chunks 作为 execution result 进入后续 Tool Loop。这样可以保留 provider、source、score 和 query trace，也避免每次运行无条件检索。
+
+Core 只定义查询和结果契约。Embedding、Elasticsearch/OpenSearch 查询、dense/sparse 融合、rerank、ACL 和知识更新位于应用后端。
+
 ## 3. OpenAI-compatible API
 
 默认 client 使用 Chat Completions 的 `tools` 和 `tool_choice: "auto"` 字段。响应优先读取 `message.tool_calls`；如果服务端或模型不支持 tool calling，则保留 JSON plan fallback，以兼容旧 endpoint。

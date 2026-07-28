@@ -99,6 +99,20 @@ export type {
   LlmRunOptions,
   LlmToolCall
 } from './runtime/llm-client';
+export {
+  createHttpKnowledgeProvider,
+  createStaticKnowledgeProvider
+} from './runtime/knowledge';
+export type {
+  EnchantKnowledgeChunk,
+  EnchantKnowledgeDocument,
+  EnchantKnowledgeFilterValue,
+  EnchantKnowledgeProvider,
+  EnchantKnowledgeQuery,
+  EnchantKnowledgeResult,
+  HttpKnowledgeProviderOptions,
+  StaticKnowledgeProviderOptions
+} from './runtime/knowledge';
 export type { EnchantNavigationInput, EnchantNavigationSource, EnchantNavigationState } from './runtime/navigation';
 export { clearLlmDebugEvents, pushLlmDebugEvent, useLlmDebugEvents } from './runtime/debug';
 export type { LlmDebugEvent } from './runtime/debug';

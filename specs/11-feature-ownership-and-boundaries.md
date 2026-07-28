@@ -50,9 +50,12 @@ Core 提供与业务领域无关的稳定机制：
 - provider-neutral Context/Tool 导出、安全 executor 和可选的有界 Tool Loop；
 - policy、authorization、progress、trace 和 debug；
 - 可替换的默认 LLM client、Agent Client 契约和 `agentId` resolver；
+- 后端无关的 Knowledge Provider 查询/结果契约与 HTTP 适配机制；
 - Adapter 和应用 capability 的扩展接口。
 
 Core 中的行为必须能够在不知道页面业务类型的情况下定义和测试。监控、快递、工单、审批等领域名词不得成为 Core 行为的前提。
+
+Core 不拥有文档切分、embedding 模型、索引 mapping、hybrid score 融合、reranker、ACL 或知识更新流程。这些属于应用后端或独立知识平台。静态 provider 只能用于测试、示例和少量本地规则。
 
 ### 3.2 Official Adapter
 

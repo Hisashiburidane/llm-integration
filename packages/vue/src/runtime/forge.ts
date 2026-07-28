@@ -40,6 +40,11 @@ import type {
   EnchantTraceEvent
 } from './enchantment';
 import type { LlmClient, LlmClientOptions } from './llm-client';
+import type {
+  EnchantKnowledgeProvider,
+  EnchantKnowledgeQuery,
+  EnchantKnowledgeResult
+} from './knowledge';
 import {
   evaluateEnchantPolicy,
   resolveEnchantPolicy,
@@ -91,6 +96,7 @@ export interface EnchantForgeOptions {
   llmClient?: LlmClient;
   agent?: EnchantAgent;
   resolveAgent?: EnchantAgentResolver;
+  knowledge?: EnchantKnowledgeProvider;
   policy?: Partial<EnchantPolicy>;
   snapshots?: Partial<EnchantSnapshotConfig>;
   maxPlanCalls?: number;
@@ -157,6 +163,7 @@ export type EnchantForge = Plugin & {
   readonly registry: EnchantRegistry;
   readonly policy: EnchantPolicy;
   readonly agent: EnchantAgent;
+  readonly knowledge?: EnchantKnowledgeProvider;
   readonly events: readonly EnchantTraceEvent[];
   readonly snapshots: readonly EnchantSnapshot[];
   readonly observationEnabled: Readonly<Ref<boolean>>;
@@ -171,6 +178,7 @@ export type EnchantForge = Plugin & {
   execute(call: EnchantPlanCall, options: EnchantExecuteOptions): Promise<EnchantExecutionResult>;
   executeTool(call: EnchantPlanCall, options: EnchantExecuteOptions): Promise<EnchantExecutionResult>;
   resolveAgent(agentId?: string): EnchantAgent;
+  retrieveKnowledge(query: EnchantKnowledgeQuery): Promise<EnchantKnowledgeResult>;
   exportSnapshot<T = EnchantTool[]>(
     snapshot: EnchantSnapshot,
     exporter?: string | EnchantCapabilityExporter<T>,
@@ -567,6 +575,33 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     return resolved;
   }
 
+  async function retrieveKnowledge(query: EnchantKnowledgeQuery) {
+    const provider = options.knowledge;
+    if (!provider) throw new Error('当前 Forge 未配置 Knowledge Provider。');
+    trace({
+      source: provider.id,
+      kind: 'request',
+      title: 'Knowledge retrieval',
+      detail: { query: query.query, topK: query.topK, filters: query.filters }
+    });
+    const result = await provider.retrieve(query);
+    trace({
+      source: provider.id,
+      kind: 'result',
+      title: 'Knowledge retrieved',
+      detail: {
+        query: result.query,
+        chunks: result.chunks.map((chunk) => ({
+          id: chunk.id,
+          title: chunk.title,
+          source: chunk.source,
+          score: chunk.score
+        }))
+      }
+    });
+    return result;
+  }
+
   function registerExporter<T>(exporter: EnchantCapabilityExporter<T>) {
     if (!exporter.name.trim()) throw new Error('Capability exporter 必须提供 name。');
     if (exporters.has(exporter.name)) throw new Error(`Capability exporter 已存在：${exporter.name}。`);
@@ -887,6 +922,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     registry,
     policy,
     agent,
+    knowledge: options.knowledge,
     debug: readonly(debugState) as Readonly<EnchantDebugConfig>,
     navigation: readonly(navigation) as Readonly<EnchantNavigationState>,
     get exporters() {
@@ -907,6 +943,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     execute,
     executeTool: execute,
     resolveAgent,
+    retrieveKnowledge,
     exportSnapshot,
     exportCapabilities,
     registerExporter,

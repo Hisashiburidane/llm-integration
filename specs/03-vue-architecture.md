@@ -257,6 +257,28 @@ useEnchantRegistry()
 
 除 `useEnchant()` 外，其余 composable 不进入首个示例。
 
+## 7.1 Knowledge Provider
+
+Knowledge retrieval 是可选的技术扩展点，不是前端 Core 内置的 RAG 系统：
+
+```ts
+const forge = createEnchantForge({
+  knowledge: createHttpKnowledgeProvider({
+    endpoint: '/api/knowledge/retrieve'
+  })
+})
+
+const result = await forge.retrieveKnowledge({
+  query: '商品破损换货规则',
+  topK: 5,
+  filters: { channel: 'hotline' }
+})
+```
+
+标准响应由带 `id`、`content`、`source`、`score` 和可选 metadata 的 chunks 组成。后端可以使用 Elasticsearch、OpenSearch、Qdrant、Milvus 或其他 lexical/vector/hybrid 实现；Core 不感知 embedding 模型、索引结构和融合算法。
+
+`createStaticKnowledgeProvider()` 为示例、测试和少量静态规则提供零后端实现，但不宣称替代生产 RAG。检索结果不会自动进入 prompt；应用必须通过明确的 read capability 或自定义 Agent Client 使用它，从而保留来源、trace 和业务触发边界。
+
 ## 8. 生命周期
 
 ```text

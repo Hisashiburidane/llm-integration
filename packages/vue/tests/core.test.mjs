@@ -7,7 +7,9 @@ import {
   createEnchantForge,
   createEnchantDebug,
   createEnchantRegistry,
+  createHttpKnowledgeProvider,
   createLlmClient,
+  createStaticKnowledgeProvider,
   evaluateEnchantPolicy,
   renderAuraMarkdown
 } from '../dist/enchantforge-vue.js';
@@ -491,6 +493,66 @@ test('forge resolves named Agent Clients without binding the context runtime to 
   assert.deepEqual(selected, ['support']);
   assert.equal(forge.resolveAgent('support'), namedAgent);
   assert.throws(() => forge.resolveAgent('missing'), /未解析到 Agent Client/);
+});
+
+test('static knowledge provider returns filtered lexical results through forge', async () => {
+  const knowledge = createStaticKnowledgeProvider({
+    id: 'support-policy',
+    documents: [
+      {
+        id: 'damaged-model',
+        title: '模型破损处理',
+        content: '外包装或模型破损时，应记录照片凭证并创建换货草稿。',
+        source: 'support/manual',
+        metadata: { domain: 'shipping' }
+      },
+      {
+        id: 'battery',
+        title: '电池故障排查',
+        content: '灯具单侧不亮时，先检查电池极性和触点。',
+        source: 'support/manual',
+        metadata: { domain: 'electronics' }
+      }
+    ]
+  });
+  const forge = createEnchantForge({ knowledge });
+
+  const result = await forge.retrieveKnowledge({
+    query: '模型外包装破损',
+    filters: { domain: 'shipping' },
+    topK: 1
+  });
+
+  assert.equal(result.providerId, 'support-policy');
+  assert.deepEqual(result.chunks.map((chunk) => chunk.id), ['damaged-model']);
+  assert.ok(forge.events.some((event) => event.title === 'Knowledge retrieved'));
+});
+
+test('HTTP knowledge provider uses a backend-neutral request and response contract', async () => {
+  let request;
+  const provider = createHttpKnowledgeProvider({
+    endpoint: '/api/knowledge/retrieve',
+    fetch: async (input, init) => {
+      request = { input, init };
+      return new Response(JSON.stringify({
+        chunks: [{ id: 'policy-1', content: '需要人工确认。' }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+  });
+
+  const result = await provider.retrieve({
+    query: '换新规则',
+    topK: 3,
+    filters: { channel: 'hotline' }
+  });
+
+  assert.equal(request.input, '/api/knowledge/retrieve');
+  assert.deepEqual(JSON.parse(request.init.body), {
+    query: '换新规则',
+    topK: 3,
+    filters: { channel: 'hotline' }
+  });
+  assert.equal(result.chunks[0].id, 'policy-1');
 });
 
 test('default agent can use an injected LLM client', async () => {
