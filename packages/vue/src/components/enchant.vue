@@ -38,6 +38,7 @@ const props = defineProps({
   id: String,
   name: String,
   page: String,
+  agentId: String,
   route: String,
   kind: {
     type: String as PropType<Enchantment['kind']>,
@@ -99,6 +100,7 @@ const activated = ref(true);
 let captureVersion = 0;
 const enchantment = ref<Enchantment>();
 const contributions = new Map<string, { token: symbol; contribution: EnchantContribution }>();
+const agentId = computed(() => props.agentId ?? parentContext?.agentId.value);
 const initialScopeId = props.name || props.id || `component-${instance?.uid ?? Math.random().toString(36).slice(2, 8)}`;
 const enchantmentId = props.id || ['enchant', props.page || 'global', initialScopeId, instance?.uid ?? 'local'].join(':');
 let unregister: (() => void) | undefined;
@@ -162,6 +164,7 @@ function capture() {
     id: enchantmentId,
     name: props.name,
     page: props.page,
+    agentId: agentId.value,
     route: props.route,
     kind: props.kind ?? (metadata.some((node) => node.kind === 'field') ? 'form' : 'custom'),
     exposure: currentExposure(),
@@ -188,6 +191,7 @@ function registration(): EnchantRegistration {
     id: enchantmentId,
     name: props.name,
     page: props.page,
+    agentId: agentId.value,
     route: props.route,
     tags: [...props.tags],
     exposure: currentExposure(),
@@ -256,6 +260,7 @@ function refresh() {
 
 provide(enchantContextKey, {
   id: enchantmentId,
+  agentId,
   enchantment,
   refresh,
   registerContribution
@@ -281,6 +286,7 @@ watch(forge.observationEnabled, configureObservation);
 watch(() => [
   props.name,
   props.page,
+  props.agentId,
   props.route,
   props.kind,
   props.prompt,

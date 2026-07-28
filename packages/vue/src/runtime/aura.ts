@@ -6,6 +6,7 @@ import type { AuraActivityStep, AuraProgressMessages } from './presentation';
 
 export interface AuraProps {
   page?: string;
+  agentId?: string;
   agent?: EnchantAgent;
   caster?: EnchantAgent;
   appearance?: 'orb' | 'dock' | 'inline';

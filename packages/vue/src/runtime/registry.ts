@@ -92,6 +92,7 @@ function registrationSignature(registration: EnchantRegistration) {
     id: registration.id,
     name: registration.name,
     page: registration.page,
+    agentId: registration.agentId,
     route: registration.route,
     tags: registration.tags,
     exposure: registration.exposure,

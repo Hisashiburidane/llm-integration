@@ -22,13 +22,15 @@
 ## 2. 总原则
 
 ~~~text
-EnchantForge owns discovery, description, orchestration and constraints.
+EnchantForge owns discovery, description, tool contracts and constraints.
 Capability owners own semantics and effects.
 ~~~
 
 中文定义：
 
-> EnchantForge 负责发现、描述、编排和约束；能力所有者负责定义语义和产生效果。
+> EnchantForge 负责发现、描述、工具契约和约束；能力所有者负责定义语义和产生效果。
+
+Core 可以提供可复用的默认 Agent Client 和有界 Tool Loop，但它们是便利机制。应用仍拥有触发时机、Agent 后端、协议路由、会话和业务流程。
 
 执行层面的约束：
 
@@ -45,9 +47,9 @@ Core 提供与业务领域无关的稳定机制：
 - Enchantment 和 registration 生命周期；
 - metadata capture、registry、snapshot 和 digest；
 - capability 描述、tool schema 和调用协议；
-- plan、executor 调度和结构化结果；
+- provider-neutral Context/Tool 导出、安全 executor 和可选的有界 Tool Loop；
 - policy、authorization、progress、trace 和 debug；
-- LLM provider 和 agent protocol；
+- 可替换的默认 LLM client、Agent Client 契约和 `agentId` resolver；
 - Adapter 和应用 capability 的扩展接口。
 
 Core 中的行为必须能够在不知道页面业务类型的情况下定义和测试。监控、快递、工单、审批等领域名词不得成为 Core 行为的前提。
@@ -91,7 +93,7 @@ Adapter 可以暂时与 @enchantforge/vue 位于同一 package，但代码必须
 - 审批、支付和删除；
 - 根据业务状态决定字段是否允许修改。
 
-应用能力可以注册到 EnchantForge，由 Aura 发现和调用，但其实现不得因此移动到 Core。
+应用能力可以注册到 EnchantForge，由 Aura、应用自有 Agent Client 或后端 Agent 发现和调用，但其实现不得因此移动到 Core。
 
 ### 3.4 Example Incubation
 

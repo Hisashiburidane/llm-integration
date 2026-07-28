@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   Aura,
+  Enchant,
   createEnchantForge,
   createEnchantDebug,
   createEnchantRegistry,
@@ -165,6 +166,8 @@ function createTestForge(options = {}) {
 test('Aura preserves undefined open state for uncontrolled usage', () => {
   assert.equal(Object.hasOwn(Aura.props.open, 'default'), true);
   assert.equal(Aura.props.open.default, undefined);
+  assert.ok(Aura.props.agentId);
+  assert.ok(Enchant.props.agentId);
 });
 
 test('registry preserves nested metadata tree nodes', () => {
@@ -385,6 +388,109 @@ test('forge exports tools through built-in and custom capability exporters', () 
   assert.deepEqual(forge.exportCapabilities('names'), ['test.action']);
   unregister();
   assert.throws(() => forge.exportCapabilities('names'), /未注册/);
+});
+
+test('forge captures protocol-neutral context and tools from one snapshot', async () => {
+  const { forge, getExecutionCount } = createTestForge();
+  const registration = forge.registry.getRegistration('scope:test');
+  registration.agentId = 'call-center';
+  const originalCapture = registration.capture;
+  registration.capture = () => {
+    const result = originalCapture();
+    result.enchantment.agentId = 'call-center';
+    result.enchantment.instruction = '只填写草稿，不要提交。';
+    return result;
+  };
+  forge.registry.update(registration);
+
+  const bundle = forge.captureContext({
+    scope: 'local',
+    enchantmentId: 'scope:test'
+  });
+
+  assert.equal(bundle.snapshot.enchantments[0].metadata[0].children[0].value, 'initial');
+  assert.equal(bundle.context.structure.children[0].children[0].label, 'Test region');
+  assert.doesNotMatch(JSON.stringify(bundle.context), /initial|call-center|version/);
+  assert.deepEqual(bundle.instructions, [{
+    enchantmentId: 'scope:test',
+    name: 'test-scope',
+    instruction: '只填写草稿，不要提交。'
+  }]);
+  assert.equal(bundle.tools[0].capabilityId, bundle.snapshot.tools[0].capabilityId);
+
+  const result = await forge.executeTool(
+    { capabilityId: bundle.tools[0].capabilityId, input: { value: 'external client' } },
+    { snapshot: bundle.snapshot, confirmed: true }
+  );
+  assert.equal(result.ok, true);
+  assert.equal(getExecutionCount(), 1);
+});
+
+test('context capture supports page and application scopes', () => {
+  const forge = createEnchantForge();
+  forge.registry.register(createRegistration());
+  forge.registry.register({
+    id: 'scope:other',
+    name: 'other-scope',
+    page: 'other-page',
+    exposure: 'aura',
+    getStatus: () => status(),
+    capture: () => ({
+      enchantment: {
+        id: 'scope:other',
+        name: 'other-scope',
+        page: 'other-page',
+        kind: 'panel',
+        exposure: 'aura',
+        status: status(),
+        metadata: [],
+        capabilities: [],
+        source: { scopeId: 'scope:other' },
+        version: 1
+      },
+      capabilities: []
+    })
+  });
+
+  const page = forge.captureContext({ scope: 'page', page: 'test-page' });
+  const app = forge.captureContext({ scope: 'app', app: 'operations' });
+
+  assert.deepEqual(page.context.structure.children.map((item) => item.id), ['scope:test']);
+  assert.deepEqual(app.context.structure.children.map((item) => item.id), ['scope:test', 'scope:other']);
+  assert.equal(app.context.pageId, 'operations');
+});
+
+test('exportSnapshot projects an existing snapshot without recapturing', () => {
+  const { forge } = createTestForge();
+  const snapshot = forge.capture();
+  forge.registry.unregister('scope:test');
+
+  assert.deepEqual(
+    forge.exportSnapshot(snapshot).map((tool) => tool.name),
+    ['test.action']
+  );
+});
+
+test('forge resolves named Agent Clients without binding the context runtime to one backend', async () => {
+  const selected = [];
+  const namedAgent = {
+    async plan() {
+      selected.push('support');
+      return { message: 'routed', calls: [] };
+    }
+  };
+  const forge = createEnchantForge({
+    resolveAgent(agentId) {
+      return agentId === 'support' ? namedAgent : undefined;
+    }
+  });
+
+  const result = await forge.run({ input: 'inspect', agentId: 'support' });
+
+  assert.equal(result.message, 'routed');
+  assert.deepEqual(selected, ['support']);
+  assert.equal(forge.resolveAgent('support'), namedAgent);
+  assert.throws(() => forge.resolveAgent('missing'), /未解析到 Agent Client/);
 });
 
 test('default agent can use an injected LLM client', async () => {

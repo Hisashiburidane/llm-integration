@@ -29,11 +29,17 @@ export {
 } from './runtime/forge';
 export type {
   EnchantContext,
+  EnchantContextBundle,
+  EnchantContextCaptureOptions,
+  EnchantContextInstruction,
+  EnchantContextScope,
   EnchantDebugConfig,
   EnchantExecuteOptions,
   EnchantForge,
   EnchantForgeOptions,
   EnchantForgePlugin,
+  EnchantAgentResolver,
+  EnchantModelContext,
   EnchantRunOptions,
   EnchantConfirmationRequest,
   EnchantSnapshotConfig

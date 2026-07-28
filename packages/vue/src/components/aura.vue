@@ -71,7 +71,7 @@ const legacyAgent = computed(() => props.model ? createDefaultEnchantAgent({
   apiKey: props.apiKey,
   configError: props.configError
 }) : undefined);
-const resolvedAgent = computed(() => props.agent ?? props.caster ?? legacyAgent.value ?? forge.agent);
+const resolvedAgent = computed(() => props.agent ?? props.caster ?? legacyAgent.value);
 const isOpen = computed({
   get: () => props.open ?? internalOpen.value,
   set: (value: boolean) => {
@@ -283,6 +283,7 @@ async function submit(message?: string): Promise<EnchantRunResult | undefined> {
       input: question,
       page: props.page || undefined,
       prompt: props.prompt || undefined,
+      agentId: props.agentId || undefined,
       agent: resolvedAgent.value,
       history,
       signal: controller.signal,

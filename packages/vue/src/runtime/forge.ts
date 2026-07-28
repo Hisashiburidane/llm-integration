@@ -15,9 +15,11 @@ import {
   type Ref
 } from 'vue';
 import {
+  buildEnchantLlmContext,
   createDefaultEnchantAgent,
   type EnchantAgent,
-  type EnchantConversationMessage
+  type EnchantConversationMessage,
+  type EnchantLlmContext
 } from './agent';
 import { vEnchant, vEnchantIgnore } from './dom-directives';
 import type {
@@ -58,6 +60,7 @@ export interface EnchantRunOptions {
   page?: string;
   enchantmentId?: string;
   prompt?: string;
+  agentId?: string;
   agent?: EnchantAgent;
   history?: readonly EnchantConversationMessage[];
   signal?: AbortSignal;
@@ -87,6 +90,7 @@ export interface EnchantForgeOptions {
   llm?: LlmClientOptions;
   llmClient?: LlmClient;
   agent?: EnchantAgent;
+  resolveAgent?: EnchantAgentResolver;
   policy?: Partial<EnchantPolicy>;
   snapshots?: Partial<EnchantSnapshotConfig>;
   maxPlanCalls?: number;
@@ -98,6 +102,35 @@ export interface EnchantForgeOptions {
 export interface EnchantCapabilityExporter<T = unknown> {
   name: string;
   export(snapshot: EnchantSnapshot, options?: EnchantSnapshotOptions): T;
+}
+
+export type EnchantAgentResolver = (agentId: string) => EnchantAgent | undefined;
+
+export type EnchantContextScope = 'local' | 'page' | 'app';
+
+export type EnchantModelContext = EnchantLlmContext;
+
+export interface EnchantContextCaptureOptions<TTools = EnchantTool[]> extends EnchantSnapshotOptions {
+  scope?: EnchantContextScope;
+  enchantmentId?: string;
+  exporter?: string | EnchantCapabilityExporter<TTools>;
+}
+
+export interface EnchantContextInstruction {
+  enchantmentId: string;
+  name?: string;
+  instruction: string;
+}
+
+export interface EnchantContextBundle<TTools = EnchantTool[]> {
+  /** Control provenance for safe execution. Do not send this object to a model by default. */
+  snapshot: EnchantSnapshot;
+  /** Provider-neutral, policy-filtered page semantics. */
+  context: EnchantModelContext;
+  /** Protocol-neutral tools, or an exporter-specific representation. */
+  tools: TTools;
+  /** Application and boundary rules kept separate from structural context. */
+  instructions: EnchantContextInstruction[];
 }
 
 export interface EnchantForgePlugin {
@@ -114,6 +147,7 @@ export interface EnchantDebugConfig {
 
 export interface EnchantContext {
   id: string;
+  agentId: Readonly<Ref<string | undefined>>;
   enchantment: Ref<Enchantment | undefined>;
   refresh(): EnchantSnapshot;
   registerContribution(contribution: EnchantContribution): () => void;
@@ -132,8 +166,16 @@ export type EnchantForge = Plugin & {
   digest(options?: Pick<EnchantSnapshotOptions, 'page' | 'route' | 'tab' | 'tags' | 'includeLocal' | 'includeHidden'>): EnchantRegistryDigest;
   capture(options?: EnchantSnapshotOptions): EnchantSnapshot;
   snapshot(options?: EnchantSnapshotOptions): EnchantSnapshot;
+  captureContext<TTools = EnchantTool[]>(options?: EnchantContextCaptureOptions<TTools>): EnchantContextBundle<TTools>;
   run(options: EnchantRunOptions | string): Promise<EnchantRunResult>;
   execute(call: EnchantPlanCall, options: EnchantExecuteOptions): Promise<EnchantExecutionResult>;
+  executeTool(call: EnchantPlanCall, options: EnchantExecuteOptions): Promise<EnchantExecutionResult>;
+  resolveAgent(agentId?: string): EnchantAgent;
+  exportSnapshot<T = EnchantTool[]>(
+    snapshot: EnchantSnapshot,
+    exporter?: string | EnchantCapabilityExporter<T>,
+    options?: EnchantSnapshotOptions
+  ): T;
   exportCapabilities<T = EnchantTool[]>(
     exporter?: string | EnchantCapabilityExporter<T>,
     options?: EnchantSnapshotOptions
@@ -368,9 +410,11 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     };
   }
 
-  function capture(snapshotOptions: EnchantSnapshotOptions = {}) {
-    const resolvedOptions = resolveSnapshotOptions(snapshotOptions);
-    const raw = registry.capture(resolvedOptions);
+  function finalizeSnapshot(
+    raw: EnchantSnapshot,
+    snapshotOptions: EnchantSnapshotOptions,
+    title = 'Snapshot captured'
+  ) {
     const enchantments = raw.enchantments.map((enchantment) => ({
       ...enchantment,
       metadata: redactMetadata(enchantment.metadata, policy)
@@ -389,10 +433,81 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     trace({
       source: value.pageId,
       kind: 'snapshot',
-      title: 'Snapshot captured',
+      title,
       detail: { id: value.id, version: value.version, enchantments: value.enchantments.length, tools: value.tools.length }
     });
     return value;
+  }
+
+  function capture(snapshotOptions: EnchantSnapshotOptions = {}) {
+    const resolvedOptions = resolveSnapshotOptions(snapshotOptions);
+    return finalizeSnapshot(registry.capture(resolvedOptions), snapshotOptions);
+  }
+
+  function exportSnapshot<T = EnchantTool[]>(
+    snapshot: EnchantSnapshot,
+    exporter: string | EnchantCapabilityExporter<T> = 'tools',
+    snapshotOptions: EnchantSnapshotOptions = {}
+  ): T {
+    const resolved = typeof exporter === 'string' ? exporters.get(exporter) : exporter;
+    if (!resolved) throw new Error(`未注册 capability exporter：${exporter}。`);
+    return resolved.export(snapshot, snapshotOptions) as T;
+  }
+
+  function toModelContext(snapshot: EnchantSnapshot): EnchantModelContext {
+    return buildEnchantLlmContext(snapshot);
+  }
+
+  function captureContext<TTools = EnchantTool[]>(
+    contextOptions: EnchantContextCaptureOptions<TTools> = {}
+  ): EnchantContextBundle<TTools> {
+    const {
+      scope = contextOptions.enchantmentId ? 'local' : 'page',
+      enchantmentId,
+      exporter = 'tools',
+      ...snapshotOptions
+    } = contextOptions;
+    if (scope === 'local' && !enchantmentId) {
+      throw new Error('local context 必须提供 enchantmentId。');
+    }
+
+    let snapshot: EnchantSnapshot;
+    if (scope === 'app') {
+      const raw = registry.capture({
+        ...snapshotOptions,
+        app: snapshotOptions.app ?? navigation.app,
+        page: undefined,
+        route: undefined,
+        tab: undefined,
+        tags: undefined
+      });
+      const appId = snapshotOptions.app ?? navigation.app ?? 'application';
+      snapshot = finalizeSnapshot({
+        ...raw,
+        id: `${appId}:${raw.version}:${raw.createdAt}`,
+        pageId: appId,
+        metadataTree: { ...raw.metadataTree, id: appId, label: appId }
+      }, snapshotOptions, 'Application context captured');
+    } else {
+      snapshot = capture({
+        ...snapshotOptions,
+        enchantmentIds: scope === 'local' ? [enchantmentId as string] : snapshotOptions.enchantmentIds,
+        includeLocal: scope === 'local' ? true : snapshotOptions.includeLocal
+      });
+    }
+
+    return {
+      snapshot,
+      context: toModelContext(snapshot),
+      tools: exportSnapshot(snapshot, exporter, snapshotOptions),
+      instructions: snapshot.enchantments
+        .filter((enchantment) => enchantment.instruction)
+        .map((enchantment) => ({
+          enchantmentId: enchantment.id,
+          name: enchantment.name,
+          instruction: enchantment.instruction as string
+        }))
+    };
   }
 
   function configurePolicy(config: Partial<EnchantPolicy>) {
@@ -442,9 +557,14 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     snapshotOptions: EnchantSnapshotOptions = {}
   ): T {
     const snapshot = capture(snapshotOptions);
-    const resolved = typeof exporter === 'string' ? exporters.get(exporter) : exporter;
-    if (!resolved) throw new Error(`未注册 capability exporter：${exporter}。`);
-    return resolved.export(snapshot, snapshotOptions) as T;
+    return exportSnapshot(snapshot, exporter, snapshotOptions);
+  }
+
+  function resolveAgent(agentId?: string) {
+    if (!agentId) return agent;
+    const resolved = options.resolveAgent?.(agentId);
+    if (!resolved) throw new Error(`未解析到 Agent Client：${agentId}。`);
+    return resolved;
   }
 
   function registerExporter<T>(exporter: EnchantCapabilityExporter<T>) {
@@ -619,7 +739,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         includeLocal: Boolean(request.enchantmentId)
       };
       let current = capture(captureOptions);
-      const selectedAgent = request.agent ?? agent;
+      const selectedAgent = request.agent ?? resolveAgent(request.agentId);
       trace({ source: current.pageId, kind: 'request', title: 'Agent request', detail: { input: request.input, snapshotId: current.id } });
       emitProgress(runId, 'planning', request.onProgress);
       const initialPlan = await selectedAgent.plan({
@@ -782,8 +902,12 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     digest,
     capture,
     snapshot: capture,
+    captureContext,
     run,
     execute,
+    executeTool: execute,
+    resolveAgent,
+    exportSnapshot,
     exportCapabilities,
     registerExporter,
     configurePolicy,
@@ -843,10 +967,20 @@ export function useEnchant() {
 
   return {
     enchantment: computed(() => context.enchantment.value),
+    agentId: context.agentId,
     capture: context.refresh,
     refresh: context.refresh,
+    captureContext: <TTools = EnchantTool[]>(
+      options: Omit<EnchantContextCaptureOptions<TTools>, 'scope' | 'enchantmentId'> = {}
+    ) => forge.captureContext<TTools>({
+      ...options,
+      scope: 'local',
+      enchantmentId: context.id
+    }),
+    executeTool: forge.executeTool,
     run: (value: string | Omit<EnchantRunOptions, 'enchantmentId'>) => forge.run({
       ...(typeof value === 'string' ? { input: value } : value),
+      agentId: typeof value === 'string' ? context.agentId.value : (value.agentId ?? context.agentId.value),
       enchantmentId: context.id
     })
   };

@@ -15,6 +15,8 @@
 
 LLM 负责理解命令并选择工具；Core 负责工具白名单、输入校验、policy、确认和执行。
 
+相同边界通过 `captureContext()` 对自定义 Agent Client 开放。该方法返回模型可消费的 `context`、可导出的 `tools`、局部 `instructions` 和只供 Core 执行使用的 `snapshot`。四者来自同一次 capture，不需要调用方拼接多个可能失配的运行时读取。
+
 Snapshot version 表示 metadata/capability 合约版本，不表示业务数据版本。表格、图表和 store 数据刷新不应触发 capture 或改变 registry version；需要实时数据时，由 read capability 在执行阶段读取。
 
 ## 2. 请求分层
@@ -43,6 +45,7 @@ Context 只提供由 metadata 生成的页面组织结构：页面、Enchantment
 - DOM selector；
 - component state；
 - lifecycle、exposure、source、capture version；
+- Agent Client 路由使用的 `agentId`；
 - policy 配置和执行回调。
 
 ### 2.3 Function tools
@@ -79,7 +82,7 @@ LLM 返回 tool call 后，Core 使用请求内的 name-to-capability 映射恢�
 - inputSchema 校验；
 - executor 调用和结果归一化。
 
-任何 LLM Context 字段都不能替代这些执行前检查。snapshot 是本次规划和 debug 的上下文，不是整个执行过程的全局锁；弹框、drawer 或其他无关 Enchant 的挂载不会因为 registry version 改变而使既有 capability 自动失效。自定义 agent 可以直接读取 `EnchantAgentRequest.snapshot`，但默认 agent 和官方 provider 必须通过显式 Context/Tool exporter 构造请求。
+任何 LLM Context 字段都不能替代这些执行前检查。snapshot 是本次规划和 debug 的上下文，不是整个执行过程的全局锁；弹框、drawer 或其他无关 Enchant 的挂载不会因为 registry version 改变而使既有 capability 自动失效。自定义 Agent Client 应优先消费 `captureContext()` 的投影；只有实现自定义 Context/Tool exporter 时才读取 bundle 中的 snapshot，且不得默认把完整 snapshot 发送给模型。
 
 ## 5. 设计准则
 

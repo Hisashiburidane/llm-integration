@@ -51,13 +51,14 @@ app.use(forge)
 Forge 负责：
 
 - 创建与 Vue app 绑定的 registry；
-- 提供模型客户端、policy、adapter 和 exporter；
+- 提供 policy、adapter、exporter 和可选的默认 Agent Client；
 - 聚合当前挂载的 Enchant registration；
 - 按需 capture Enchantment、metadata snapshot 和 capability index；
-- 协调 Aura 请求和 executor；
+- 导出协议无关的页面 context 和 tools；
+- 校验并执行 Agent Client 返回的 tool call；
 - 发布 trace、snapshot 和审计事件。
 
-Forge 是公共产品概念；底层实现仍可使用 runtime、registry、store 和 injection key 等技术术语。
+Forge 是公共产品概念；底层实现仍可使用 runtime、registry、store 和 injection key 等技术术语。`forge.run()` 是内置 Agent Client 和有界 Tool Loop 的便利入口，不代表 Forge 垄断 LLM 调用。业务组件可以只消费 context/tools，并自行连接其他前端或后端 Agent 协议。
 
 ## 4. Enchant 与 Enchantment
 
@@ -96,7 +97,7 @@ type Exposure = 'aura' | 'local' | 'private'
 
 ## 5. Aura
 
-`Aura` 是当前有效 Enchantment 聚合后形成的应用级智能交互层：
+`Aura` 是消费 EnchantForge context/tools 的默认应用级交互组件：
 
 ```vue
 <template>
@@ -107,16 +108,15 @@ type Exposure = 'aura' | 'local' | 'private'
 
 职责：
 
-- 接收自然语言和外部 AI/ASR 事件；
+- 接收用户输入，或由应用通过组件 API 提交外部文本；
 - 常驻时只读取轻量 registry digest，执行前按需生成当前 snapshot；
-- 根据 capability 生成结构化计划；
-- 调用 policy 和 executor；
+- 调用指定的 Agent Client 或 Forge 默认便利 runner；
 - 展示计划确认、执行进度和结果；
 - 在路由和组件生命周期变化后，下次执行自动 capture 新 snapshot。
 
 `appearance="orb"` 是第一阶段默认的可拖动悬浮入口。Aura 的语义能力不依赖 orb；后续可以增加 dock 或 inline 形态。
 
-Aura 只感知已挂载、允许暴露且通过 policy 的 Enchantment，不应被描述为无边界的全局智能。
+Aura 不拥有 metadata、Agent 或执行流程。它可以被替换，也不应成为 ASR、业务事件和后台 Agent Client 调用 Core 的必经入口。
 
 ### 5.1 应用状态同步
 
@@ -135,7 +135,7 @@ forge.syncNavigation({
 
 ### 5.2 Policy、Exporter 与自定义 Client
 
-Policy 是应用级可变运行状态，切换后会递增 registry version，旧 snapshot 会被拒绝：
+Policy 是应用级可变运行状态，切换后会递增 registry version。snapshot version 用于 provenance 和 debug；执行时按 capability 合约、当前生命周期和 policy 重新校验，不按全局版本号拒绝：
 
 ```ts
 forge.configurePolicy({ mode: 'read-only' })
@@ -143,7 +143,24 @@ forge.configurePolicy({ mode: 'draft-only' })
 forge.configurePolicy({ mode: 'disabled' })
 ```
 
-`forge.exportCapabilities()` 默认返回当前 snapshot 的 Core tool model；应用可以注册自己的 exporter，将同一 snapshot 转换为内部 Agent 或其他协议：
+低层调用先用 `captureContext()` 原子获取模型结构、tools 和执行所需 snapshot：
+
+```ts
+const bundle = forge.captureContext({ scope: 'page' })
+const calls = await internalAgent.plan({
+  context: bundle.context,
+  tools: bundle.tools,
+  input
+})
+
+for (const call of calls) {
+  await forge.executeTool(call, { snapshot: bundle.snapshot })
+}
+```
+
+`context` 不包含 snapshot version、registry、`agentId`、字段当前值或业务数据。实时数据由 read capability 返回。`snapshot` 只留给控制和执行链，不应默认序列化给模型。
+
+`forge.exportCapabilities()` 保留为“capture 后直接导出”的便利 API；`forge.exportSnapshot()` 可以把已有 snapshot 转换为内部 Agent 或其他协议，避免 context 与 tools 来自不同 capture：
 
 ```ts
 forge.registerExporter({
@@ -152,9 +169,11 @@ forge.registerExporter({
     return convertTools(snapshot.tools)
   }
 })
+
+const tools = forge.exportSnapshot(bundle.snapshot, 'internal-agent')
 ```
 
-默认 agent 使用 OpenAI-compatible client。需要接入内部模型平台时，传入实现 `LlmClient` 的 `llmClient`，不需要重写 registry、policy 或 executor。
+默认 Agent Client 使用 OpenAI-compatible API。需要接入内部模型平台时，可以传入实现 `LlmClient` 的 `llmClient`；完全不同的协议可以直接消费 `captureContext()`，不需要重写 registry、policy 或 executor。
 
 默认 agent 不直接把完整 `EnchantSnapshot` 发送给模型，而是使用页面结构说明和 OpenAI-compatible function tools；snapshot、policy 和执行状态保留在 Core。具体边界见 [LLM Context 与 Tool Calling 边界](./13-llm-context-boundary.md)。
 
@@ -164,7 +183,23 @@ Aura 可以通过标准属性 `agent` 接入应用自定义 agent，也可以使
 <Aura :caster="agent" appearance="orb" />
 ```
 
-解析顺序为 `agent ?? caster ?? forge.agent ?? builtInAgent`。caster 只改变 API 表达，不创建另一套 agent protocol。
+需要按组件或业务域选择不同后端时，应用提供 `resolveAgent`，组件只声明控制元数据 `agentId`：
+
+```ts
+const forge = createEnchantForge({
+  resolveAgent: (agentId) => agentClients[agentId]
+})
+```
+
+```vue
+<Enchant agent-id="call-center">
+  <CallWorkbench />
+</Enchant>
+
+<Aura agent-id="operations" />
+```
+
+`useEnchant().run()` 继承最近 Enchant 的 `agentId`；调用方传入的 `agent` 仍拥有最高优先级。显式 `agentId` 无法解析时必须报错，不能静默切换默认后端。`agentId` 是控制元数据，不进入模型 context。
 
 ## 6. 局部 AI 集成
 
@@ -180,6 +215,20 @@ await enchant.run({
 ```
 
 `useEnchant()` 默认解析最近的 Enchant 边界及其 Enchantment；在 Forge 上下文中也可以显式指定目标。具体 registry、context builder 和 executor 不进入基础调用代码。
+
+业务组件也可以绕过内置 runner，自行控制采集时机、Agent Client 协议和 Tool Loop：
+
+```ts
+const enchant = useEnchant()
+const bundle = enchant.captureContext()
+const calls = await callCenterAgent.plan(bundle.context, bundle.tools, transcript)
+
+for (const call of calls) {
+  await enchant.executeTool(call, { snapshot: bundle.snapshot })
+}
+```
+
+这条低层路径适用于持续 ASR、online/offline 转写、规则触发和后端定制 Agent。Aura 可以只负责展示消息，也可以完全不参与。
 
 ## 7. Directive 与 Composable
 

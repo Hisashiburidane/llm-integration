@@ -204,7 +204,9 @@ EnchantForge 的 Enchantment 状态包括 `alive`、`active`、`visible` 和 `en
 并定义 `aura`、`local`、`private` 三种暴露范围。
 
 它可以区分局部 Agent、应用级 Aura、不得发送给模型的私有信息，以及 Vue KeepAlive
-`deactivated` 状态。CopilotKit 支持 mount/unmount、`available` 和 `agentId`，但没有
+`deactivated` 状态。EnchantForge 的 `agentId` 是可继承的控制元数据，由应用 resolver
+映射到不同 Agent Client，不进入模型 Context。CopilotKit 支持 mount/unmount、`available`
+和 `agentId`，但没有
 发现与嵌套 UI 边界对应的暴露模型以及统一的 active/visible 状态模型。
 
 ### 4.9 Effect、值策略和能力所有权

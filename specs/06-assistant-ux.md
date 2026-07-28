@@ -2,9 +2,9 @@
 
 ## 1. 定义
 
-Aura 是当前有效 Enchantment 聚合后形成的全局智能交互层。Enchantment 由页面中的 Enchant 组件生成。Aura 不是“帮助开发者附魔的助手”，也不是一个通用聊天窗口。
+Aura 是 EnchantForge 提供的默认智能交互组件。它消费当前有效 Enchantment 形成的 context/tools，并展示输入、进度、确认和结果。Aura 不是 Core 的上下文聚合器，不拥有 Agent，也不是业务组件调用 LLM 的必经入口。
 
-Aura 的可用上下文来自：
+Aura 默认消费的上下文来自：
 
 - 当前挂载且允许全局暴露的 Enchantment；
 - Forge 提供的页面、路由和应用状态；
@@ -27,6 +27,8 @@ Aura 的可用上下文来自：
 ```
 
 两者同时存在时使用 agent。Aura 内部只保存一个归一化后的 agent 引用，caster 不改变 agent protocol。
+
+Aura 也支持 `agentId`。应用通过 Forge 的 `resolveAgent` 将 ID 解析为具体 Agent Client；ID 只用于路由，不进入模型上下文。
 
 ### 2.1 组件 API
 
@@ -86,7 +88,7 @@ orb 是 Aura 的 presentation。未来增加 dock、drawer 或 inline 时，meta
 
 ## 3. 交互来源
 
-Aura 可以由以下事件触发：
+Aura 自身处理用户输入，也允许应用通过实例 API 提交文本。更底层的 AI 任务可以由以下事件触发：
 
 - 用户输入自然语言；
 - ASR 或其他 AI pipeline 传入文本；
@@ -95,7 +97,7 @@ Aura 可以由以下事件触发：
 - 长时间反复滚动但未完成操作；
 - capability 或页面状态发生需要提示的变化。
 
-行为识别必须由应用或独立规则提供信号。Aura 不在第一阶段内置通用用户行为推断系统。
+行为识别、节流、ASR online/offline 合并和触发时机由应用或独立规则负责。应用可以调用 `useEnchant().captureContext()`，把 context/tools 交给自己的 Agent Client，再通过 `executeTool()` 执行结果；不需要伪装成 Aura 用户输入。Aura 不在第一阶段内置通用用户行为推断系统。
 
 ## 4. 核心交互
 

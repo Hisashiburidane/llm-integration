@@ -106,6 +106,8 @@ export interface Enchantment {
   id: string;
   name?: string;
   page?: string;
+  /** Selects an Agent Client. It is control metadata and is not part of model context. */
+  agentId?: string;
   kind: 'page' | 'form' | 'table' | 'chart' | 'panel' | 'dialog' | 'custom';
   exposure: EnchantExposure;
   instruction?: string;
@@ -173,6 +175,7 @@ export interface EnchantRegistration {
   id: string;
   name?: string;
   page?: string;
+  agentId?: string;
   route?: string;
   tags?: string[];
   exposure: EnchantExposure;

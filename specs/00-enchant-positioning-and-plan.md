@@ -22,18 +22,19 @@ EnchantForge 的公共概念限定为以下五项：
 
 | 概念 | 含义 |
 | --- | --- |
-| Forge | 应用级 EnchantForge 实例，保存配置并协调 metadata、模型和执行能力 |
+| Forge | 应用级 EnchantForge 实例，管理 metadata、tools、policy 和安全执行机制 |
 | Enchant | 包裹现有 Vue UI 的组件，建立边界、聚合 contribution 并管理生命周期 |
 | Enchantment | Enchant 生成并注册的数据模型，保存 metadata、capability、状态和来源 |
-| Aura | 当前有效 Enchantment 聚合后形成的全局智能交互层 |
+| Aura | 消费 EnchantForge context/tools 的默认智能交互组件 |
 | orb | Aura 的默认悬浮展示形态，不是独立的运行时概念 |
 
 核心运行关系是：
 
 ```text
-<Enchant> --produce--> Enchantment --register--> EnchantForge --aggregate--> Aura
-    Vue UI            metadata/capability         policy / model       user interaction
-    lifecycle         state/source                execution            orb/dock/inline
+<Enchant> --produce--> Enchantment --register--> EnchantForge --export--> Agent Client
+    Vue UI            metadata/capability         context / tools      app-owned protocol
+    lifecycle         state/source                policy / executor         |
+                                                                        Aura (optional)
 ```
 
 Enchant、Enchantment 和 Aura 是公共产品语言。runtime、scope、registry、executor、capability 仍作为内部架构和高级扩展术语使用，不继续替换成魔法隐喻。
@@ -311,17 +312,18 @@ Aura 默认使用 orb 形态呈现可拖动的悬浮入口，并在展开后承�
 | `appearance` | `orb`、`dock` 或 `inline` 展示形态 | `orb` |
 | `agent` | 覆盖 Forge 默认 agent | Forge agent |
 | `caster` | `agent` 的主题化别名 | 空 |
+| `agentId` | 由应用 resolver 映射到指定 Agent Client | 空 |
 | `open` / `defaultOpen` | 受控或非受控的展开状态 | `false` |
 | `initialMessages` | 恢复应用持久化的会话消息 | 空 |
 | `historyLimit` | 发送给 Agent 的最近会话消息数量 | `20` |
 | `clearOnPageChange` | 页面标识变化时取消运行并清空会话 | `true` |
 | `markdown` | 使用 Aura 的安全 Markdown renderer 展示助手消息 | `true` |
 
-agent 的解析顺序为 `agent ?? caster ?? forge.agent ?? builtInAgent`。同时传入 `agent` 和 `caster` 时使用 `agent`，开发模式下对不同实例给出警告。caster 不定义新的 agent 类型、生命周期或协议。
+显式 `agent` 或 `caster` 优先于 `agentId`；没有显式 client 时由 Forge 解析 `agentId`，未设置 ID 才使用默认 Agent Client。无法解析显式 ID 时直接报错。caster 不定义新的 agent 类型、生命周期或协议。
 
 Aura 的默认系统 Prompt 只描述稳定协议：如何读取 snapshot、选择 capability、输出计划和停止执行。具体页面能力由当前 registry 动态提供，不能将数百个页面的说明预先拼入固定 Prompt。
 
-应用可覆盖 LLM client、system instructions、context builder、tool exporter、plan parser、approval handler 和 Aura UI。
+应用可覆盖 LLM client、system instructions、context builder、tool exporter、plan parser、approval handler 和 Aura UI，也可以绕过 Aura/内置 runner，直接消费 `captureContext()` 并调用 `executeTool()`。
 
 Aura 组件实例提供 `open()`、`close()`、`toggle()`、`focus()`、`submit()`、`cancel()`、`clear()` 和 `getMessages()`，支持应用显式接入 ASR、快捷命令和会话持久化。组件事件只报告交互生命周期；任何页面 effect 仍必须通过 Forge capability 和 policy 执行。
 
@@ -583,7 +585,7 @@ qiankun 等环境中不建议主应用直接访问子应用 DOM 或共享 regist
 
 目标：支持多路由真实应用。
 
-交付：`createEnchantForge()`、injection-based runtime、路由和标签状态同步、policy store、snapshot version、capability exporter、execution trace 和自定义 LLM client。
+交付：`createEnchantForge()`、injection-based runtime、路由和标签状态同步、policy store、snapshot version、原子 Context Bundle、capability exporter、Agent Client resolver、execution trace 和自定义 LLM client。
 
 验收：多个 app 和测试实例 registry 隔离；页面切换后只导出当前能力和导航能力；旧 snapshot 目标失效时拒绝执行；应用可切换 read-only、draft-only 和 disabled。
 

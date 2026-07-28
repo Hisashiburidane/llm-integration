@@ -55,6 +55,14 @@ This is important for the product feeling:
 
 多个 tools 能否由模型在同一响应中并行返回属于 provider 能力，不能成为框架正确性的前提。读取结果驱动的后续操作必须通过 Tool Loop 表达，不能要求模型在看到结果之前生成依赖结果的参数。
 
+Forge 内置 Tool Loop 是便利机制，不是唯一运行方式。Core 的原子边界是：
+
+1. `captureContext()` 从同一次 capture 返回 provider-neutral context、tools 和控制用 snapshot；
+2. 调用方拥有 Agent Client、协议、触发时机和多轮策略；
+3. `executeTool()` 使用原 snapshot 重新校验 tool 合约、当前 registration、policy、schema 和确认要求。
+
+业务组件可以自行实现循环，或把 context/tools 发送给后端 Agent。Aura 只是其中一个调用方。Core 不拥有 ASR、客服会话、消息队列、业务节流或后端路由语义。
+
 ## Fill Fields
 
 Fill fields should support write modes:
