@@ -3,6 +3,12 @@ export default {
   topicId: 'aviation',
   title: 'Flight Operations / Delay Analysis',
   description: '基于 BTS 航班运行数据的可寻址、可联动 Dashboard。',
+  metadata: {
+    aliases: ['航班运行', '机场延误', '航空公司准点率', 'flight operations', 'on-time performance'],
+    keywords: ['航班', '机场', '航空公司', '出港', '到港', '延误', '准点率', '取消率', '延误原因'],
+    useCases: ['比较机场或航空公司的运行质量', '分析延误时段、原因和严重程度', '查看航班量、准点率与取消率'],
+    exampleRequests: ['哪个机场平均延误最高', '比较航空公司准点率', '延误主要集中在哪些时段', '创建机场运行 Dashboard']
+  },
   sourceManifest: {
     datasetId: 'aviation_ontime_demo',
     sourceType: 'sqlite',

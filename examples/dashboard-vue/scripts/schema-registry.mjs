@@ -8,10 +8,20 @@ function assertIdentifier(value, label) {
   }
 }
 
+function validateMetadata(metadata, domainId) {
+  if (!metadata || typeof metadata !== 'object') throw new Error(`${domainId} 缺少 metadata。`);
+  ['aliases', 'keywords', 'useCases', 'exampleRequests'].forEach((field) => {
+    if (!Array.isArray(metadata[field]) || !metadata[field].length || metadata[field].some((item) => typeof item !== 'string' || !item.trim())) {
+      throw new Error(`${domainId} metadata.${field} 必须是非空字符串数组。`);
+    }
+  });
+}
+
 function validateDomain(domain, directory) {
   if (!domain || typeof domain !== 'object') throw new Error(`${directory}/domain.mjs 未导出数据域。`);
   assertIdentifier(domain.id, `${directory} 数据域 ID`);
   if (typeof domain.title !== 'string' || !domain.title.trim()) throw new Error(`${domain.id} 缺少 title。`);
+  validateMetadata(domain.metadata, domain.id);
   if (!domain.dataset || typeof domain.dataset !== 'object') throw new Error(`${domain.id} 缺少 dataset。`);
   if (!Array.isArray(domain.panels) || !Array.isArray(domain.panelTemplates)) {
     throw new Error(`${domain.id} 的 panels 和 panelTemplates 必须是数组。`);

@@ -14,12 +14,21 @@ export interface DataSourceDefinition {
   dimensionIds: string[];
 }
 
+export interface DataDomainMetadata {
+  aliases: string[];
+  keywords: string[];
+  useCases: string[];
+  exampleRequests: string[];
+}
+
 export interface DataDomain {
   id: string;
   topicId: string;
   title: string;
   description: string;
+  metadata: DataDomainMetadata;
   datasetIds: string[];
+  sourceManifest: Record<string, unknown>;
   dataset: DatasetDefinition;
   querySources: QuerySourceDefinition[];
   filterDefinitions: DashboardFilterDefinition[];
@@ -28,6 +37,11 @@ export interface DataDomain {
 
 interface DataDomainSummary {
   id: string;
+  topicId: string;
+  title: string;
+  description: string;
+  metadata: DataDomainMetadata;
+  datasetIds: string[];
 }
 
 async function readJson<T>(response: Response, fallback: string) {

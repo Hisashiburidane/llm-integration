@@ -3,6 +3,12 @@ export default {
   topicId: 'mobility',
   title: 'NYC Taxi / Mobility Operations',
   description: '基于 NYC TLC Yellow Taxi 月度数据的需求、收入和运行效率分析。',
+  metadata: {
+    aliases: ['纽约出租车', '出行运营', '网约车需求', 'taxi operations', 'urban mobility'],
+    keywords: ['出租车', '行程', '上车区域', '行政区', '乘客', '车费', '小费', '收入', '里程', '行程时长'],
+    useCases: ['比较区域出行需求与收入', '分析行程量和收入趋势', '评估区域车费、里程和时长效率'],
+    exampleRequests: ['哪个区域打车需求最高', '比较各行政区收入', '查看每日行程趋势', '创建出租车运营 Dashboard']
+  },
   sourceManifest: {
     datasetId: 'nyc_taxi_demo',
     sourceType: 'sqlite',

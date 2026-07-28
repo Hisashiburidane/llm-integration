@@ -5,6 +5,7 @@ import DashboardPanel from './DashboardPanel.vue';
 import TextToFormBuilder from './TextToFormBuilder.vue';
 import { queryDashboard } from '../query/client';
 import { fetchDataDomains } from '../query/domains';
+import { describeDataDomain, querySourceForMetrics } from '../query/domain-context';
 import type { DatasetDefinition, PanelConfig, PanelType, QueryResult, QuerySpec } from '../model/types';
 import type { DataDomain } from '../query/domains';
 
@@ -77,28 +78,28 @@ const filteredEntries = computed(() => {
 });
 const selectedCatalog = computed(() => catalogs.value.find((catalog) => catalog.id === selectedDashboardId.value) ?? catalogs.value[0]);
 const selectedSource = computed(() => selectedCatalog.value?.querySources.find((source) => source.datasetId === selectedDatasetId.value));
+const builderModel = computed<Record<string, unknown>>(() => ({
+  domainId: selectedCatalog.value?.id ?? '',
+  ...draft.value
+}));
 const availableMetrics = computed(() => {
   const catalog = selectedCatalog.value;
   if (!catalog) return [];
   if (!selectedSource.value) return catalog.dataset.metrics;
   return catalog.dataset.metrics.filter((metric) => selectedSource.value?.metricIds.includes(metric.id));
 });
-const availableDimensions = computed(() => {
-  const catalog = selectedCatalog.value;
-  if (!catalog || !draft.value.metricIds.length) return [];
-  const metrics = draft.value.metricIds
-    .map((metricId) => catalog.dataset.metrics.find((metric) => metric.id === metricId))
-    .filter((metric) => metric !== undefined);
-  return catalog.dataset.dimensions.filter((dimension) => metrics.every((metric) => metric.supportedDimensions.includes(dimension.id)));
-});
+const availableDimensions = computed(() => dimensionsFor(selectedCatalog.value, selectedDatasetId.value, draft.value.metricIds));
 const builderPrompt = computed(() => [
-  '根据用户描述填写 Panel 草稿，不要保存。',
-  `当前数据域：${selectedCatalog.value?.title ?? '未选择'}。`,
-  `当前查询数据源：${selectedSource.value?.datasetId ?? '未选择'}。`,
+  '根据用户描述填写 Panel 草稿，不要保存。先根据意图从完整目录选择唯一 domainId，再选择该域内能提供全部指标的 metricIds 和 dimensionIds；不要因为表单当前有默认值就沿用不相关的数据域。',
+  '数据域目录：',
+  catalogs.value.map((catalog) => [
+    describeDataDomain(catalog),
+    `查询数据源：${catalog.querySources.map((source) => `${source.datasetId}[${source.metricIds.join(', ')}]`).join('；')}`,
+    `指标：${catalog.dataset.metrics.map((metric) => `${metric.id}(${metric.label}: ${metric.description})`).join('；')}`,
+    `维度：${catalog.dataset.dimensions.map((dimension) => `${dimension.id}(${dimension.label}: ${dimension.description})`).join('；')}`
+  ].join('\n')).join('\n\n'),
   `可用类型：${panelTypes.map((item) => item.value).join(', ')}。`,
-  `可用指标：${availableMetrics.value.map((metric) => `${metric.id}(${metric.label})`).join(', ')}。`,
-  `可用维度：${availableDimensions.value.map((dimension) => `${dimension.id}(${dimension.label})`).join(', ') || '无'}。`,
-  'metricIds 和 dimensionIds 必须使用上述 ID 数组。指标卡不填写维度，拓扑图必须填写两个维度。id 使用小写字母、数字和连字符。不要调用保存能力。'
+  'domainId、metricIds 和 dimensionIds 必须使用目录中的 ID。指标卡不填写维度，拓扑图必须填写两个维度。id 使用小写字母、数字和连字符。不要调用保存能力。'
 ].join('\n\n'));
 
 watch(() => draft.value.metricIds, () => {
@@ -112,10 +113,16 @@ watch(() => draft.value.metricIds, () => {
 
 watch(selectedDashboardId, () => {
   if (!editorOpen.value || editing.value) return;
-  selectedDatasetId.value = selectedCatalog.value?.querySources[0]?.datasetId ?? '';
-  const metric = availableMetrics.value[0];
-  draft.value.metricIds = metric ? [metric.id] : [];
-  draft.value.dimensionIds = [];
+  const catalog = selectedCatalog.value;
+  const source = catalog?.querySources.find((item) => item.datasetId === selectedDatasetId.value)
+    ?? (catalog ? querySourceForMetrics(catalog, draft.value.metricIds) : undefined)
+    ?? catalog?.querySources[0];
+  selectedDatasetId.value = source?.datasetId ?? '';
+  const allowedMetrics = new Set(source?.metricIds ?? []);
+  draft.value.metricIds = draft.value.metricIds.filter((metricId) => allowedMetrics.has(metricId));
+  if (!draft.value.metricIds.length && source?.metricIds[0]) draft.value.metricIds = [source.metricIds[0]];
+  const allowedDimensions = new Set(dimensionsFor(catalog, source?.datasetId ?? '', draft.value.metricIds).map((dimension) => dimension.id));
+  draft.value.dimensionIds = draft.value.dimensionIds.filter((dimensionId) => allowedDimensions.has(dimensionId));
 });
 
 watch(selectedDatasetId, () => {
@@ -150,6 +157,18 @@ watch(detailPanel, (panel) => {
 
 function emptyDraft(): PanelDraft {
   return { id: '', type: 'bar', title: '', description: '', metricIds: [], dimensionIds: [], width: 6, minHeight: 300, limit: 20 };
+}
+
+function dimensionsFor(catalog: DataDomain | undefined, datasetId: string, metricIds: string[]) {
+  if (!catalog || !metricIds.length) return [];
+  const sourceDimensions = new Set(catalog.dataSources.find((source) => source.id === datasetId)?.dimensionIds ?? []);
+  const metrics = metricIds
+    .map((metricId) => catalog.dataset.metrics.find((metric) => metric.id === metricId))
+    .filter((metric) => metric !== undefined);
+  return catalog.dataset.dimensions.filter((dimension) => (
+    sourceDimensions.has(dimension.id)
+    && metrics.every((metric) => metric.supportedDimensions.includes(dimension.id))
+  ));
 }
 
 function catalogForPanel(panel: PanelConfig) {
@@ -275,17 +294,34 @@ function stringArray(value: unknown) {
 }
 
 function applyGeneratedDraft(values: Record<string, unknown>) {
+  const generatedDomain = !editing.value && typeof values.domainId === 'string'
+    ? catalogs.value.find((catalog) => catalog.id === values.domainId)
+    : undefined;
+  const catalog = generatedDomain ?? selectedCatalog.value;
+  if (!catalog) return;
+  if (generatedDomain) selectedDashboardId.value = generatedDomain.id;
+
+  const requestedMetrics = values.metricIds === undefined
+    ? draft.value.metricIds
+    : [...new Set(stringArray(values.metricIds))];
+  const source = editing.value
+    ? catalog.querySources.find((item) => item.datasetId === selectedDatasetId.value)
+    : querySourceForMetrics(catalog, requestedMetrics)
+      ?? catalog.querySources.find((item) => item.datasetId === selectedDatasetId.value)
+      ?? catalog.querySources[0];
+  if (source) selectedDatasetId.value = source.datasetId;
+
+  const allowedMetrics = new Set(source?.metricIds ?? []);
+  const metricIds = requestedMetrics.filter((metricId) => allowedMetrics.has(metricId));
+  const allowedDimensions = new Set(dimensionsFor(catalog, source?.datasetId ?? '', metricIds).map((dimension) => dimension.id));
+
   if (!editing.value && typeof values.id === 'string') draft.value.id = values.id;
   if (typeof values.title === 'string') draft.value.title = values.title;
   if (typeof values.description === 'string') draft.value.description = values.description;
   if (typeof values.type === 'string' && panelTypes.some((item) => item.value === values.type)) draft.value.type = values.type as PanelType;
-  if (values.metricIds !== undefined) {
-    const allowed = new Set(availableMetrics.value.map((metric) => metric.id));
-    draft.value.metricIds = [...new Set(stringArray(values.metricIds).filter((metricId) => allowed.has(metricId)))];
-  }
+  if (values.metricIds !== undefined) draft.value.metricIds = metricIds;
   if (values.dimensionIds !== undefined) {
-    const allowed = new Set(availableDimensions.value.map((dimension) => dimension.id));
-    draft.value.dimensionIds = [...new Set(stringArray(values.dimensionIds).filter((dimensionId) => allowed.has(dimensionId)))];
+    draft.value.dimensionIds = [...new Set(stringArray(values.dimensionIds).filter((dimensionId) => allowedDimensions.has(dimensionId)))];
   }
   if (typeof values.width === 'number') draft.value.width = Math.min(12, Math.max(3, Math.round(values.width)));
   if (typeof values.minHeight === 'number') draft.value.minHeight = Math.min(800, Math.max(120, Math.round(values.minHeight)));
@@ -387,8 +423,8 @@ onMounted(() => { void load(); });
       <a-alert v-if="formError" type="error" show-icon :message="formError" class="editor-alert" />
       <Enchant name="panel-builder" page="panel-library" kind="form" prompt="根据用户描述填写 Panel 草稿，不要保存。">
         <TextToFormBuilder
-          :model="draft"
-          :fields="{ id: 'Panel ID', type: 'Panel 类型', title: '标题', description: '描述', metricIds: '指标 ID 列表', dimensionIds: '维度 ID 列表', width: '12 列布局宽度', minHeight: '最小高度', limit: '查询行数上限' }"
+          :model="builderModel"
+          :fields="{ domainId: '数据域 ID', id: 'Panel ID', type: 'Panel 类型', title: '标题', description: '描述', metricIds: '指标 ID 列表', dimensionIds: '维度 ID 列表', width: '12 列布局宽度', minHeight: '最小高度', limit: '查询行数上限' }"
           :prompt="builderPrompt"
           placeholder="例如：创建一个按服务展示 P95 延迟排名的柱状图，宽度 6"
           :assign="applyGeneratedDraft"

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Enchant } from '@enchantforge/vue';
 import TextToFormBuilder from './TextToFormBuilder.vue';
 import { fetchDataDomains } from '../query/domains';
+import { describeDataDomain, panelsForDataDomain } from '../query/domain-context';
 import type { PanelConfig } from '../model/types';
 import type { DataDomain } from '../query/domains';
 
@@ -55,18 +56,16 @@ const filteredDashboards = computed(() => {
 });
 const selectedDomain = computed(() => domains.value.find((domain) => domain.id === draft.value.baseDashboardId));
 const compatiblePanels = computed(() => {
-  const datasetIds = new Set(selectedDomain.value?.datasetIds ?? []);
   const keyword = panelSearch.value.trim().toLowerCase();
-  return panels.value.filter((panel) => {
-    if (!datasetIds.has(panel.query.datasetId)) return false;
-    return !keyword || [
+  return panelsForDataDomain(panels.value, selectedDomain.value).filter((panel) => (
+    !keyword || [
       panel.id,
       panel.title,
       panel.description,
       ...panel.query.metrics.map((metric) => metric.metricId),
       ...panel.query.dimensions.map((dimension) => dimension.dimensionId)
-    ].join(' ').toLowerCase().includes(keyword);
-  });
+    ].join(' ').toLowerCase().includes(keyword)
+  ));
 });
 const selectedPanelIds = computed(() => new Set(draft.value.placements.map((placement) => placement.panelId)));
 const panelMap = computed(() => new Map(panels.value.map((panel) => [panel.id, panel])));
@@ -74,13 +73,20 @@ const builderModel = computed<Record<string, unknown>>(() => ({
   id: draft.value.id,
   title: draft.value.title,
   description: draft.value.description,
+  baseDashboardId: draft.value.baseDashboardId,
   panelIds: draft.value.placements.map((placement) => placement.panelId)
 }));
 const builderPrompt = computed(() => [
-  '根据用户需求填写 Dashboard 草稿，不要保存。',
-  `当前数据域：${selectedDomain.value?.title ?? '未选择'}。`,
-  'panelIds 必须是下列 Panel ID 组成的 JSON 数组，只选择与问题相关的 Panel。',
-  compatiblePanels.value.map((panel) => `${panel.id}: ${panel.title}；${panel.description}`).join('\n'),
+  '根据用户需求填写 Dashboard 草稿，不要保存。先根据意图从完整目录选择唯一 baseDashboardId，再从该数据域选择互补的 Panel；不要因为表单当前有默认值就沿用不相关的数据域。',
+  '数据域与 Panel 目录：',
+  domains.value.map((domain) => [
+    describeDataDomain(domain),
+    'Panels:',
+    panelsForDataDomain(panels.value, domain).map((panel) => (
+      `${panel.id}: ${panel.title}；${panel.description}；类型=${panel.type}；指标=${panel.query.metrics.map((metric) => metric.metricId).join(',')}；维度=${panel.query.dimensions.map((dimension) => dimension.dimensionId).join(',') || '无'}`
+    )).join('\n')
+  ].join('\n')).join('\n\n'),
+  'baseDashboardId 必须使用数据域 ID，panelIds 必须是该域 Panel ID 组成的 JSON 数组，只选择与用户目标相关且能够形成完整证据的 Panel。',
   'id 使用小写字母、数字和连字符。不要调用保存或删除能力。'
 ].join('\n\n'));
 
@@ -161,11 +167,17 @@ function generatedPanelIds(value: unknown) {
 }
 
 function applyGeneratedDraft(values: Record<string, unknown>) {
+  const generatedDomain = !editing.value && typeof values.baseDashboardId === 'string'
+    ? domains.value.find((domain) => domain.id === values.baseDashboardId)
+    : undefined;
+  const domain = generatedDomain ?? selectedDomain.value;
+  if (generatedDomain) draft.value.baseDashboardId = generatedDomain.id;
+
   if (!editing.value && typeof values.id === 'string') draft.value.id = values.id;
   if (typeof values.title === 'string') draft.value.title = values.title;
   if (typeof values.description === 'string') draft.value.description = values.description;
   if (values.panelIds !== undefined) {
-    const allowed = new Map(compatiblePanels.value.map((panel) => [panel.id, panel]));
+    const allowed = new Map(panelsForDataDomain(panels.value, domain).map((panel) => [panel.id, panel]));
     draft.value.placements = [...new Set(generatedPanelIds(values.panelIds))]
       .flatMap((panelId, index) => {
         const panel = allowed.get(panelId);
@@ -289,7 +301,7 @@ onMounted(() => { void load(); });
       <Enchant name="dashboard-builder" page="dashboard-library" kind="form" prompt="根据用户描述填写 Dashboard 草稿，不要保存。">
         <TextToFormBuilder
           :model="builderModel"
-          :fields="{ id: 'Dashboard ID', title: '标题', description: '描述', panelIds: '需要加入的 Panel ID 列表' }"
+          :fields="{ baseDashboardId: '数据域 ID', id: 'Dashboard ID', title: '标题', description: '描述', panelIds: '需要加入的 Panel ID 列表' }"
           :prompt="builderPrompt"
           placeholder="例如：创建一个服务延迟排障大盘，包含 P95、趋势、服务排名和健康明细"
           :assign="applyGeneratedDraft"

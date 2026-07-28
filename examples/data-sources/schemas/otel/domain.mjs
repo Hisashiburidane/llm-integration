@@ -3,6 +3,12 @@ export default {
   topicId: 'observability',
   title: 'Astronomy Shop / OpenTelemetry',
   description: '基于 OpenTelemetry Demo 真实采集信号的服务健康、调用链、指标和日志分析。',
+  metadata: {
+    aliases: ['可观测性', 'APM', '系统监控', 'OpenTelemetry', 'Astronomy Shop'],
+    keywords: ['服务', 'P95', '延迟', '错误率', 'Span', 'Trace', '日志', '指标', '调用链', '拓扑', '依赖'],
+    useCases: ['分析服务延迟与错误', '定位调用链和依赖风险', '查看日志分布与遥测覆盖'],
+    exampleRequests: ['哪个服务 P95 延迟最高', '哪条服务依赖错误最多', '查看错误日志趋势', '创建服务健康 Dashboard']
+  },
   sourceManifest: {
     datasetId: 'otel_demo',
     sourceType: 'sqlite',

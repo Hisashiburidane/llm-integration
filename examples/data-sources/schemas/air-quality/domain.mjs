@@ -3,6 +3,12 @@ export default {
   topicId: 'air-quality',
   title: 'Beijing Air Quality / Pollution Monitoring',
   description: '基于北京多站点小时观测数据的污染物与气象条件分析。',
+  metadata: {
+    aliases: ['空气质量', '污染监测', '北京监测站', 'PM2.5', 'air quality'],
+    keywords: ['PM2.5', 'PM10', '二氧化硫', '二氧化氮', '臭氧', '一氧化碳', '监测站', '气温', '风速', '降水'],
+    useCases: ['比较监测站污染水平', '分析污染物时间趋势与峰值', '结合气象条件观察空气质量'],
+    exampleRequests: ['哪个监测站 PM2.5 最高', '查看臭氧变化趋势', '比较各站点污染物', '创建空气质量 Dashboard']
+  },
   sourceManifest: {
     datasetId: 'beijing_air_quality_demo',
     sourceType: 'sqlite',

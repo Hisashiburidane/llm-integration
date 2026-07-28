@@ -160,6 +160,7 @@ function dataDomainSummary(domain) {
     topicId: domain.topicId,
     title: domain.title,
     description: domain.description,
+    metadata: domain.metadata,
     datasetIds: domain.queryModels.map((model) => model.id)
   };
 }
@@ -167,6 +168,7 @@ function dataDomainSummary(domain) {
 function dataDomainDetail(domain) {
   return {
     ...dataDomainSummary(domain),
+    sourceManifest: domain.sourceManifest ?? {},
     dataset: domain.dataset,
     querySources: domain.querySources,
     filterDefinitions: domain.filterDefinitions ?? [],

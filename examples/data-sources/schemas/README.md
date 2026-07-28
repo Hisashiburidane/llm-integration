@@ -31,6 +31,12 @@ export default {
   topicId: 'commerce',
   title: 'Order Operations',
   description: '订单分析数据域。',
+  metadata: {
+    aliases: ['订单运营', '销售订单'],
+    keywords: ['订单', '销售额', '客单价', '区域'],
+    useCases: ['分析订单趋势', '比较区域销售表现'],
+    exampleRequests: ['哪个区域订单最多', '创建订单趋势 Dashboard']
+  },
   sourceManifest: { provider: 'internal', sourceType: 'sqlite' },
   dataset: {
     id: 'orders',
@@ -54,6 +60,8 @@ export default {
   panels: []
 };
 ```
+
+`metadata` 用于发现和选择数据域：`aliases` 描述常见名称，`keywords` 描述业务实体和术语，`useCases` 描述适用分析，`exampleRequests` 提供典型自然语言意图。HTTP API 会将这些字段与 `description` 一起返回，应用可以把完整数据域目录交给 LLM 自动选择；它们只描述语义，不授予查询或写入能力。
 
 `dataset` 是给 Panel 编辑器、Dashboard 元数据和 LLM 使用的语义描述。`panels`、`panelTemplates` 只用于 `config:reset` 初始化 SQLite 中的可编辑资产，并不是平台内置只读 Dashboard。
 
@@ -128,8 +136,8 @@ export default {
 
 ## Service API
 
-- `GET /api/data-domains`：列出数据域摘要。
-- `GET /api/data-domains/:id`：返回数据集语义、查询数据源、指标和筛选定义。
+- `GET /api/data-domains`：列出数据域摘要，包括用于自动选择的 `metadata`。
+- `GET /api/data-domains/:id`：返回数据集语义、来源说明、查询数据源、指标和筛选定义。
 - `POST /api/dashboard/query`：执行一个 QuerySpec。
 - `POST /api/dashboard/query-batch`：批量执行最多 24 个 QuerySpec。
 
