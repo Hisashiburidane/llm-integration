@@ -2,8 +2,8 @@ import type { Component } from 'vue';
 import TextToFormDemo from './TextToFormDemo.vue';
 import DomTextToFormDemo from './DomTextToFormDemo.vue';
 import UseEnchantActionDemo from './UseEnchantActionDemo.vue';
-import TodoDemo from './TodoDemo.vue';
 import FocusViewDemo from './FocusViewDemo.vue';
+import AsrCustomerServiceDemo from './AsrCustomerServiceDemo.vue';
 
 import expressFormCode from './text-to-form/ExpressForm.vue?raw';
 import enchantExpressFormCodeRaw from './text-to-form/EnchantExpressForm.vue?raw';
@@ -11,6 +11,7 @@ import apiExpressFormCodeRaw from './text-to-form/ApiExpressForm.vue?raw';
 import actionExpressFormCodeRaw from './text-to-form/ActionExpressForm.vue?raw';
 import apiActionExpressFormCodeRaw from './text-to-form/ApiActionExpressForm.vue?raw';
 import domScanExpressFormCodeRaw from './text-to-form/DomScanExpressForm.vue?raw';
+import asrDemoCodeRaw from './AsrCustomerServiceDemo.vue?raw';
 
 export type CodeBlock = {
   key: string;
@@ -26,6 +27,7 @@ export type DemoSpec = {
   status: '真实 API' | 'TODO';
   summary: string;
   suggestions: string[];
+  showAura?: boolean;
   component: Component;
   codeBlocks: CodeBlock[];
 };
@@ -70,6 +72,40 @@ const apiExpressFormCode = stripVueStyleBlock(apiExpressFormCodeRaw);
 const actionExpressFormCode = stripVueStyleBlock(actionExpressFormCodeRaw);
 const apiActionExpressFormCode = stripVueStyleBlock(apiActionExpressFormCodeRaw);
 const domScanExpressFormCode = stripVueStyleBlock(domScanExpressFormCodeRaw);
+const asrDemoCode = stripVueStyleBlock(asrDemoCodeRaw);
+
+const customerServiceAgentCode = `<script setup lang="ts">
+import { useEnchant, useEnchantAction } from '@enchantforge/vue';
+
+const enchant = useEnchant();
+
+useEnchantAction({
+  name: 'support.update_ticket_draft',
+  description: '把离线 ASR 中明确出现的信息写入工单草稿，不提交。',
+  effect: 'draft',
+  inputSchema: ticketDraftSchema,
+  execute: updateTicketDraft
+});
+
+useEnchantAction({
+  name: 'support.present_coaching',
+  description: '向人工坐席显示一条下一步建议并高亮相关字段。',
+  effect: 'visual',
+  inputSchema: coachingSchema,
+  execute: presentCoaching
+});
+
+async function onOfflineTranscript(latest: string, transcript: string) {
+  await enchant.run({
+    input: \`本次新增：\${latest}\\n累计转写：\${transcript}\`,
+    prompt: [
+      '只提取客户明确说出的事实，禁止补全。',
+      '更新工单草稿后给坐席下一步建议。',
+      '不得提交工单或承诺退款、换新已经获批。'
+    ].join('\\n')
+  });
+}
+</script>`;
 
 const originalTextToFormPageCode = `<script setup lang="ts">
 import ExpressForm from './ExpressForm.vue';
@@ -193,16 +229,6 @@ const focusViewSuggestions = [
   '组合一个包含节点 CPU、节点内存和 Pending Pods 的子 Dashboard。'
 ];
 
-const todo = (id: string, title: string, summary: string): DemoSpec => ({
-  id,
-  title,
-  status: 'TODO',
-  summary,
-  suggestions: [],
-  component: TodoDemo,
-  codeBlocks: []
-});
-
 export const demos: DemoSpec[] = [
   {
     id: 'text-to-form',
@@ -249,10 +275,20 @@ export const demos: DemoSpec[] = [
       { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form-dom', shippingSuggestions), language: 'xml' }
     ]
   },
-  todo('asr-ticket', 'ASR 转工单', '等待接入真实 ASR 输入、工单表单和受限 executor。'),
-  todo('validation-helper', '校验助手', '等待接入真实表单校验状态、错误解释和字段聚焦。'),
-  todo('snapshot-restore', '语义快照', '等待实现快照解析、用户确认和真实页面状态回放。'),
-  todo('workflow', '本地工作流', '等待实现动作计划审核、持久化和重复执行。'),
+  {
+    id: 'asr-customer-service',
+    title: '实时坐席辅助',
+    status: '真实 API',
+    summary: '业务组件模拟 ASR online/offline 数据流，在稳定转写到达后主动调用 Agent，自动更新工单草稿并提示人工坐席。',
+    suggestions: [],
+    showAura: false,
+    component: AsrCustomerServiceDemo,
+    codeBlocks: [
+      { key: 'wrapper', tab: 'Enchant 边界', code: asrDemoCode, language: 'xml' },
+      { key: 'agent', tab: '业务触发与 Tools', code: customerServiceAgentCode, language: 'typescript' },
+      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' }
+    ]
+  },
   {
     id: 'focus-view',
     title: 'K8s Focus View',
