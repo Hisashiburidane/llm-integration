@@ -75,9 +75,22 @@ const domScanExpressFormCode = stripVueStyleBlock(domScanExpressFormCodeRaw);
 const asrDemoCode = stripVueStyleBlock(asrDemoCodeRaw);
 
 const customerServiceAgentCode = `<script setup lang="ts">
-import { useEnchant, useEnchantAction } from '@enchantforge/vue';
+import { useEnchant, useEnchantAction, useEnchantForge } from '@enchantforge/vue';
 
 const enchant = useEnchant();
+const forge = useEnchantForge();
+
+useEnchantAction({
+  name: 'support.search_knowledge',
+  description: '检索真实售后规则；给坐席建议前必须调用。',
+  effect: 'read',
+  inputSchema: knowledgeQuerySchema,
+  execute: ({ query }, context) => forge.retrieveKnowledge({
+    query,
+    topK: 3,
+    signal: context.signal
+  })
+});
 
 useEnchantAction({
   name: 'support.update_ticket_draft',
@@ -99,13 +112,35 @@ async function onOfflineTranscript(latest: string, transcript: string) {
   await enchant.run({
     input: \`本次新增：\${latest}\\n累计转写：\${transcript}\`,
     prompt: [
+      '先检索售后知识库。',
       '只提取客户明确说出的事实，禁止补全。',
-      '更新工单草稿后给坐席下一步建议。',
+      '更新工单草稿，并根据检索结果给坐席下一步建议。',
       '不得提交工单或承诺退款、换新已经获批。'
     ].join('\\n')
   });
 }
 </script>`;
+
+const knowledgeProviderCode = `import {
+  createEnchantForge,
+  createHttpKnowledgeProvider,
+  createStaticKnowledgeProvider
+} from '@enchantforge/vue';
+
+// 示例与测试：零后端的静态规则。
+const knowledge = createStaticKnowledgeProvider({
+  id: 'support-demo',
+  documents: supportDocuments
+});
+
+// 生产环境：后端可以使用 Elasticsearch、OpenSearch、
+// Qdrant、Milvus 或其他 hybrid retrieval 实现。
+const productionKnowledge = createHttpKnowledgeProvider({
+  id: 'support-rag',
+  endpoint: '/api/knowledge/retrieve'
+});
+
+const forge = createEnchantForge({ knowledge });`;
 
 const originalTextToFormPageCode = `<script setup lang="ts">
 import ExpressForm from './ExpressForm.vue';
@@ -279,14 +314,14 @@ export const demos: DemoSpec[] = [
     id: 'asr-customer-service',
     title: '实时坐席辅助',
     status: '真实 API',
-    summary: '业务组件模拟 ASR online/offline 数据流，在稳定转写到达后主动调用 Agent，自动更新工单草稿并提示人工坐席。',
+    summary: '三种人物语速的 ASR online/offline 数据流；业务组件主动触发 Agent，检索售后知识、更新工单草稿并提示人工坐席。',
     suggestions: [],
     showAura: false,
     component: AsrCustomerServiceDemo,
     codeBlocks: [
       { key: 'wrapper', tab: 'Enchant 边界', code: asrDemoCode, language: 'xml' },
       { key: 'agent', tab: '业务触发与 Tools', code: customerServiceAgentCode, language: 'typescript' },
-      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' }
+      { key: 'knowledge', tab: 'Knowledge Provider', code: knowledgeProviderCode, language: 'typescript' }
     ]
   },
   {

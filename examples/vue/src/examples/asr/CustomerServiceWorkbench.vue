@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import type { EnchantProgressEvent } from '@enchantforge/vue';
-import { asrSimulation } from './asr-simulation';
+import { asrScenarios } from './asr-simulation';
 import {
   useCustomerServiceAgent,
   type AssistantNotice,
@@ -43,10 +43,13 @@ const asrStatus = ref('等待通话接入');
 const agentStatus = ref('等待稳定的 offline 文本');
 const agentRunning = ref(false);
 const activeUtterance = ref(0);
+const selectedScenarioId = ref(asrScenarios[0].id);
 let runId = 0;
 let controller: AbortController | undefined;
 
 const { analyzeTranscript } = useCustomerServiceAgent(draft, highlightedFields, notices);
+const scenario = computed(() =>
+  asrScenarios.find((item) => item.id === selectedScenarioId.value) ?? asrScenarios[0]);
 
 const phaseLabel = computed(() => ({
   idle: '待机',
@@ -56,7 +59,7 @@ const phaseLabel = computed(() => ({
 }[phase.value]));
 
 const isRunning = computed(() => phase.value === 'listening' || phase.value === 'analyzing');
-const completion = computed(() => Math.round((activeUtterance.value / asrSimulation.length) * 100));
+const completion = computed(() => Math.round((activeUtterance.value / scenario.value.utterances.length) * 100));
 const runtimeDetail = computed(() => agentRunning.value
   ? `ASR：${asrStatus.value} / Agent：${agentStatus.value}`
   : asrStatus.value);
@@ -81,6 +84,12 @@ function reset() {
   activeUtterance.value = 0;
 }
 
+function selectScenario(scenarioId: string) {
+  if (isRunning.value || scenarioId === selectedScenarioId.value) return;
+  reset();
+  selectedScenarioId.value = scenarioId;
+}
+
 function progressLabel(event: EnchantProgressEvent) {
   if (event.detail) return event.detail;
   if (event.capabilityLabel) return event.capabilityLabel;
@@ -99,6 +108,7 @@ async function startSimulation() {
   reset();
   const currentRun = runId;
   const runController = new AbortController();
+  const activeScenario = scenario.value;
   controller = runController;
   phase.value = 'listening';
   asrStatus.value = '客户已接入，正在监听';
@@ -134,7 +144,7 @@ async function startSimulation() {
     });
   }
 
-  for (const [utteranceIndex, utterance] of asrSimulation.entries()) {
+  for (const [utteranceIndex, utterance] of activeScenario.utterances.entries()) {
     if (currentRun !== runId) return;
     activeUtterance.value = utteranceIndex + 1;
 
@@ -142,7 +152,7 @@ async function startSimulation() {
       if (currentRun !== runId) return;
       onlineText.value = partial;
       asrStatus.value = '接收 online partial';
-      await delay(480);
+      await delay(activeScenario.partialDelayMs);
     }
 
     offlineSegments.value.push({ id: utterance.id, text: utterance.final });
@@ -155,7 +165,7 @@ async function startSimulation() {
         offlineSegments.value.map((segment) => segment.text).join('\n')
       );
     }
-    await delay(360);
+    await delay(utterance.pauseAfterMs ?? activeScenario.utterancePauseMs);
   }
 
   if (currentRun !== runId) return;
@@ -179,7 +189,7 @@ onBeforeUnmount(() => {
   <section class="service-console">
     <header class="console-header">
       <div>
-        <span class="console-kicker">Live assistance / call 10086-0728</span>
+        <span class="console-kicker">Live assistance / {{ scenario.id }}-0728</span>
         <h2>售后热线坐席工作台</h2>
         <p>模拟 ASR partial/final 数据流，业务组件在离线结果到达后主动触发 Agent。</p>
       </div>
@@ -190,6 +200,21 @@ onBeforeUnmount(() => {
         <a-button :disabled="phase === 'idle'" @click="reset">重置</a-button>
       </div>
     </header>
+
+    <nav class="scenario-switcher" aria-label="选择售后模拟场景">
+      <button
+        v-for="item in asrScenarios"
+        :key="item.id"
+        type="button"
+        :disabled="isRunning"
+        :class="{ active: item.id === selectedScenarioId }"
+        @click="selectScenario(item.id)"
+      >
+        <strong>{{ item.speaker }}</strong>
+        <span>{{ item.product }}</span>
+        <small>{{ item.voice }} · {{ item.partialDelayMs }}ms/partial</small>
+      </button>
+    </nav>
 
     <div class="runtime-strip">
       <span class="runtime-state" :class="phase">
@@ -217,11 +242,11 @@ onBeforeUnmount(() => {
             点击“开始模拟”接入客户通话
           </div>
           <article v-for="segment in offlineSegments" :key="segment.id" class="transcript-item final">
-            <div><span>客户</span><code>offline</code></div>
+            <div><span>{{ scenario.shortName }}</span><code>offline</code></div>
             <p>{{ segment.text }}</p>
           </article>
           <article v-if="onlineText" class="transcript-item partial">
-            <div><span>客户</span><code>online</code></div>
+            <div><span>{{ scenario.shortName }}</span><code>online</code></div>
             <p>{{ onlineText }}</p>
           </article>
         </div>
@@ -275,13 +300,14 @@ onBeforeUnmount(() => {
               <strong>{{ notice.title }}</strong>
               <time>{{ notice.timestamp }}</time>
             </div>
-            <p>{{ notice.content }}</p>
+            <p class="notice-content">{{ notice.content }}</p>
           </article>
         </div>
 
         <footer>
           <span>执行边界</span>
-          <strong>读取 · 填写草稿 · 高亮</strong>
+          <strong>检索知识 · 填写草稿 · 高亮</strong>
+          <small>Knowledge: demo-support-knowledge</small>
           <small>未提供提交、退款或换新审批工具</small>
         </footer>
       </aside>
@@ -316,6 +342,35 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 .console-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+.scenario-switcher {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  border-bottom: 1px solid #d9e1ea;
+  background: #d9e1ea;
+}
+.scenario-switcher button {
+  display: flex;
+  min-width: 0;
+  padding: 12px 16px;
+  flex-direction: column;
+  gap: 4px;
+  border: 0;
+  color: #53667b;
+  background: #f8fafc;
+  cursor: pointer;
+  text-align: left;
+  transition: color 140ms ease, background 140ms ease, box-shadow 140ms ease;
+}
+.scenario-switcher button:hover:not(:disabled), .scenario-switcher button.active {
+  color: #174f42;
+  background: #fff;
+  box-shadow: inset 0 -2px #238066;
+}
+.scenario-switcher button:disabled { cursor: not-allowed; opacity: .68; }
+.scenario-switcher strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.scenario-switcher span { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.scenario-switcher small { color: #8a98a8; font: 9px/1.4 "IBM Plex Mono", monospace; }
 .runtime-strip {
   display: grid;
   grid-template-columns: auto 84px 1fr auto;
@@ -468,11 +523,13 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 .assistant-notice.result { border-color: #cddcec; border-left-color: #347fc8; }
+.assistant-notice.knowledge { border-color: #d9d5ef; border-left-color: #6d5fc4; }
 .assistant-notice.error { border-color: #eed0d0; border-left-color: #c24444; }
 .assistant-notice > div { display: flex; align-items: center; justify-content: space-between; }
 .assistant-notice strong { font-size: 11px; }
 .assistant-notice time { color: #8b99aa; font: 9px/1 monospace; }
 .assistant-notice p { margin: 8px 0 0; color: #475a6e; font-size: 11px; line-height: 1.65; }
+.notice-content { white-space: pre-line; }
 .assistant-panel footer {
   display: flex;
   flex-direction: column;
@@ -500,6 +557,7 @@ onBeforeUnmount(() => {
   .console-header { align-items: flex-start; flex-direction: column; }
   .runtime-strip { grid-template-columns: auto 1fr auto; }
   .signal-bars { display: none; }
+  .scenario-switcher { grid-template-columns: 1fr; }
   .workbench-grid { grid-template-columns: 1fr; }
   .workspace-panel { min-height: 360px; border-right: 0; border-bottom: 1px solid #d9e1ea; }
   .assistant-panel { grid-column: auto; }

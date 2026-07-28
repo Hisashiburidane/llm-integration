@@ -2,6 +2,7 @@ import type { Ref } from 'vue';
 import {
   useEnchant,
   useEnchantAction,
+  useEnchantForge,
   type EnchantProgressEvent
 } from '@enchantforge/vue';
 
@@ -20,7 +21,7 @@ export type TicketField = keyof TicketDraft;
 
 export interface AssistantNotice {
   id: string;
-  kind: 'coach' | 'result' | 'error';
+  kind: 'knowledge' | 'coach' | 'result' | 'error';
   title: string;
   content: string;
   timestamp: string;
@@ -54,6 +55,60 @@ export function useCustomerServiceAgent(
   notices: Ref<AssistantNotice[]>
 ) {
   const enchant = useEnchant();
+  const forge = useEnchantForge();
+
+  useEnchantAction<{ query: string }>({
+    id: 'customer-service:search-knowledge',
+    name: 'support.search_knowledge',
+    label: '检索售后知识库',
+    description: '根据当前客户问题检索真实售后规则。给坐席建议前必须先调用，并以返回 chunks 为规则依据。',
+    provider: 'customer-service-demo',
+    effect: 'read',
+    target: '售后知识库',
+    inputSchema: {
+      type: 'object',
+      required: ['query'],
+      additionalProperties: false,
+      properties: {
+        query: {
+          type: 'string',
+          minLength: 2,
+          description: '包含商品、故障表现和客户诉求的检索问题'
+        }
+      }
+    },
+    async execute({ query }, context) {
+      const result = await forge.retrieveKnowledge({
+        query,
+        topK: 3,
+        filters: { channel: 'hotline' },
+        signal: context.signal
+      });
+      notices.value = [{
+        id: `knowledge-${Date.now()}`,
+        kind: 'knowledge',
+        title: '知识库命中',
+        content: result.chunks.length
+          ? result.chunks.map((chunk) => `${chunk.title} · ${chunk.source}`).join('\n')
+          : '没有找到匹配的售后规则，建议转人工复核。',
+        timestamp: timestamp()
+      }, ...notices.value];
+      return {
+        status: 'success' as const,
+        summary: `知识库返回 ${result.chunks.length} 条规则。`,
+        data: {
+          providerId: result.providerId,
+          chunks: result.chunks.map((chunk) => ({
+            id: chunk.id,
+            title: chunk.title,
+            content: chunk.content,
+            source: chunk.source,
+            score: chunk.score
+          }))
+        }
+      };
+    }
+  });
 
   useEnchantAction<{ values: Partial<TicketDraft> }>({
     id: 'customer-service:update-ticket-draft',
@@ -169,7 +224,7 @@ export function useCustomerServiceAgent(
     signal: AbortSignal;
     onProgress(event: EnchantProgressEvent): void;
   }) {
-    const noticeCount = notices.value.length;
+    const coachingCount = notices.value.filter((notice) => notice.kind === 'coach').length;
     const result = await enchant.run({
       input: [
         '你收到了一段客服通话的离线 ASR 转写。',
@@ -178,15 +233,20 @@ export function useCustomerServiceAgent(
         '提取有明确证据的工单字段，并给人工坐席一条下一步建议。'
       ].join('\n'),
       prompt: [
+        '先调用 support.search_knowledge 检索当前问题的售后规则；没有检索结果时也不得自行编造规则。',
         '必须调用 support.update_ticket_draft 更新已确认的信息，禁止补全客户没有说过的事实。',
-        '然后调用 support.present_coaching 给坐席简短建议；建议可以要求继续确认信息，但不能承诺退款、换新或赔付已经获批。',
+        '只有看到知识库 tool result 后，才能调用 support.present_coaching 给坐席简短建议，并在建议中说明规则依据。',
+        '建议可以要求继续确认信息，但不能承诺退款、换新、补发或赔付已经获批。',
         '工单只能保持草稿状态。'
       ].join('\n'),
       signal: options.signal,
       onProgress: options.onProgress
     });
 
-    if (notices.value.length === noticeCount && result.message.trim()) {
+    if (
+      notices.value.filter((notice) => notice.kind === 'coach').length === coachingCount
+      && result.message.trim()
+    ) {
       notices.value = [{
         id: `result-${Date.now()}`,
         kind: 'result',
