@@ -2,7 +2,7 @@ export interface AsrUtterance {
   id: string;
   partials: string[];
   final: string;
-  analyze: boolean;
+  checkpoint: boolean;
   pauseAfterMs?: number;
 }
 
@@ -13,6 +13,7 @@ export interface AsrScenario {
   product: string;
   voice: string;
   partialDelayMs: number;
+  finalizationDelayMs: number;
   utterancePauseMs: number;
   utterances: AsrUtterance[];
 }
@@ -24,8 +25,9 @@ export const asrScenarios: AsrScenario[] = [
     shortName: '阿尔萨斯',
     product: '1:1 霜之哀伤复刻模型',
     voice: '语速较慢，句子短，停顿明显',
-    partialDelayMs: 880,
-    utterancePauseMs: 760,
+    partialDelayMs: 1400,
+    finalizationDelayMs: 1500,
+    utterancePauseMs: 1200,
     utterances: [
       {
         id: 'identity',
@@ -35,7 +37,7 @@ export const asrScenarios: AsrScenario[] = [
           '我是阿尔萨斯·米奈希尔。那把一比一的霜之哀伤模型……'
         ],
         final: '我是阿尔萨斯·米奈希尔。那把一比一的霜之哀伤模型，已经到了。',
-        analyze: false
+        checkpoint: false
       },
       {
         id: 'order',
@@ -44,8 +46,8 @@ export const asrScenarios: AsrScenario[] = [
           '订单号是 EF202607280001。'
         ],
         final: '订单号是 EF202607280001。',
-        analyze: true,
-        pauseAfterMs: 900
+        checkpoint: true,
+        pauseAfterMs: 1500
       },
       {
         id: 'issue',
@@ -55,7 +57,7 @@ export const asrScenarios: AsrScenario[] = [
           '是语音底座。一开机，只会说“电量不足”。'
         ],
         final: '木箱没坏，剑也没坏。是语音底座，一开机只会说“电量不足”。这不像霜之哀伤。',
-        analyze: false
+        checkpoint: false
       },
       {
         id: 'request',
@@ -65,7 +67,7 @@ export const asrScenarios: AsrScenario[] = [
           '晚上联系。白天我要处理诺森德的事。'
         ],
         final: '给我补发一个正常的语音底座。晚上联系，白天我要处理诺森德的事。',
-        analyze: true
+        checkpoint: true
       }
     ]
   },
@@ -75,8 +77,9 @@ export const asrScenarios: AsrScenario[] = [
     shortName: '伊利丹',
     product: '双刃光剑模型 + GP 超霸 Greencell 电池',
     voice: '语速快，几乎不停顿，明显不耐烦',
-    partialDelayMs: 520,
-    utterancePauseMs: 420,
+    partialDelayMs: 850,
+    finalizationDelayMs: 1000,
+    utterancePauseMs: 700,
     utterances: [
       {
         id: 'identity',
@@ -85,7 +88,7 @@ export const asrScenarios: AsrScenario[] = [
           '伊利丹·怒风，双刃光剑模型，刚收到。'
         ],
         final: '伊利丹·怒风。双刃光剑模型刚收到。',
-        analyze: false
+        checkpoint: false
       },
       {
         id: 'order',
@@ -94,7 +97,7 @@ export const asrScenarios: AsrScenario[] = [
           '订单号 EF202607280002，记下了吗？'
         ],
         final: '订单号 EF202607280002，记下了吗？',
-        analyze: true
+        checkpoint: true
       },
       {
         id: 'issue',
@@ -103,7 +106,7 @@ export const asrScenarios: AsrScenario[] = [
           '正负极查了三遍，触点也擦了，还是只有一头亮。'
         ],
         final: '我装了全新的 GP 超霸 Greencell 电池，正负极查了三遍，触点也擦了，还是只有一头亮。',
-        analyze: false
+        checkpoint: false
       },
       {
         id: 'request',
@@ -112,7 +115,7 @@ export const asrScenarios: AsrScenario[] = [
           '先告诉我能不能只换灯管，今天随时联系。'
         ],
         final: '我已经等了一万年，不想再等七个工作日。先告诉我能不能只换灯管，今天随时联系。',
-        analyze: true
+        checkpoint: true
       }
     ]
   },
@@ -122,8 +125,9 @@ export const asrScenarios: AsrScenario[] = [
     shortName: '亚瑟',
     product: '全套 144 张香烟卡',
     voice: '语速慢，经常犹豫和自我修正',
-    partialDelayMs: 1080,
-    utterancePauseMs: 1100,
+    partialDelayMs: 1800,
+    finalizationDelayMs: 1900,
+    utterancePauseMs: 1600,
     utterances: [
       {
         id: 'identity',
@@ -133,7 +137,7 @@ export const asrScenarios: AsrScenario[] = [
           '你好，我是亚瑟·摩根。那套一百四十四张的香烟卡……'
         ],
         final: '你好，我是亚瑟·摩根。就是那套一百四十四张的香烟卡。',
-        analyze: false
+        checkpoint: false
       },
       {
         id: 'order',
@@ -142,8 +146,8 @@ export const asrScenarios: AsrScenario[] = [
           'EF202607280003。对，就是这个。'
         ],
         final: '订单号是 EF202607280003。对，就是这个。',
-        analyze: true,
-        pauseAfterMs: 1300
+        checkpoint: true,
+        pauseAfterMs: 2100
       },
       {
         id: 'issue',
@@ -153,7 +157,7 @@ export const asrScenarios: AsrScenario[] = [
           '少了“奇妙发明”那套的第八张。'
         ],
         final: '我数了三遍，约翰也帮我数了一遍，还是一百四十三张。少了“奇妙发明”那套的第八张。',
-        analyze: false
+        checkpoint: false
       },
       {
         id: 'request',
@@ -163,7 +167,7 @@ export const asrScenarios: AsrScenario[] = [
           '下午营地有信号的时候联系。'
         ],
         final: '不用整套退，把少的那张补给我就行。下午营地有信号的时候联系。',
-        analyze: true
+        checkpoint: true
       }
     ]
   }

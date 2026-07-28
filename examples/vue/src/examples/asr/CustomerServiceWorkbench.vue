@@ -10,6 +10,7 @@ import {
 } from './useCustomerServiceAgent';
 
 type SimulationPhase = 'idle' | 'listening' | 'analyzing' | 'completed';
+type PendingAnalysis = { latest: string; transcript: string };
 
 const emptyDraft = (): TicketDraft => ({
   customerName: '',
@@ -60,6 +61,8 @@ const phaseLabel = computed(() => ({
 
 const isRunning = computed(() => phase.value === 'listening' || phase.value === 'analyzing');
 const completion = computed(() => Math.round((activeUtterance.value / scenario.value.utterances.length) * 100));
+const checkpointCount = computed(() =>
+  scenario.value.utterances.filter((utterance) => utterance.checkpoint).length);
 const runtimeDetail = computed(() => agentRunning.value
   ? `ASR：${asrStatus.value} / Agent：${agentStatus.value}`
   : asrStatus.value);
@@ -112,36 +115,53 @@ async function startSimulation() {
   controller = runController;
   phase.value = 'listening';
   asrStatus.value = '客户已接入，正在监听';
-  let analysisQueue = Promise.resolve();
+  let pendingAnalysis: PendingAnalysis | undefined;
+  let analysisWorker: Promise<void> | undefined;
+
+  async function runAnalysis(request: PendingAnalysis) {
+    if (currentRun !== runId || runController.signal.aborted) return;
+    agentRunning.value = true;
+    agentStatus.value = '业务组件已触发 Agent';
+    try {
+      await analyzeTranscript({
+        ...request,
+        signal: runController.signal,
+        onProgress(event) {
+          agentStatus.value = progressLabel(event);
+        }
+      });
+    } catch (error) {
+      if (runController.signal.aborted || currentRun !== runId) return;
+      notices.value = [{
+        id: `error-${Date.now()}`,
+        kind: 'error',
+        title: 'Agent 调用失败',
+        content: error instanceof Error ? error.message : '无法调用 LLM 服务。',
+        timestamp: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+      }, ...notices.value];
+      agentStatus.value = '调用失败，ASR 继续运行';
+    } finally {
+      agentRunning.value = false;
+    }
+  }
+
+  async function drainAnalysis() {
+    while (pendingAnalysis && currentRun === runId && !runController.signal.aborted) {
+      const request = pendingAnalysis;
+      pendingAnalysis = undefined;
+      await runAnalysis(request);
+    }
+  }
 
   function enqueueAnalysis(latest: string, transcript: string) {
-    analysisQueue = analysisQueue.then(async () => {
-      if (currentRun !== runId || runController.signal.aborted) return;
-      agentRunning.value = true;
-      agentStatus.value = '业务组件已触发 Agent';
-      try {
-        await analyzeTranscript({
-          latest,
-          transcript,
-          signal: runController.signal,
-          onProgress(event) {
-            agentStatus.value = progressLabel(event);
-          }
-        });
-      } catch (error) {
-        if (runController.signal.aborted || currentRun !== runId) return;
-        notices.value = [{
-          id: `error-${Date.now()}`,
-          kind: 'error',
-          title: 'Agent 调用失败',
-          content: error instanceof Error ? error.message : '无法调用 LLM 服务。',
-          timestamp: new Date().toLocaleTimeString('zh-CN', { hour12: false })
-        }, ...notices.value];
-        agentStatus.value = '调用失败，ASR 继续运行';
-      } finally {
-        agentRunning.value = false;
-      }
-    });
+    pendingAnalysis = { latest, transcript };
+    if (!analysisWorker) {
+      analysisWorker = drainAnalysis().finally(() => {
+        analysisWorker = undefined;
+      });
+    } else {
+      agentStatus.value = '已有分析运行，保留最新累计上下文';
+    }
   }
 
   for (const [utteranceIndex, utterance] of activeScenario.utterances.entries()) {
@@ -155,11 +175,14 @@ async function startSimulation() {
       await delay(activeScenario.partialDelayMs);
     }
 
+    asrStatus.value = '等待 offline final 确认';
+    await delay(activeScenario.finalizationDelayMs);
+    if (currentRun !== runId) return;
     offlineSegments.value.push({ id: utterance.id, text: utterance.final });
     onlineText.value = '';
     asrStatus.value = 'offline 结果已确认';
 
-    if (utterance.analyze) {
+    if (utterance.checkpoint) {
       enqueueAnalysis(
         utterance.final,
         offlineSegments.value.map((segment) => segment.text).join('\n')
@@ -171,7 +194,7 @@ async function startSimulation() {
   if (currentRun !== runId) return;
   phase.value = 'analyzing';
   asrStatus.value = '通话已结束，等待分析队列';
-  await analysisQueue;
+  await analysisWorker;
   if (currentRun !== runId) return;
   phase.value = 'completed';
   asrStatus.value = 'ASR 与 Agent 队列均已完成，工单仍为草稿';
@@ -212,7 +235,7 @@ onBeforeUnmount(() => {
       >
         <strong>{{ item.speaker }}</strong>
         <span>{{ item.product }}</span>
-        <small>{{ item.voice }} · {{ item.partialDelayMs }}ms/partial</small>
+        <small>{{ item.voice }} · partial {{ item.partialDelayMs }}ms · final {{ item.finalizationDelayMs }}ms</small>
       </button>
     </nav>
 
@@ -225,6 +248,11 @@ onBeforeUnmount(() => {
       </div>
       <span>{{ runtimeDetail }}</span>
       <code>{{ completion }}%</code>
+    </div>
+    <div class="analysis-policy">
+      <span><b>触发</b>{{ checkpointCount }} 个语义检查点</span>
+      <span><b>上下文</b>本次新增 + 累计 offline</span>
+      <span><b>队列</b>串行执行 · pending latest-wins</span>
     </div>
 
     <div class="workbench-grid">
@@ -286,7 +314,7 @@ onBeforeUnmount(() => {
             <span>03 / AGENT OUTPUT</span>
             <strong>坐席辅助</strong>
           </div>
-        <span class="assistant-mark" :class="{ running: agentRunning }">A</span>
+          <span class="assistant-mark" :class="{ running: agentRunning }">A</span>
         </header>
 
         <div class="assistant-feed">
@@ -295,13 +323,15 @@ onBeforeUnmount(() => {
             <strong>等待可分析的 offline 文本</strong>
             <p>助手不会监听每个 partial；业务组件决定何时提交稳定转写。</p>
           </div>
-          <article v-for="notice in notices" :key="notice.id" :class="['assistant-notice', notice.kind]">
-            <div>
-              <strong>{{ notice.title }}</strong>
-              <time>{{ notice.timestamp }}</time>
-            </div>
-            <p class="notice-content">{{ notice.content }}</p>
-          </article>
+          <TransitionGroup name="assistant-slide" tag="div" class="assistant-list">
+            <article v-for="notice in notices" :key="notice.id" :class="['assistant-notice', notice.kind]">
+              <div>
+                <strong>{{ notice.title }}</strong>
+                <time>{{ notice.timestamp }}</time>
+              </div>
+              <p class="notice-content">{{ notice.content }}</p>
+            </article>
+          </TransitionGroup>
         </div>
 
         <footer>
@@ -388,6 +418,17 @@ onBeforeUnmount(() => {
 .runtime-state.listening i { background: #1f8f67; box-shadow: 0 0 0 4px #1f8f6718; }
 .runtime-state.analyzing i { background: #2878c8; box-shadow: 0 0 0 4px #2878c818; }
 .runtime-state.completed i { background: #60758c; }
+.analysis-policy {
+  display: flex;
+  gap: 18px;
+  padding: 7px 18px;
+  border-bottom: 1px solid #d9e1ea;
+  color: #68798c;
+  background: #f8fafc;
+  font: 9px/1.4 "IBM Plex Mono", monospace;
+}
+.analysis-policy span { display: inline-flex; gap: 6px; }
+.analysis-policy b { color: #28556e; text-transform: uppercase; }
 .signal-bars { display: flex; height: 20px; gap: 3px; align-items: center; }
 .signal-bars i {
   width: 3px;
@@ -432,6 +473,7 @@ onBeforeUnmount(() => {
   padding: 14px;
   overflow-y: auto;
 }
+.assistant-list { position: relative; display: flex; flex-direction: column; gap: 10px; }
 .empty-state {
   margin: auto;
   color: #91a0b1;
@@ -530,6 +572,18 @@ onBeforeUnmount(() => {
 .assistant-notice time { color: #8b99aa; font: 9px/1 monospace; }
 .assistant-notice p { margin: 8px 0 0; color: #475a6e; font-size: 11px; line-height: 1.65; }
 .notice-content { white-space: pre-line; }
+.assistant-slide-enter-active {
+  transition: opacity 260ms ease, transform 320ms cubic-bezier(.2, .8, .2, 1);
+}
+.assistant-slide-leave-active {
+  position: absolute;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+.assistant-slide-enter-from, .assistant-slide-leave-to {
+  opacity: 0;
+  transform: translateX(44px);
+}
+.assistant-slide-move { transition: transform 260ms ease; }
 .assistant-panel footer {
   display: flex;
   flex-direction: column;
@@ -558,6 +612,7 @@ onBeforeUnmount(() => {
   .runtime-strip { grid-template-columns: auto 1fr auto; }
   .signal-bars { display: none; }
   .scenario-switcher { grid-template-columns: 1fr; }
+  .analysis-policy { flex-direction: column; gap: 3px; }
   .workbench-grid { grid-template-columns: 1fr; }
   .workspace-panel { min-height: 360px; border-right: 0; border-bottom: 1px solid #d9e1ea; }
   .assistant-panel { grid-column: auto; }
