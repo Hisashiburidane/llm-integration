@@ -40,7 +40,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', focusSearch));
 <template>
   <section id="api-top" class="api-hero">
     <div>
-      <p class="kicker">{{ t('api.kicker') }}</p>
+      <p class="kicker">@enchantforge/vue · 0.1.x</p>
       <h1>{{ t('api.title') }}</h1>
       <p class="lead">{{ t('api.lead') }}</p>
     </div>

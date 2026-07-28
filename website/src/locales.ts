@@ -2,14 +2,14 @@ export const messages = {
   'zh-CN': {
     nav: {
       home: '首页',
-      start: '开始使用',
-      model: '渐进模型',
-      examples: '示例',
-      runtime: '运行时',
+      start: '快速开始',
+      model: '接入方式',
+      examples: '真实示例',
+      runtime: '怎么工作',
       api: 'API 文档'
     },
     meta: {
-      homeTitle: 'EnchantForge · Vue AI 上下文与执行框架',
+      homeTitle: 'EnchantForge · 让 AI 看懂并操作 Vue 页面',
       apiTitle: 'API 文档 · EnchantForge'
     },
     language: {
@@ -19,117 +19,116 @@ export const messages = {
     },
     home: {
       hero: {
-        kicker: '面向 Vue 的渐进式 AI 交互框架',
-        title: '让 AI 读懂并操作 Vue 界面。',
-        lead: '添加一个作用域边界，由组件贡献元数据和受约束的函数。DOM 访问只作为显式启用的兼容方案。',
-        start: '从一个 Wrapper 开始',
-        examples: '打开示例',
-        api: '查看 API'
+        kicker: '不是给应用塞一个聊天框',
+        title: '让 AI 真正看懂你的页面，也真的能动手。',
+        lead: '表单里有什么、按钮能做什么、当前页面发生了什么，不用每做一个 AI 功能就重新拼一遍提示词。组件把这些信息说清楚，EnchantForge 负责把它们交给 AI。',
+        start: '先看最短接入',
+        examples: '直接看它干活',
+        api: '查 API'
       },
       minimum: {
-        kicker: '最小接入面',
-        title: '一个 Wrapper，创建一个 AI 作用域。',
-        body: '第一个集成点就是一棵 Vue 子树。默认情况下，边界只聚合后代组件和已安装适配器明确贡献的元数据与能力。',
+        kicker: '先别讲架构',
+        title: '最简单的接入，就是包一下。',
+        body: '把需要交给 AI 的那块 Vue 页面放进 Enchant。里面的组件把字段和能做的事报上来。就这么多。',
         notes: {
-          domTitle: '默认不遍历 DOM。',
-          domBody: '渲染后的标签结构不是稳定的组件契约。',
-          globalTitle: '默认不全局暴露。',
-          globalBody: '作用域可以保持局部或私有，也可以明确暴露给 Aura。',
-          submitTitle: '默认不提交。',
-          submitBody: '执行器只准备可见的界面状态，最终业务提交仍需显式完成。'
+          domTitle: '不会偷偷扫描整张页面。',
+          domBody: '组件愿意说什么，AI 才能看到什么。老页面实在改不了，再明确开启 DOM 扫描。',
+          globalTitle: '不会把所有信息一股脑交给 AI。',
+          globalBody: '每块页面都可以单独控制：只在本地用、交给 Aura，或者完全不公开。',
+          submitTitle: '更不会替你点确认。',
+          submitBody: '填表、聚焦、高亮都可以做；付款、退款、提交这类操作，默认必须有人把关。'
         }
       },
       model: {
-        kicker: '渐进模型',
-        title: '优先显式贡献，按需选择扫描。',
+        kicker: '从简单到复杂',
+        title: '简单页面少写代码，复杂系统也没被堵死。',
         levels: {
           contribute: {
-            title: 'Vue 主动贡献',
-            notes: ['受控状态', '类型化函数', '组件生命周期', '不扫描 DOM']
+            title: '组件自己说明白',
+            notes: ['表单里有什么', '哪些函数能调用', '挂载时自动登记', '卸载时自动消失']
           },
           adapt: {
-            title: '组件适配器',
-            notes: ['公开组件 API', '输入校验', '稳定执行', '复用集成']
+            title: '常用组件，接一次就够',
+            notes: ['使用组件公开 API', '统一输入校验', '执行结果更稳定', '多个项目重复使用']
           },
           fallback: {
-            title: 'DOM 兼容模式',
-            notes: ['显式启用', '遗留页面', '较低置信度', '浏览器事件']
+            title: '老页面也有后手',
+            notes: ['必须主动开启', '适合遗留页面', '能用但不鼓励', '通过浏览器事件操作']
           },
           reuse: {
-            title: '执行器复用',
-            notes: ['保存步骤', '可见回放', '本地存储验证', '可扩展后端']
+            title: '执行过程还能接着用',
+            notes: ['保存执行步骤', '界面上看得见', '可以回放验证', '以后可接自己的后端']
           }
         }
       },
       fallback: {
-        kicker: '标记式兼容',
-        title: '把 DOM 访问限制在声明过的区域。',
-        body: '标记式扫描让兼容范围保持局部，并且在源代码中清晰可见。'
+        kicker: '实在改不了组件',
+        title: '那就只扫描你点名的地方。',
+        body: '给要读取的输入框做个标记，EnchantForge 只看这些，不会因为“智能”两个字就把整张页面翻个底朝天。'
       },
       register: {
-        kicker: '注册能力',
-        title: '状态重要时，使用显式注册 API。',
-        body: '受控组件、校验和业务操作应该通过显式注册接入，而不是依赖 DOM 推断。'
+        kicker: '关键操作别靠猜',
+        title: '把能做什么，写成一个明确的函数。',
+        body: '比如填表、查数据、打开弹窗。函数需要什么参数、会产生什么影响，都写清楚。AI 负责选择，应用负责真正执行。'
       },
       examples: {
-        kicker: '示例',
-        title: '用真实场景验证框架能力。',
-        body: '示例页面展示文本填表、Focus View 和实时坐席辅助等场景，每项能力都对应真实的元数据与工具调用。',
-        action: '打开示例'
+        kicker: '概念讲完了',
+        title: '别听它怎么说，看它到底能不能干。',
+        body: '文本自动填快递单、监控大屏自动聚焦、客服通话实时生成工单建议。不是预先录好的动画，每一步都对应真实的上下文和工具调用。',
+        action: '去看真实示例'
       },
       runtime: {
-        kicker: '运行时',
-        title: '局部作用域、全局助手、同一套执行模型。',
-        body: '组件可以让元数据保持局部。全局助手只会聚合明确暴露到注册表的作用域，两种路径共享同一套受约束执行模型。',
+        kicker: '它到底怎么工作',
+        title: '组件把话说明白，AI 才不用猜。',
+        body: '页面里的组件各自说明“我是谁、我有什么、我能做什么”。EnchantForge 把这些信息按页面整理好，再交给 Aura 或你自己的 Agent。',
         rows: {
-          forge: '客户端、策略、注册表与 Agent 运行时',
-          enchant: '生命周期、贡献边界与局部 Enchantment',
-          adapters: '稳定的组件元数据与执行器',
-          executor: '填表、聚焦、高亮、调用与回放',
-          aura: '面向活跃 Enchantment 的应用级交互入口'
+          forge: '总控：收集上下文、选择 Agent、执行安全规则',
+          enchant: '划范围：告诉框架这一块页面属于谁',
+          adapters: '翻译器：把常用组件变成 AI 能理解的说明',
+          executor: '动手干：填表、聚焦、高亮、调用函数',
+          aura: '对话入口：用户从这里提要求、看进度和结果'
         }
       },
       principles: {
-        kicker: '设计约束',
-        title: '先明确边界，再扩展功能。',
+        kicker: '我们故意不做的事',
+        title: 'AI 可以聪明，框架不能自作聪明。',
         explicit: {
-          title: '默认显式',
-          body: '边界只聚合组件贡献的元数据和能力，不默认读取 DOM。'
+          title: '不偷看',
+          body: '组件没有主动提供的信息，框架默认不从 DOM 里猜。'
         },
         stable: {
-          title: '稳定契约优先',
-          body: 'Vue 贡献与组件适配器优先于浏览器层推断。'
+          title: '不猜组件',
+          body: '优先相信 Vue 状态和公开 API，不把页面标签当成业务真相。'
         },
         local: {
-          title: '通用工具，局部上下文',
-          body: '工具保持小而明确，字段、操作和区域通过作用域元数据提供。'
+          title: '不把全世界塞进提示词',
+          body: '当前任务需要哪些页面信息，就只给哪些。'
         },
         visible: {
-          title: '执行过程可见',
-          body: '执行器逐步改变界面状态，用户可以在提交前检查结果。'
+          title: '不偷偷动手',
+          body: '填了什么、高亮了什么、调用了什么，界面上都看得见。'
         },
         optional: {
-          title: 'DOM 只是兼容选项',
-          body: '标记扫描和完整扫描都必须由应用代码明确启用。'
+          title: '不拿兼容方案当主角',
+          body: 'DOM 扫描留给老页面，新页面应该提供稳定、明确的能力。'
         }
       }
     },
     api: {
-      kicker: '@enchantforge/vue · 0.1.x',
       title: 'API 文档',
-      lead: '从一个 Wrapper 到自定义 Agent。这里记录 EnchantForge Vue 包的稳定公开入口，以及它们各自应承担的职责。',
+      lead: '如果只是让 AI 填个表，前面几个 API 就够了。等你要接自己的 Agent、知识库和执行策略，再继续往下看。',
       searchLabel: '搜索 API',
       searchPlaceholder: '搜索 Enchant、useEnchantForm、Agent…',
-      empty: '没有匹配的 API。',
-      import: '导入',
-      signature: '签名',
-      example: '示例',
-      responsibilities: '适用场景',
-      onThisPage: '本页内容',
-      quickStart: '安装与初始化',
-      quickStartBody: '安装 Forge 插件一次，然后在需要 AI 上下文的 Vue 子树外添加 Enchant。',
+      empty: '没找到。可能是名字输错了，也可能它还不是公开 API。',
+      import: '怎么引入',
+      signature: '它接收什么',
+      example: '怎么用',
+      responsibilities: '有几件事要说清楚',
+      onThisPage: '快速跳转',
+      quickStart: '先跑起来',
+      quickStartBody: '整个应用安装一次 Forge。需要 AI 能力的页面区域，再用 Enchant 包起来。',
       install: '安装',
-      sourceNote: '文档依据 packages/vue 的公开导出整理。示例专属能力不属于核心 API。',
+      sourceNote: '这里写的是 packages/vue 真正公开的能力。示例里那些业务操作很精彩，但它们不是核心库 API。',
       kinds: {
         component: '组件',
         composable: '组合式 API',
@@ -139,78 +138,78 @@ export const messages = {
       },
       groups: {
         foundation: {
-          title: '基础接入',
-          description: '安装运行时并创建 AI 作用域。'
+          title: '先跑起来',
+          description: '安装一次运行时，再告诉框架页面的哪一块需要 AI。'
         },
         contribution: {
-          title: '元数据与能力贡献',
-          description: '让 Vue 组件明确贡献状态与可执行函数。'
+          title: '告诉 AI 页面有什么',
+          description: '表单有哪些字段，页面能做哪些事，让组件自己说清楚。'
         },
         runtime: {
-          title: '运行时控制',
-          description: '捕获上下文、运行 Agent 并访问注册表。'
+          title: '自己控制执行',
+          description: '不想只用现成助手？可以自己获取上下文、调用 Agent、执行工具。'
         },
         agent: {
-          title: 'Agent 与 LLM',
-          description: '使用内置 Agent，或接入自己的客户端和后端协议。'
+          title: '换成你自己的大脑',
+          description: '内置 Agent 能直接用，也可以换成公司的模型网关或自研后端。'
         },
         knowledge: {
-          title: '知识检索',
-          description: '为业务能力接入静态知识或远程检索服务。'
+          title: '接入业务知识',
+          description: '规则、手册和知识库不该硬塞进提示词，按需要检索就行。'
         },
         debug: {
-          title: '调试与兼容',
-          description: '观察运行时信息，并为遗留界面显式启用 DOM 兼容。'
+          title: '出问题时别靠猜',
+          description: '把框架看到了什么、调用了什么摆在页面上；老页面则用明确的兼容方案。'
         }
       },
       entries: {
         createEnchantForge: {
-          description: '创建并安装应用级运行时。它管理 Registry、Agent、Policy、Knowledge Provider 和调试插件。',
-          notes: ['通常每个 Vue 应用创建一个实例。', 'LLM 可使用内置 OpenAI-compatible 客户端，也可传入自定义 Agent。', '快照默认不自动捕获。']
+          description: '整个框架的总开关。Agent、知识库、安全规则和调试工具，都从这里接进来。',
+          notes: ['大多数 Vue 应用创建一个就够了。', '可以直接连接 OpenAI-compatible API，也可以换成自己的 Agent。', '快照不会默认不停记录，调试也不例外。']
         },
         Enchant: {
-          description: '定义一棵 Vue 子树的 AI 作用域，聚合后代组件明确贡献的元数据与能力。',
-          notes: ['scan 默认为 none，不读取 DOM。', '使用 exposure 控制作用域是否暴露给 Aura、保持局部或完全私有。', 'prompt 只描述当前边界的局部规则。']
+          description: '给一块 Vue 页面划个范围：这块区域叫什么、里面有什么、能做什么。',
+          notes: ['默认不扫描 DOM。', '可以交给 Aura，也可以只在当前组件里使用，或者完全不公开。', '这里的 prompt 只写这块页面自己的规则。']
         },
         Aura: {
-          description: '面向最终用户的助手组件，负责对话、进度展示、Markdown 回答与运行控制。',
-          notes: ['可以使用全局 Forge Agent，也可以通过 agent 或 agentId 选择其他 Agent。', '通过 ref 暴露 submit、cancel、clear、open 等命令式方法。', '业务提示词和建议项由应用传入。']
+          description: '现成的助手界面。用户在这里提要求、看执行进度、读结果，也可以随时取消或清空。',
+          notes: ['默认使用 Forge 的 Agent，也可以单独指定另一个。', '业务代码可以主动让它提交、取消、清空或展开。', '具体要怎么回答、推荐问什么，由你的应用决定。']
         },
         useEnchantForm: {
-          description: '根据响应式 model 自动贡献字段元数据，并注册受约束的 field.fill 草稿写入工具。',
-          notes: ['必须在 Enchant 边界内调用。', '默认根据 model 的键生成字段，可以通过 fields 指定字段与标签。', '默认只修改草稿，不执行提交。']
+          description: '把一个 Vue 表单 model 交给框架。字段说明和填表工具会自动准备好。',
+          notes: ['它要放在 Enchant 里面。', '默认读取 model 的字段名，也可以给字段换成人能看懂的名字。', '它只负责填草稿，绝不会顺手帮你提交。']
         },
         useEnchantAction: {
-          description: '把应用拥有的函数注册为带 JSON Schema、effect 与生命周期的 capability。',
-          notes: ['effect 用于策略判断，不替代业务权限。', 'execute 仍由应用拥有，Core 只负责发现、校验和调度。', '组件卸载时自动取消注册。']
+          description: '把一个普通函数变成 AI 可以调用的工具，并把参数和影响范围说清楚。',
+          notes: ['effect 告诉框架风险级别，但真正的业务权限仍由应用负责。', '函数还是你的，Core 只负责发现、校验参数和安排执行。', '组件卸载后，这个工具会自动消失。']
         },
         useEnchant: {
-          description: '在当前 Enchant 内访问局部上下文，并以编程方式运行 Agent 或导出局部工具。',
-          notes: ['run 自动限制到当前 Enchantment。', 'captureContext 返回模型上下文、工具和控制快照，调用方可以连接自定义 Agent。', '适合实时 ASR 等由业务组件主动触发的工作流。']
+          description: '让业务组件主动使用当前区域的 AI 能力，不必等用户在聊天框里按发送。',
+          notes: ['run 只会看到当前 Enchant 的内容。', '也可以拿到整理好的上下文和工具，交给自己的 Agent。', '实时语音转工单这类业务主动触发的场景，就用它。']
         },
         useEnchantForge: {
-          description: '访问应用级 Forge 实例以及 captureContext、run、executeTool、retrieveKnowledge 等低层能力。',
-          notes: ['高层场景优先使用 Enchant、Aura 和 useEnchant。', 'captureContext 可以按 local、page 或 app 聚合。', '直接执行工具时仍会经过输入校验与 Policy。']
+          description: '需要自己掌控全局时，用它直接访问 Forge：取上下文、跑 Agent、执行工具、查知识库。',
+          notes: ['普通页面先用 Enchant、Aura 和 useEnchant，代码会少很多。', '上下文可以只取当前区域，也可以取整页或整个应用。', '直接执行工具也绕不过参数校验和安全规则。']
         },
         EnchantAgent: {
-          description: '可替换的 Agent 客户端协议。它负责规划工具调用，并可根据执行结果继续规划和生成最终回答。',
-          notes: ['Agent 不必运行在浏览器内，可以代理任意后端协议。', 'agentId 与 resolveAgent 可以把不同组件路由到不同 Agent。', 'Core 不要求具体的 Prompt 工程或业务流程。']
+          description: '如果内置 Agent 不合适，就按这个接口接自己的。它决定调用哪些工具，也可以根据结果继续下一步。',
+          notes: ['Agent 可以在后端，浏览器只需要一个客户端。', '不同页面可以通过 agentId 走不同的 Agent。', '提示词怎么写、业务流程怎么走，框架不替你做主。']
         },
         createLlmClient: {
-          description: '创建一个面向 OpenAI-compatible chat completions API 的轻量客户端，原生支持 function tools。',
-          notes: ['默认端点为 /api/llm/chat/completions，适合由 Vite 或生产网关代理。', '支持超时、AbortSignal、自定义 headers 与 fetcher。', 'API Key 不应直接暴露在生产浏览器代码中。']
+          description: '连接 OpenAI-compatible chat completions API 的轻量客户端，function tools 可以直接用。',
+          notes: ['默认请求 /api/llm/chat/completions，开发时可以交给 Vite 代理。', '超时、取消请求、自定义请求头和 fetch 都支持。', '生产环境不要把真正的 API Key 写进前端。']
         },
         knowledgeProviders: {
-          description: '提供统一的知识检索契约。静态实现适合示例与测试，HTTP 实现适合连接 Elasticsearch、向量库或混合检索服务。',
-          notes: ['Core 只定义 retrieve 契约，不绑定具体 RAG 产品。', 'HTTP Provider 使用 POST JSON，并保留调用方提供的请求头。', 'Knowledge Provider 不会自动成为业务工具，需要由应用能力显式调用。']
+          description: '框架不替你选知识库，只规定“怎么查、返回什么”。本地规则和远程 RAG 都能接。',
+          notes: ['静态 Provider 适合示例和测试，HTTP Provider 适合真正的检索服务。', '后端用 Elasticsearch、向量库还是混合检索，都不影响前端接口。', '接上知识库不等于 AI 会自动使用，应用仍要提供明确的查询工具。']
         },
         createEnchantDebug: {
-          description: '启用可移动的页面内调试控件，用于查看 Registry、快照、Trace 与 Agent 调用信息。',
-          notes: ['调试模式也不会默认开启 autoCapture。', '通过 forge.use(createEnchantDebug()) 安装。', '生产构建是否启用由应用决定。']
+          description: '把调试信息直接放在页面里。框架看到了什么、版本为什么变化、Agent 调了什么，不用靠猜。',
+          notes: ['开了调试也不会默认疯狂记录快照。', '用 forge.use(createEnchantDebug()) 安装。', '生产环境要不要开，应用自己决定。']
         },
         directives: {
-          description: '为无法贡献 Vue 元数据的遗留区域提供显式 DOM 标记与忽略指令。',
-          notes: ['必须同时在 Enchant 上设置 scan="marked" 或 scan="auto"。', '优先使用 useEnchantForm、useEnchantAction 或稳定适配器。', 'DOM 扫描是兼容路径，不是默认集成方式。']
+          description: '组件实在改不了，就在 DOM 上标出哪些能看、哪些别碰。这是给老页面留的后手。',
+          notes: ['Enchant 还要同时设置 scan="marked" 或 scan="auto"。', '新代码优先用 useEnchantForm、useEnchantAction 或组件适配器。', '能扫描不代表应该扫描，稳定接口永远更可靠。']
         }
       }
     }
@@ -331,7 +330,6 @@ export const messages = {
       }
     },
     api: {
-      kicker: '@enchantforge/vue · 0.1.x',
       title: 'API reference',
       lead: 'From one wrapper to a custom Agent. These are the stable public entry points of the EnchantForge Vue package and the responsibilities each one owns.',
       searchLabel: 'Search APIs',
