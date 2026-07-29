@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { createRenderer, defineComponent, h, nextTick, ref } from 'vue';
 import {
   Aura,
   Enchant,
@@ -11,7 +12,8 @@ import {
   createLlmClient,
   createStaticKnowledgeProvider,
   evaluateEnchantPolicy,
-  renderAuraMarkdown
+  renderAuraMarkdown,
+  useEnchantForm
 } from '../dist/enchantforge-vue.js';
 
 function status(overrides = {}) {
@@ -961,6 +963,80 @@ test('debug plugin enables the lightweight in-page debug surface by default', ()
   const disabled = createEnchantForge();
   disabled.use(createEnchantDebug({ overlay: false }));
   assert.equal(disabled.debug.enabled, false);
+});
+
+test('useEnchantForm emits provider-compatible field schemas', async (context) => {
+  const renderer = createRenderer({
+    patchProp() {},
+    insert(child, parent) {
+      (parent.children ??= []).push(child);
+      child.parent = parent;
+    },
+    remove() {},
+    createElement(type) {
+      return { type, children: [] };
+    },
+    createText(text) {
+      return { text };
+    },
+    createComment(comment) {
+      return { comment };
+    },
+    setText(node, text) {
+      node.text = text;
+    },
+    setElementText(node, text) {
+      node.text = text;
+    },
+    parentNode(node) {
+      return node.parent;
+    },
+    nextSibling() {
+      return null;
+    }
+  });
+  const forge = createEnchantForge();
+  const Form = defineComponent({
+    setup() {
+      const model = ref({
+        baseDashboardId: '',
+        id: '',
+        title: '',
+        description: '',
+        panelIds: []
+      });
+      useEnchantForm(model, {
+        fields: {
+          baseDashboardId: '数据域 ID',
+          id: 'Dashboard ID',
+          title: '标题',
+          description: '描述',
+          panelIds: '需要加入的 Panel ID 列表'
+        }
+      });
+      return () => h('span');
+    }
+  });
+  const App = defineComponent({
+    setup: () => () => h(Enchant, { name: 'schema-test', page: 'test' }, () => h(Form))
+  });
+  const app = renderer.createApp(App);
+  app.use(forge);
+  app.mount({ children: [] });
+  context.after(() => app.unmount());
+  await nextTick();
+
+  const tool = forge.capture().tools.find((item) => item.name === 'field.fill');
+  const properties = tool.inputSchema.properties.values.properties;
+  assert.equal(properties.baseDashboardId.type, 'string');
+  assert.equal(properties.id.type, 'string');
+  assert.equal(properties.title.type, 'string');
+  assert.equal(properties.description.type, 'string');
+  assert.deepEqual(properties.panelIds, {
+    description: '需要加入的 Panel ID 列表',
+    type: 'array',
+    items: { type: 'string' }
+  });
 });
 
 test('core entry stays independent from optional UI component bundles', () => {

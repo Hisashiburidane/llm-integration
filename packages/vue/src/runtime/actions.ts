@@ -40,6 +40,7 @@ export interface EnchantFormOptions<TModel extends Record<string, unknown>> {
   description?: string;
   provider?: string;
   fields?: readonly Extract<keyof TModel, string>[] | Partial<Record<Extract<keyof TModel, string>, string>>;
+  fieldSchemas?: Partial<Record<Extract<keyof TModel, string>, JsonSchema>>;
   assign?: (values: Partial<TModel>, model: TModel) => void | Promise<void>;
 }
 
@@ -53,6 +54,27 @@ function componentName() {
   const type = getCurrentInstance()?.type;
   if (type && typeof type === 'object' && 'name' in type && type.name) return String(type.name);
   return 'vue-component';
+}
+
+function inferFieldSchema(value: unknown): JsonSchema {
+  if (Array.isArray(value)) {
+    const sample = value.find((item) => item !== undefined && item !== null);
+    return {
+      type: 'array',
+      items: sample === undefined ? { type: 'string' } : inferFieldSchema(sample)
+    };
+  }
+  if (value !== null && typeof value === 'object') {
+    return {
+      type: 'object',
+      properties: Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, inferFieldSchema(item)])
+      )
+    };
+  }
+  if (typeof value === 'number') return { type: Number.isInteger(value) ? 'integer' : 'number' };
+  if (typeof value === 'boolean') return { type: 'boolean' };
+  return { type: 'string' };
 }
 
 export function useEnchantAction<TInput = unknown, TResult = unknown>(
@@ -102,7 +124,14 @@ export function useEnchantForm<TModel extends Record<string, unknown>>(
     ? Object.fromEntries(fields.map((field) => [field, field]))
     : configuredFields as Record<string, string>;
   const fieldSet = new Set(fields);
-  const fieldSchemas = Object.fromEntries(fields.map((field) => [field, { description: labels[field] ?? field }]));
+  const fieldSchemas = Object.fromEntries(fields.map((field) => [
+    field,
+    {
+      description: labels[field] ?? field,
+      ...inferFieldSchema(initialModel[field]),
+      ...(options.fieldSchemas?.[field] ?? {})
+    }
+  ]));
 
   return useEnchantAction<EnchantFormFillInput<TModel>>({
     id: options.id,
