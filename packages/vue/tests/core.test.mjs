@@ -1199,6 +1199,110 @@ test('OpenTelemetry adapter creates nested run and capability spans with metrics
   assert.equal(measurements.every((item) => item.attributes['enchantforge.outcome'] === 'success'), true);
 });
 
+test('OpenTelemetry adapter maps LLM lifecycle events without capturing messages by default', () => {
+  const spans = [];
+  let llmObserver;
+  const createSpan = (name, options) => {
+    const record = {
+      name,
+      attributes: { ...options.attributes },
+      exceptions: [],
+      ended: false
+    };
+    const span = {
+      setAttribute(key, value) {
+        record.attributes[key] = value;
+        return this;
+      },
+      setAttributes(attributes) {
+        Object.assign(record.attributes, attributes);
+        return this;
+      },
+      addEvent() {
+        return this;
+      },
+      setStatus(status) {
+        record.status = status;
+        return this;
+      },
+      recordException(error) {
+        record.exceptions.push(error);
+      },
+      end() {
+        record.ended = true;
+      }
+    };
+    spans.push(record);
+    return span;
+  };
+  const plugin = createEnchantOpenTelemetry({
+    tracer: {
+      startSpan: createSpan,
+      startActiveSpan(name, options, callback) {
+        return callback(createSpan(name, options));
+      }
+    }
+  });
+  const cleanup = plugin.setup({
+    registerRunMiddleware: () => () => {},
+    registerExecutionMiddleware: () => () => {},
+    subscribeLlm(observer) {
+      llmObserver = observer;
+      return () => {
+        llmObserver = undefined;
+      };
+    }
+  });
+
+  llmObserver({
+    requestId: 'llm-1',
+    phase: 'request',
+    endpoint: '/api/llm/chat/completions',
+    detail: {
+      body: {
+        model: 'test-model',
+        messages: [{ role: 'user', content: 'private input' }],
+        tools: [{ type: 'function' }],
+        tool_choice: 'auto'
+      }
+    }
+  });
+  llmObserver({
+    requestId: 'llm-1',
+    phase: 'response',
+    endpoint: '/api/llm/chat/completions',
+    durationMs: 250,
+    detail: {
+      status: 200,
+      finishReason: 'tool_calls',
+      usage: { prompt_tokens: 12, completion_tokens: 8 },
+      payload: {
+        model: 'test-model-v2',
+        choices: [{
+          message: {
+            content: '',
+            tool_calls: [{ id: 'call-1' }]
+          }
+        }]
+      }
+    }
+  });
+
+  assert.equal(spans.length, 1);
+  assert.equal(spans[0].name, 'enchantforge.llm.request');
+  assert.equal(spans[0].attributes['gen_ai.operation.name'], 'chat');
+  assert.equal(spans[0].attributes['gen_ai.request.model'], 'test-model');
+  assert.equal(spans[0].attributes['gen_ai.response.model'], 'test-model-v2');
+  assert.equal(spans[0].attributes['gen_ai.usage.input_tokens'], 12);
+  assert.equal(spans[0].attributes['gen_ai.usage.output_tokens'], 8);
+  assert.equal(spans[0].attributes['enchantforge.llm.tool_call.count'], 1);
+  assert.equal(spans[0].attributes['gen_ai.input.messages'], undefined);
+  assert.equal(spans[0].attributes['gen_ai.output.messages'], undefined);
+  assert.equal(spans[0].ended, true);
+
+  cleanup();
+});
+
 test('debug plugin enables the lightweight in-page debug surface by default', () => {
   const forge = createEnchantForge();
   forge.use(createEnchantDebug({ title: 'Runtime Debug', position: 'bottom-left' }));

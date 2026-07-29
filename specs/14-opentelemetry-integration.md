@@ -17,6 +17,7 @@ Adapter 负责：
 
 - 将一次 `forge.run()` 记录为 active span；
 - 将 capability 执行记录为 run span 的子 span；
+- 将默认 LLM Client 请求记录为 GenAI 语义子 span；
 - 设置低基数运行属性、执行结果和错误状态；
 - 可选记录运行次数和耗时 metrics；
 - 在 Forge dispose 时注销 middleware。
@@ -48,6 +49,7 @@ OpenTelemetry SDK 必须在创建 Vue app 前完成初始化。没有注册 SDK 
 | --- | --- | --- |
 | `enchantforge.agent.run` | 完整 `forge.run()` | page、enchantment、agent、plan/result count、outcome |
 | `enchantforge.capability.execute` | capability `execute()` | capability id/name/effect/owner/provider、page、outcome |
+| `enchantforge.llm.request` | 默认 LLM Client 的一次请求 | model、tools、finish reason、token usage、outcome |
 
 Adapter 使用 `startActiveSpan()`。因此 capability span 可以继承 Agent run span 的
 active context，业务 API 内已经启用的 fetch、HTTP 或数据库 instrumentation 也可以
@@ -61,6 +63,8 @@ active context，业务 API 内已经启用的 fetch、HTTP 或数据库 instrum
 | `enchantforge.agent.run.duration` | Histogram | `s` |
 | `enchantforge.capability.execution.count` | Counter | `{execution}` |
 | `enchantforge.capability.execution.duration` | Histogram | `s` |
+| `enchantforge.llm.request.count` | Counter | `{request}` |
+| `enchantforge.llm.request.duration` | Histogram | `s` |
 
 Metrics 只在提供 `meter` 时创建。结果通过 `enchantforge.outcome` 区分
 `success`、`failed`、`partial` 和 `error`。
@@ -94,6 +98,7 @@ OpenTelemetry 是稳定的技术协议，因此映射逻辑属于 Adapter。业�
 客户身份、Dashboard 指标等领域属性仍由应用自己的 instrumentation 提供，不得进入
 EnchantForge Adapter。
 
-Adapter 不创建 LLM provider 专属 span。默认 HTTP/fetch instrumentation 可以记录真实
-网络请求；需要 GenAI semantic conventions 时，应在具体 LLM Client Adapter 中实现，
-避免 Forge 根据不完整信息伪造模型、token 或 provider 属性。
+Adapter 为默认 LLM Client 创建 provider-neutral GenAI span，并继续允许 HTTP/fetch
+instrumentation 记录真实网络请求。它不会根据 OpenAI-compatible 协议猜测
+`gen_ai.provider.name`；自定义 LLM Client 应在自己的 Adapter 中提供更完整的 provider
+属性和协议语义。

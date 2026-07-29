@@ -3,6 +3,7 @@ import type {
   EnchantForgePlugin,
   EnchantRunMiddlewareRequest
 } from './forge';
+import type { LlmClientDebugEvent } from './llm-client';
 
 export type EnchantOpenTelemetryAttributeValue =
   | string
@@ -25,6 +26,10 @@ export interface EnchantOpenTelemetrySpan {
 }
 
 export interface EnchantOpenTelemetryTracer {
+  startSpan(
+    name: string,
+    options: { attributes?: EnchantOpenTelemetryAttributes }
+  ): EnchantOpenTelemetrySpan;
   startActiveSpan<T>(
     name: string,
     options: { attributes?: EnchantOpenTelemetryAttributes },
@@ -86,6 +91,16 @@ function errorValue(error: unknown) {
   return error instanceof Error ? error : String(error);
 }
 
+function record(value: unknown): Record<string, any> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, any>
+    : undefined;
+}
+
+function numeric(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
 function capabilityAttributes(
   request: EnchantExecutionMiddlewareRequest,
   common: EnchantOpenTelemetryAttributes
@@ -140,6 +155,19 @@ export function createEnchantOpenTelemetry(
         description: 'EnchantForge capability execution duration',
         unit: 's'
       });
+      const llmRequestCount = options.meter?.createCounter('enchantforge.llm.request.count', {
+        description: 'Completed EnchantForge LLM requests',
+        unit: '{request}'
+      });
+      const llmRequestDuration = options.meter?.createHistogram('enchantforge.llm.request.duration', {
+        description: 'EnchantForge LLM request duration',
+        unit: 's'
+      });
+      const llmSpans = new Map<string, {
+        span: EnchantOpenTelemetrySpan;
+        attributes: EnchantOpenTelemetryAttributes;
+        startedAt: number;
+      }>();
 
       const unregisterRun = forge.registerRunMiddleware((request, next) => {
         const attributes = runAttributes(request, options.attributes ?? {});
@@ -237,7 +265,92 @@ export function createEnchantOpenTelemetry(
         );
       });
 
+      const unsubscribeLlm = forge.subscribeLlm((event: LlmClientDebugEvent) => {
+        const detail = record(event.detail);
+        if (event.phase === 'request') {
+          const body = record(detail?.body);
+          const model = typeof body?.model === 'string' ? body.model : undefined;
+          const attributes = compact({
+            ...(options.attributes ?? {}),
+            'enchantforge.operation.name': 'llm.request',
+            'gen_ai.operation.name': 'chat',
+            'gen_ai.request.model': model,
+            'gen_ai.request.max_tokens': numeric(body?.max_tokens),
+            'enchantforge.llm.tool.count': Array.isArray(body?.tools) ? body.tools.length : 0,
+            'enchantforge.llm.tool_choice': typeof body?.tool_choice === 'string'
+              ? body.tool_choice
+              : undefined
+          });
+          if (options.captureInputs && body?.messages !== undefined) {
+            attributes['gen_ai.input.messages'] = serialize(body.messages, contentLimit);
+          }
+          const span = options.tracer.startSpan('enchantforge.llm.request', { attributes });
+          llmSpans.set(event.requestId, {
+            span,
+            attributes,
+            startedAt: performance.now()
+          });
+          return;
+        }
+
+        const active = llmSpans.get(event.requestId);
+        if (!active) return;
+        llmSpans.delete(event.requestId);
+        const duration = (event.durationMs ?? (performance.now() - active.startedAt)) / 1000;
+        let outcome = 'success';
+
+        if (event.phase === 'response') {
+          const payload = record(detail?.payload);
+          const choice = record(Array.isArray(payload?.choices) ? payload.choices[0] : undefined);
+          const message = record(choice?.message);
+          const usage = record(detail?.usage) ?? record(payload?.usage);
+          const status = numeric(detail?.status);
+          const failed = status !== undefined && status >= 400;
+          outcome = failed ? 'failed' : 'success';
+          active.span.setAttributes(compact({
+            'gen_ai.response.model': typeof payload?.model === 'string' ? payload.model : undefined,
+            'gen_ai.response.finish_reasons': typeof detail?.finishReason === 'string'
+              ? [detail.finishReason]
+              : undefined,
+            'gen_ai.usage.input_tokens': numeric(usage?.prompt_tokens) ?? numeric(usage?.input_tokens),
+            'gen_ai.usage.output_tokens': numeric(usage?.completion_tokens) ?? numeric(usage?.output_tokens),
+            'http.response.status_code': status,
+            'enchantforge.llm.tool_call.count': Array.isArray(message?.tool_calls)
+              ? message.tool_calls.length
+              : 0
+          }));
+          if (options.captureOutputs && message !== undefined) {
+            active.span.setAttribute('gen_ai.output.messages', serialize([message], contentLimit));
+          }
+          active.span.setStatus({
+            code: failed ? SPAN_STATUS_ERROR : SPAN_STATUS_OK,
+            ...(failed ? { message: `LLM request failed with HTTP ${status}` } : {})
+          });
+        } else {
+          outcome = 'error';
+          const error = typeof event.detail === 'string'
+            ? event.detail
+            : serialize(event.detail, contentLimit);
+          active.span.recordException(error);
+          active.span.setStatus({ code: SPAN_STATUS_ERROR, message: error });
+        }
+
+        const metricAttributes = compact({
+          ...active.attributes,
+          'enchantforge.outcome': outcome
+        });
+        llmRequestCount?.add(1, metricAttributes);
+        llmRequestDuration?.record(duration, metricAttributes);
+        active.span.end();
+      });
+
       return () => {
+        unsubscribeLlm();
+        llmSpans.forEach(({ span }) => {
+          span.setStatus({ code: SPAN_STATUS_ERROR, message: 'EnchantForge disposed before LLM response' });
+          span.end();
+        });
+        llmSpans.clear();
         unregisterExecution();
         unregisterRun();
       };
