@@ -21,14 +21,14 @@ export const messages = {
       hero: {
         kicker: 'Vue-first LLM integration framework',
         title: '帮 AI 对齐颗粒度。',
-        chant: '拉齐认知，统一口径；透传语义，拉通链路；形成闭环，找到抓手；收敛边界，前置风险；沉淀方法论，建立开发心智；构建能力矩阵，端到端打通；最后形成一套 AI 应用开发组合拳，完成底层赋能。',
-        punchline: '听君一席话，如听一席话。',
+        problem: '没有应用上下文，模型就是两眼一抹黑。',
+        lead: '它不知道页面由什么组成、哪些状态被允许公开，也不知道哪些操作可以执行。EnchantForge 把组件显式提供的元数据和工具组织起来，交给 AI。',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
       },
       minimum: {
-        kicker: '翻译成人话',
+        kicker: '先让 AI 看见',
         title: '应用知道的，AI 也该知道。',
         body: '表单字段、页面结构、允许公开的状态和可执行操作，本来就在 Vue 组件里。与其让模型从截图、Prompt 和 Skills 里重新猜一遍，不如让应用直接提供结构化的上下文和工具。',
         notes: {
@@ -252,15 +252,15 @@ export const messages = {
     home: {
       hero: {
         kicker: 'Vue-first LLM integration framework',
-        title: 'Align AI at the right granularity.',
-        chant: 'Align understanding. Standardize semantics. Connect the chain. Close the loop. Find the leverage point. Constrain the boundary. Front-load risk. Build the capability matrix. Deliver end to end. Complete the foundational enablement.',
-        punchline: 'That was a lot of words, and we still know nothing.',
+        title: 'Give AI context at the right granularity.',
+        problem: 'Without application context, even a capable model is operating blind.',
+        lead: 'It does not know how the interface is structured, which state may be exposed, or which actions are available. EnchantForge organizes metadata and tools explicitly contributed by components and makes them available to AI.',
         start: 'Start with one wrapper',
         examples: 'Open examples',
         api: 'Read the API'
       },
       minimum: {
-        kicker: 'In plain terms',
+        kicker: 'Make the application visible',
         title: 'What the application knows, AI should know.',
         body: 'Form fields, interface structure, explicitly exposed state, and executable actions already exist in Vue components. The application can provide structured context and tools instead of asking a model to reconstruct them from screenshots, prompts, and skills.',
         notes: {
