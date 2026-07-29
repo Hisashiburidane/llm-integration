@@ -30,64 +30,64 @@ export const messages = {
       minimum: {
         kicker: '先让 AI 看见',
         title: '应用知道的，AI 也该知道。',
-        body: '表单字段、页面结构、允许公开的状态和可执行操作，本来就在 Vue 组件里。与其让模型从截图、Prompt 和 Skills 里重新猜一遍，不如让应用直接提供结构化的上下文和工具。',
+        body: '字段、状态和操作都在应用里。直接提供，不必让 AI 猜。',
         notes: {
           domTitle: '不从像素猜语义。',
-          domBody: '组件可以直接提供字段和能力时，不需要让 Computer Use 反推按钮位置和页面含义。DOM 扫描只作为显式启用的兼容路径。',
+          domBody: '优先读取组件接口。DOM 扫描只用于兼容。',
           globalTitle: '不在 Prompt 里重写应用。',
-          globalBody: 'Prompt 负责规则和意图；页面结构、局部状态与工具定义，由组件在所属生命周期内持续提供。',
+          globalBody: 'Prompt 描述规则，应用提供页面事实。',
           submitTitle: '不让 Skills 替代业务接口。',
-          submitBody: '工具由应用显式实现并声明参数、影响范围与执行边界。权限和最终业务副作用仍由应用控制。'
+          submitBody: '工具、权限和副作用都由应用负责。'
         }
       },
       model: {
         kicker: '接入方式',
-        title: '优先提供显式上下文，必要时再兼容旧页面。',
+        title: '从组件上下文，到应用级能力。',
         levels: {
-          contribute: {
-            title: '组件自己说明白',
-            notes: ['表单里有什么', '哪些函数能调用', '挂载时自动登记', '卸载时自动消失']
+          component: {
+            title: '组件提供上下文',
+            notes: ['字段与状态', '可调用函数', '随挂载注册', '随卸载移除']
           },
-          adapt: {
-            title: '常用组件，接一次就够',
-            notes: ['使用组件公开 API', '统一输入校验', '执行结果更稳定', '多个项目重复使用']
+          application: {
+            title: '应用注册能力',
+            notes: ['跨页面共享', '统一参数 Schema', '业务逻辑自有', '插件式安装']
           },
-          fallback: {
-            title: '老页面也有后手',
-            notes: ['必须主动开启', '适合遗留页面', '能用但不鼓励', '通过浏览器事件操作']
+          agent: {
+            title: '接入自己的 Agent',
+            notes: ['导出上下文', '导出工具', '自定义协议', '受约束执行']
           },
-          reuse: {
-            title: '执行过程还能接着用',
-            notes: ['保存执行步骤', '界面上看得见', '可以回放验证', '以后可接自己的后端']
+          compatibility: {
+            title: '兼容旧页面',
+            notes: ['显式开启', '限定范围', '较低置信度', '浏览器事件']
           }
         }
       },
       fallback: {
-        kicker: '实在改不了组件',
-        title: '那就只扫描你点名的地方。',
-        body: '给要读取的输入框做个标记，EnchantForge 只看这些，不会因为“智能”两个字就把整张页面翻个底朝天。'
+        kicker: '兼容旧页面',
+        title: '只扫描明确标记的区域。',
+        body: '扫描默认关闭；启用范围明确写在代码里。'
       },
       register: {
-        kicker: '关键操作别靠猜',
-        title: '把能做什么，写成一个明确的函数。',
-        body: '比如填表、查数据、打开弹窗。函数需要什么参数、会产生什么影响，都写清楚。AI 负责选择，应用负责真正执行。'
+        kicker: '注册能力',
+        title: '操作必须有明确接口。',
+        body: '参数、影响和执行函数由应用定义，AI 只负责选择。'
       },
       examples: {
-        kicker: '概念讲完了',
-        title: '别听它怎么说，看它到底能不能干。',
-        body: '文本自动填快递单、监控大屏自动聚焦、客服通话实时生成工单建议。不是预先录好的动画，每一步都对应真实的上下文和工具调用。',
-        action: '去看真实示例'
+        kicker: '真实示例',
+        title: '每一步都真实执行。',
+        body: '自动填表、监控聚焦、坐席辅助，都使用真实上下文和工具调用。',
+        action: '查看示例'
       },
       runtime: {
-        kicker: '它到底怎么工作',
-        title: '组件把话说明白，AI 才不用猜。',
-        body: '页面里的组件各自说明“我是谁、我有什么、我能做什么”。EnchantForge 把这些信息按页面整理好，再交给 Aura 或你自己的 Agent。',
+        kicker: '运行机制',
+        title: '组件提供信息，Forge 组织上下文。',
+        body: 'Aura 和自定义 Agent 使用同一份上下文与工具。',
         rows: {
-          forge: '总控：收集上下文、选择 Agent、执行安全规则',
-          enchant: '划范围：告诉框架这一块页面属于谁',
-          adapters: '翻译器：把常用组件变成 AI 能理解的说明',
-          executor: '动手干：填表、聚焦、高亮、调用函数',
-          aura: '对话入口：用户从这里提要求、看进度和结果'
+          forge: '注册、聚合、策略与 Agent',
+          enchant: '定义局部上下文边界',
+          adapters: '接入稳定的组件 API',
+          executor: '校验并执行工具调用',
+          aura: '提供对话与执行反馈'
         }
       },
       principles: {
@@ -95,23 +95,23 @@ export const messages = {
         title: 'AI 可以聪明，框架不能自作聪明。',
         explicit: {
           title: '不偷看',
-          body: '组件没有主动提供的信息，框架默认不从 DOM 里猜。'
+          body: '未主动提供的信息，默认不读取。'
         },
         stable: {
           title: '不猜组件',
-          body: '优先相信 Vue 状态和公开 API，不把页面标签当成业务真相。'
+          body: '优先使用 Vue 状态和公开 API。'
         },
         local: {
           title: '不把全世界塞进提示词',
-          body: '当前任务需要哪些页面信息，就只给哪些。'
+          body: '只提供当前任务需要的信息。'
         },
         visible: {
           title: '不偷偷动手',
-          body: '填了什么、高亮了什么、调用了什么，界面上都看得见。'
+          body: '执行过程和结果始终可见。'
         },
         optional: {
           title: '不拿兼容方案当主角',
-          body: 'DOM 扫描留给老页面，新页面应该提供稳定、明确的能力。'
+          body: 'DOM 扫描只用于兼容旧页面。'
         }
       }
     },
@@ -262,64 +262,64 @@ export const messages = {
       minimum: {
         kicker: 'Make the application visible',
         title: 'What the application knows, AI should know.',
-        body: 'Form fields, interface structure, explicitly exposed state, and executable actions already exist in Vue components. The application can provide structured context and tools instead of asking a model to reconstruct them from screenshots, prompts, and skills.',
+        body: 'Fields, state, and actions already exist in the application. Provide them directly instead of asking AI to infer them.',
         notes: {
           domTitle: 'Do not infer semantics from pixels.',
-          domBody: 'When components can expose fields and capabilities directly, Computer Use does not need to infer meaning from button positions. DOM scanning remains an explicit compatibility path.',
+          domBody: 'Prefer component contracts. Use DOM scanning only for compatibility.',
           globalTitle: 'Do not rewrite the application in prompts.',
-          globalBody: 'Prompts describe rules and intent. Components provide interface structure, scoped state, and tools throughout their lifecycle.',
+          globalBody: 'Prompts describe rules. Applications provide page facts.',
           submitTitle: 'Do not replace business APIs with skills.',
-          submitBody: 'Applications implement tools and declare their parameters, effects, and execution boundaries. Authorization and final business effects remain application-owned.'
+          submitBody: 'Applications own tools, authorization, and effects.'
         }
       },
       model: {
         kicker: 'Integration paths',
-        title: 'Contribute explicitly. Scan only for compatibility.',
+        title: 'From component context to application capabilities.',
         levels: {
-          contribute: {
-            title: 'Vue contribution',
-            notes: ['controlled state', 'typed functions', 'component lifecycle', 'no DOM scan']
+          component: {
+            title: 'Component context',
+            notes: ['fields and state', 'typed functions', 'mount registration', 'unmount cleanup']
           },
-          adapt: {
-            title: 'Component adapter',
-            notes: ['public component APIs', 'validation', 'stable execution', 'shared integration']
+          application: {
+            title: 'Application capabilities',
+            notes: ['shared across pages', 'shared schemas', 'application logic', 'plugin install']
           },
-          fallback: {
-            title: 'DOM compatibility',
-            notes: ['explicit opt-in', 'legacy pages', 'lower confidence', 'browser events']
+          agent: {
+            title: 'Custom Agent',
+            notes: ['export context', 'export tools', 'custom protocol', 'constrained execution']
           },
-          reuse: {
-            title: 'Executor reuse',
-            notes: ['saved steps', 'visible replay', 'local storage POC', 'extensible backend']
+          compatibility: {
+            title: 'Legacy compatibility',
+            notes: ['explicit opt-in', 'local scope', 'lower confidence', 'browser events']
           }
         }
       },
       fallback: {
-        kicker: 'Marked fallback',
+        kicker: 'Legacy compatibility',
         title: 'Restrict DOM access to declared regions.',
-        body: 'Marked scanning keeps the compatibility surface local and visible in source code.'
+        body: 'Scanning is off by default and its scope stays visible in source code.'
       },
       register: {
-        kicker: 'Register',
-        title: 'Use explicit APIs when state matters.',
-        body: 'Controlled components, validation, and business actions should use explicit registration instead of DOM inference.'
+        kicker: 'Register capabilities',
+        title: 'Actions require explicit contracts.',
+        body: 'Applications define parameters, effects, and execution. AI selects the action.'
       },
       examples: {
         kicker: 'Examples',
-        title: 'Prove the framework with real scenarios.',
-        body: 'The examples cover text-to-form, Focus View, and live agent assistance. Every capability maps to real metadata and tool execution.',
-        action: 'Open examples'
+        title: 'Every step executes for real.',
+        body: 'Form filling, dashboard focus, and agent assistance use real context and tools.',
+        action: 'View examples'
       },
       runtime: {
         kicker: 'Runtime',
-        title: 'Local scopes, global assistant, shared execution.',
-        body: 'Components can keep metadata local. A global assistant only aggregates scopes explicitly exposed to the registry. Both paths use the same constrained execution model.',
+        title: 'Components contribute. Forge assembles context.',
+        body: 'Aura and custom Agents consume the same context and tools.',
         rows: {
-          forge: 'client, policy, registry, and agent runtime',
-          enchant: 'lifecycle, contribution boundary, and local Enchantment',
-          adapters: 'stable component metadata and executors',
-          executor: 'fill, focus, highlight, invoke, and replay',
-          aura: 'application-level interaction over active Enchantments'
+          forge: 'registry, aggregation, policy, and Agent',
+          enchant: 'local context boundary',
+          adapters: 'stable component APIs',
+          executor: 'validate and execute tool calls',
+          aura: 'conversation and execution feedback'
         }
       },
       principles: {
@@ -327,23 +327,23 @@ export const messages = {
         title: 'Boundaries before features.',
         explicit: {
           title: 'Explicit by default',
-          body: 'A boundary aggregates component metadata and capabilities without reading its DOM.'
+          body: 'Uncontributed information stays unread.'
         },
         stable: {
           title: 'Stable contracts first',
-          body: 'Vue contributions and component adapters take precedence over browser-level inference.'
+          body: 'Prefer Vue state and public APIs.'
         },
         local: {
           title: 'Generic tools, local context',
-          body: 'Tools stay small. Fields, actions, and regions arrive as scoped metadata.'
+          body: 'Provide only what the current task needs.'
         },
         visible: {
           title: 'Visible execution',
-          body: 'The executor changes UI state step by step so users can inspect results before commit.'
+          body: 'Execution and results remain visible.'
         },
         optional: {
           title: 'DOM is optional',
-          body: 'Marked and full DOM scans must be enabled explicitly by application code.'
+          body: 'DOM scanning exists only for compatibility.'
         }
       }
     },

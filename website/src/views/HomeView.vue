@@ -44,10 +44,10 @@ const registerCode = `useEnchantAction({
 const principles = ['explicit', 'stable', 'local', 'visible', 'optional'];
 
 const levels = [
-  { name: 'contribute', api: 'useEnchantForm / useEnchantAction' },
-  { name: 'adapt', api: 'adapter plugins' },
-  { name: 'fallback', api: 'scan="marked" / scan="auto"' },
-  { name: 'reuse', api: 'workflow / snapshot' }
+  { name: 'component', api: 'useEnchantForm / useEnchantAction' },
+  { name: 'application', api: 'defineEnchantApi' },
+  { name: 'agent', api: 'useEnchant / captureContext' },
+  { name: 'compatibility', api: 'scan="marked" / scan="auto"' }
 ];
 
 const architecture = [
