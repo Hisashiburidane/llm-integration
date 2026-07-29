@@ -80,14 +80,29 @@ export const messages = {
       },
       runtime: {
         kicker: '运行机制',
-        title: '组件提供信息，Forge 组织上下文',
-        body: 'Aura 和自定义 Agent 使用同一份上下文与工具。',
+        title: '从组件注册到函数执行',
+        body: 'Forge 在调用时构建当前上下文与工具，并在执行前校验 Agent 返回的工具调用。',
         rows: {
-          forge: '注册、聚合、策略与 Agent',
-          enchant: '定义局部上下文边界',
-          adapters: '接入稳定的组件 API',
-          executor: '校验并执行工具调用',
-          aura: '提供对话与执行反馈'
+          register: {
+            title: '注册',
+            body: 'Enchant 收集组件提供的信息和函数，并绑定组件生命周期。'
+          },
+          capture: {
+            title: '捕获',
+            body: 'Forge 根据当前有效的注册项生成上下文与工具。'
+          },
+          plan: {
+            title: '规划',
+            body: 'Agent 根据用户请求、上下文和工具生成调用计划。'
+          },
+          validate: {
+            title: '校验',
+            body: 'Forge 检查调用目标、参数 Schema 和 Policy。'
+          },
+          execute: {
+            title: '执行',
+            body: 'Forge 调用应用函数，并记录执行结果和错误。'
+          }
         }
       },
       principles: {
@@ -312,14 +327,29 @@ export const messages = {
       },
       runtime: {
         kicker: 'Runtime',
-        title: 'Components contribute. Forge assembles context',
-        body: 'Aura and custom Agents consume the same context and tools.',
+        title: 'From component registration to function execution',
+        body: 'Forge builds current context and tools when invoked, then validates Agent tool calls before execution.',
         rows: {
-          forge: 'registry, aggregation, policy, and Agent',
-          enchant: 'local context boundary',
-          adapters: 'stable component APIs',
-          executor: 'validate and execute tool calls',
-          aura: 'conversation and execution feedback'
+          register: {
+            title: 'Register',
+            body: 'Enchant collects information and functions from components and binds them to the component lifecycle.'
+          },
+          capture: {
+            title: 'Capture',
+            body: 'Forge generates context and tools from the registrations that are currently active.'
+          },
+          plan: {
+            title: 'Plan',
+            body: 'The Agent produces a call plan from the user request, context, and tools.'
+          },
+          validate: {
+            title: 'Validate',
+            body: 'Forge checks the target, parameter schema, and Policy.'
+          },
+          execute: {
+            title: 'Execute',
+            body: 'Forge calls the application function and records its result or error.'
+          }
         }
       },
       principles: {

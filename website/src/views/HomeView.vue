@@ -56,13 +56,7 @@ const integrationGroups = [
   }
 ];
 
-const architecture = [
-  ['EnchantForge', 'forge'],
-  ['Enchant', 'enchant'],
-  ['Adapters', 'adapters'],
-  ['Executor', 'executor'],
-  ['Aura', 'aura']
-];
+const runtimeStages = ['register', 'capture', 'plan', 'validate', 'execute'];
 
 function levelNotes(name: string) {
   return tm(`home.model.levels.${name}.notes`) as readonly string[];
@@ -159,9 +153,9 @@ function levelNotes(name: string) {
     </div>
     <table>
       <tbody>
-        <tr v-for="row in architecture" :key="row[0]">
-          <th>{{ row[0] }}</th>
-          <td>{{ t(`home.runtime.rows.${row[1]}`) }}</td>
+        <tr v-for="stage in runtimeStages" :key="stage">
+          <th>{{ t(`home.runtime.rows.${stage}.title`) }}</th>
+          <td>{{ t(`home.runtime.rows.${stage}.body`) }}</td>
         </tr>
       </tbody>
     </table>
