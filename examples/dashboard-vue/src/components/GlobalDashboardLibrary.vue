@@ -296,7 +296,7 @@ onMounted(() => { void load(); });
       </article>
     </section>
 
-    <a-drawer v-model:open="editorOpen" :title="editing ? '编辑 Dashboard' : '新增 Dashboard'" width="min(980px, 96vw)" :closable="!saving">
+    <a-drawer v-model:open="editorOpen" :title="editing ? '编辑 Dashboard' : '新增 Dashboard'" width="min(1280px, 96vw)" :closable="!saving">
       <a-alert v-if="formError" type="error" show-icon :message="formError" class="editor-alert" />
       <Enchant name="dashboard-builder" page="dashboard-library" kind="form" prompt="根据用户描述填写 Dashboard 草稿，不要保存。">
         <TextToFormBuilder
@@ -368,13 +368,15 @@ h1 { margin: 8px 0; color: #14233a; font-size: 34px; }
 .section-heading { align-items: flex-end; margin-bottom: 12px; }
 .section-heading > div { flex: 0 0 auto; }
 .section-heading :deep(.ant-input-affix-wrapper) { width: min(280px, 60%); }
-.panel-options, .placement-list { display: grid; max-height: 520px; gap: 8px; overflow: auto; }
+.panel-options, .placement-list { display: grid; max-height: 520px; gap: 8px; overflow-y: auto; overflow-x: hidden; }
 .panel-options article, .placement-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px; border: 1px solid #dce4ee; border-radius: 6px; background: #fff; }
 .panel-options article.selected { border-color: #a9c9ee; background: #f3f8ff; }
 .panel-options strong { color: #334155; font-size: 11px; }
 .panel-options span { display: block; margin-top: 3px; color: #7890aa; font: 9px/1.3 'IBM Plex Mono', monospace; }
 .panel-options p { margin: 5px 0 0; color: #64748b; font-size: 9px; line-height: 1.4; }
 .placement-list article { display: grid; grid-template-columns: minmax(150px, 1fr) 82px 90px auto; }
+.placement-title { min-width: 0; }
+.placement-title span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .placement-list label { color: #7890aa; font-size: 9px; }
 .placement-list label > span { display: block; margin-bottom: 4px; }
 .placement-actions { display: flex; gap: 4px; }
