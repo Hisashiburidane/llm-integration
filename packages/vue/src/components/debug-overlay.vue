@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useEnchantForge } from '../runtime/forge';
 import type { EnchantSnapshot } from '../runtime/enchantment';
+import { buildEnchantLlmDebugRows } from '../runtime/debug-view';
 import DebugSnapshotInspector from './debug-snapshot-inspector.vue';
 
 const VIEWPORT_GAP = 12;
@@ -14,6 +15,7 @@ const positioned = ref(false);
 const anchor = reactive({ x: 0, y: 0 });
 const viewport = reactive({ width: 0, height: 0 });
 const drag = reactive({ active: false, moved: false, offsetX: 0, offsetY: 0 });
+const expandedLlmRequests = ref<string[]>([]);
 
 const digest = computed(() => {
   forge.registry.version.value;
@@ -21,7 +23,7 @@ const digest = computed(() => {
 });
 
 const events = computed(() => forge.events.slice(0, 80));
-const llmEvents = computed(() => forge.events.filter((event) => event.kind === 'llm').slice(0, 40));
+const llmRows = computed(() => buildEnchantLlmDebugRows(forge.events).slice(0, 20));
 const snapshots = computed(() => forge.snapshots);
 const snapshot = computed(() => inspectedSnapshot.value ?? snapshots.value[0]);
 const positionClass = computed(() => `debug-position-${forge.debug.position}`);
@@ -128,6 +130,24 @@ function stringify(value: unknown) {
   return JSON.stringify(value, null, 2) ?? '';
 }
 
+function toggleLlmRequest(requestId: string) {
+  expandedLlmRequests.value = expandedLlmRequests.value.includes(requestId)
+    ? expandedLlmRequests.value.filter((id) => id !== requestId)
+    : [...expandedLlmRequests.value, requestId];
+}
+
+function formatTime(timestamp: string) {
+  return new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function tokenSummary(row: ReturnType<typeof buildEnchantLlmDebugRows>[number]) {
+  if (row.totalTokens !== undefined) return String(row.totalTokens);
+  if (row.inputTokens !== undefined || row.outputTokens !== undefined) {
+    return `${row.inputTokens ?? '-'} / ${row.outputTokens ?? '-'}`;
+  }
+  return '-';
+}
+
 onMounted(() => {
   restoreAnchor();
   window.addEventListener('resize', updateViewport);
@@ -183,7 +203,7 @@ onBeforeUnmount(() => {
           <nav class="debug-tabs" aria-label="Debug sections">
             <button type="button" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
             <button type="button" :class="{ active: activeTab === 'snapshot' }" @click="activeTab = 'snapshot'">Page Data</button>
-            <button type="button" :class="{ active: activeTab === 'llm' }" @click="activeTab = 'llm'">LLM ({{ llmEvents.length }})</button>
+            <button type="button" :class="{ active: activeTab === 'llm' }" @click="activeTab = 'llm'">LLM ({{ llmRows.length }})</button>
             <button type="button" :class="{ active: activeTab === 'trace' }" @click="activeTab = 'trace'">Trace ({{ events.length }})</button>
           </nav>
 
@@ -199,8 +219,66 @@ onBeforeUnmount(() => {
             <debug-snapshot-inspector :snapshot="snapshot" />
           </section>
           <section v-else-if="activeTab === 'llm'">
-            <p v-if="!llmEvents.length" class="debug-empty">暂无 LLM 请求。</p>
-            <pre v-else class="debug-json">{{ stringify(llmEvents) }}</pre>
+            <p v-if="!llmRows.length" class="debug-empty">暂无 LLM 请求。</p>
+            <div v-else class="debug-table-wrap">
+              <table class="debug-table llm-table">
+                <thead>
+                  <tr>
+                    <th>时间 / 模型</th>
+                    <th>Tools</th>
+                    <th>状态</th>
+                    <th>结束原因</th>
+                    <th>耗时</th>
+                    <th>Tokens</th>
+                    <th>JSON</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="row in llmRows" :key="row.requestId">
+                    <tr>
+                      <td>
+                        <strong>{{ formatTime(row.timestamp) }}</strong>
+                        <small>{{ row.model ?? '-' }}</small>
+                      </td>
+                      <td>
+                        <strong>{{ row.toolCount }} / calls {{ row.toolCallCount }}</strong>
+                        <small>{{ row.toolChoice ?? 'none' }}</small>
+                      </td>
+                      <td>
+                        <span class="llm-status" :class="`status-${row.status}`">{{ row.httpStatus ?? row.status }}</span>
+                        <small v-if="row.contentLength">{{ row.contentLength }} chars</small>
+                      </td>
+                      <td>{{ row.finishReason ?? '-' }}</td>
+                      <td>{{ row.durationMs === undefined ? '-' : `${row.durationMs} ms` }}</td>
+                      <td>
+                        <strong>{{ tokenSummary(row) }}</strong>
+                        <small v-if="row.totalTokens !== undefined">total</small>
+                        <small v-else>input / output</small>
+                      </td>
+                      <td>
+                        <button class="debug-row-action" type="button" @click="toggleLlmRequest(row.requestId)">
+                          {{ expandedLlmRequests.includes(row.requestId) ? '收起' : '查看' }}
+                        </button>
+                      </td>
+                    </tr>
+                    <tr v-if="expandedLlmRequests.includes(row.requestId)" class="llm-json-row">
+                      <td colspan="7">
+                        <div class="llm-json-grid">
+                          <section>
+                            <strong>Request body</strong>
+                            <pre class="debug-json">{{ stringify(row.request) }}</pre>
+                          </section>
+                          <section>
+                            <strong>{{ row.error ? 'Error' : 'Response body' }}</strong>
+                            <pre class="debug-json">{{ stringify(row.error ?? row.response) }}</pre>
+                          </section>
+                        </div>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
           </section>
           <section v-else>
             <p v-if="!events.length" class="debug-empty">暂无 trace。</p>
@@ -273,6 +351,24 @@ onBeforeUnmount(() => {
 .debug-summary strong { margin-top: 4px; color: #1f2d3d; font-size: 14px; }
 .debug-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .debug-tag { padding: 3px 7px; color: #526477; background: #f0f5ff; border: 1px solid #c6d8f5; border-radius: 4px; font-size: 10px; }
+.debug-table-wrap { overflow-x: auto; border: 1px solid #dfe6ef; border-radius: 5px; }
+.debug-table { width: 100%; min-width: 760px; border-collapse: collapse; color: #36465b; font-size: 11px; }
+.debug-table th { padding: 8px 10px; color: #6b7788; background: #f5f8fc; border-bottom: 1px solid #dfe6ef; text-align: left; font-size: 9px; letter-spacing: .06em; text-transform: uppercase; }
+.debug-table td { padding: 9px 10px; border-bottom: 1px solid #edf1f6; vertical-align: top; }
+.debug-table tbody > tr:last-child td { border-bottom: 0; }
+.debug-table td strong, .debug-table td small { display: block; }
+.debug-table td small { margin-top: 3px; color: #8490a0; font-size: 9px; }
+.llm-status { display: inline-block; padding: 2px 6px; border: 1px solid #cbd5e1; border-radius: 9px; color: #526477; background: #f8fafc; font-size: 9px; }
+.llm-status.status-completed { color: #28734d; background: #f1faf5; border-color: #b9dfca; }
+.llm-status.status-failed { color: #a43a3a; background: #fff5f5; border-color: #ecc6c6; }
+.llm-status.status-pending { color: #8a651b; background: #fff9e8; border-color: #ead8a2; }
+.debug-row-action { padding: 3px 7px; color: #0958d9; background: #fff; border: 1px solid #a9c3e8; border-radius: 4px; cursor: pointer; font: inherit; font-size: 9px; }
+.debug-row-action:hover { background: #f0f5ff; }
+.llm-json-row td { padding: 0; background: #f8fafc; }
+.llm-json-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 10px; }
+.llm-json-grid > section { min-width: 0; }
+.llm-json-grid > section > strong { display: block; margin: 0 0 6px 2px; color: #526477; font-size: 10px; }
+.llm-json-grid .debug-json { max-height: 48vh; background: #fff; }
 .debug-json { max-height: calc(100vh - 250px); margin: 0; padding: 12px; overflow: auto; color: #36465b; background: #f7f9fc; border: 1px solid #e3eaf3; border-radius: 5px; font-size: 11px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
 .debug-empty { color: #8490a0; font-size: 12px; }
 .debug-fade-enter-active, .debug-fade-leave-active { transition: opacity 140ms ease, transform 140ms ease; }
@@ -280,5 +376,6 @@ onBeforeUnmount(() => {
 
 @media (max-width: 520px) {
   .debug-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .llm-json-grid { grid-template-columns: 1fr; }
 }
 </style>

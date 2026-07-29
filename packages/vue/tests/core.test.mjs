@@ -18,6 +18,7 @@ import {
   useEnchantForm
 } from '../dist/enchantforge-vue.js';
 import {
+  buildEnchantLlmDebugRows,
   buildEnchantDebugScopeTree,
   flattenEnchantDebugMetadata
 } from '../dist/debug.js';
@@ -1106,6 +1107,17 @@ test('debug plugin records default LLM client requests and responses', async () 
   assert.equal(llmEvents[0].detail.detail.finishReason, 'stop');
   assert.equal(llmEvents[1].detail.phase, 'request');
   assert.equal(llmEvents[1].detail.detail.body.tool_choice, 'auto');
+
+  const rows = buildEnchantLlmDebugRows(llmEvents);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].model, 'test');
+  assert.equal(rows[0].toolCount, 1);
+  assert.equal(rows[0].toolChoice, 'auto');
+  assert.equal(rows[0].finishReason, 'stop');
+  assert.equal(rows[0].outputTokens, 9);
+  assert.equal(rows[0].status, 'completed');
+  assert.ok(rows[0].request);
+  assert.ok(rows[0].response);
 });
 
 test('useEnchantForm emits provider-compatible field schemas', async (context) => {
