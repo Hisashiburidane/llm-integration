@@ -5,6 +5,7 @@ import '@enchantforge/vue/style.css';
 import { createEnchantDebug, createEnchantForge } from '@enchantforge/vue';
 import App from './App.vue';
 import { supportApi } from './examples/asr/support-api';
+import { supportExecutionPolicy } from './examples/asr/support-execution-policy';
 import { supportKnowledgeProvider } from './examples/asr/support-knowledge';
 import './styles.css';
 
@@ -16,6 +17,7 @@ const forge = createEnchantForge({
   }
 });
 forge.use(supportApi);
+forge.use(supportExecutionPolicy);
 forge.use(createEnchantDebug());
 
 createApp(App).use(Antd).use(forge).mount('#app');

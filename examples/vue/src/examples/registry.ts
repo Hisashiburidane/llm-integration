@@ -158,7 +158,11 @@ const getOrderDetail = defineEnchantAction({
     type: 'object',
     required: ['orderNo'],
     properties: {
-      orderNo: { type: 'string', description: '完整订单号' }
+      orderNo: { type: 'string', description: '完整订单号' },
+      refresh: {
+        type: 'boolean',
+        description: '明确要求最新状态时绕过缓存'
+      }
     }
   },
   execute: ({ orderNo }, context) =>
@@ -174,6 +178,42 @@ export const supportApi = defineEnchantApi({
 // main.ts：安装一次，页面内的 Agent 自动获得这些 tools。
 const forge = createEnchantForge().use(supportApi);
 createApp(App).use(forge).mount('#app');`;
+
+const supportExecutionPolicyCode = `export const supportExecutionPolicy = {
+  name: 'support:execution-policy',
+  setup(forge) {
+    const recent = new Map();
+    return forge.registerExecutionMiddleware(
+      async ({ capability, input }, next) => {
+        if (capability.name !== 'support.get_order_detail') {
+          return next();
+        }
+        if (input.refresh) return next();
+
+        const key = input.orderNo.trim().toUpperCase();
+        const cached = recent.get(key);
+        if (cached?.pending) return cached.pending;
+        if (cached?.expiresAt > Date.now()) return cached.value;
+
+        const pending = Promise.resolve(next());
+        recent.set(key, { pending });
+        try {
+          const value = await pending;
+          recent.set(key, {
+            value,
+            expiresAt: Date.now() + 5 * 60_000
+          });
+          return value;
+        } catch (error) {
+          recent.delete(key);
+          throw error;
+        }
+      }
+    );
+  }
+};
+
+forge.use(supportExecutionPolicy);`;
 
 const originalTextToFormPageCode = `<script setup lang="ts">
 import ExpressForm from './ExpressForm.vue';
@@ -355,6 +395,7 @@ export const demos: DemoSpec[] = [
       { key: 'wrapper', tab: 'Enchant 边界', code: asrDemoCode, language: 'xml' },
       { key: 'agent', tab: '业务触发与 Tools', code: customerServiceAgentCode, language: 'typescript' },
       { key: 'app-api', tab: '应用 API', code: supportApiCode, language: 'typescript' },
+      { key: 'execution-policy', tab: '执行策略', code: supportExecutionPolicyCode, language: 'typescript' },
       { key: 'knowledge', tab: 'Knowledge Provider', code: knowledgeProviderCode, language: 'typescript' }
     ]
   },

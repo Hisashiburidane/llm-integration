@@ -250,7 +250,8 @@ export function useCustomerServiceAgent(
         '提取有明确证据的工单字段，并给人工坐席一条下一步建议。'
       ].join('\n'),
       prompt: [
-        '累计转写中出现完整订单号时，先调用 support.get_order_detail；商品、订单状态、客户和售后状态必须以订单 API tool result 为准。',
+        '累计转写中出现完整订单号时，先调用 support.get_order_detail；默认不要设置 refresh，只有用户明确要求重新获取最新状态时才设置 refresh=true。',
+        '商品、订单状态、客户和售后状态必须以订单 API tool result 为准。',
         '客户已经描述具体故障、缺件或售后诉求时，再调用 support.search_knowledge 检索处理规则；没有检索结果时不得自行编造规则。',
         '读取工具返回前，不要生成依赖其结果的写入或建议；先读取，下一轮再根据 tool result 继续。',
         '必须调用 support.update_ticket_draft 更新已确认的信息。只能使用 ASR 原文或读取工具明确返回的事实。',

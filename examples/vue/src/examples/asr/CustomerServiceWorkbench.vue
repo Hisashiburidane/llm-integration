@@ -253,6 +253,7 @@ onBeforeUnmount(() => {
       <span><b>触发</b>{{ checkpointCount }} 个语义检查点</span>
       <span><b>上下文</b>本次新增 + 累计 offline</span>
       <span><b>数据</b>订单 API + Knowledge Provider</span>
+      <span><b>API 策略</b>同参 5 分钟复用 · refresh 可绕过</span>
       <span><b>队列</b>串行执行 · pending latest-wins</span>
     </div>
 

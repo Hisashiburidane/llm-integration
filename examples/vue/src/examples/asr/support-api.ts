@@ -9,7 +9,7 @@ import {
 export const latestOrderDetail = shallowRef<OrderDetail>();
 
 export function createSupportApi(orderService: OrderService) {
-  const getOrderDetail = defineEnchantAction<{ orderNo: string }>({
+  const getOrderDetail = defineEnchantAction<{ orderNo: string; refresh?: boolean }>({
     name: 'support.get_order_detail',
     label: '查询订单详情',
     description: '根据完整订单号查询后台订单 API。订单状态、商品、客户与售后状态必须以此工具返回为准，不得根据订单号猜测。',
@@ -24,6 +24,10 @@ export function createSupportApi(orderService: OrderService) {
           type: 'string',
           minLength: 8,
           description: '完整订单号'
+        },
+        refresh: {
+          type: 'boolean',
+          description: '仅在明确需要重新获取最新订单状态时设为 true'
         }
       }
     },
