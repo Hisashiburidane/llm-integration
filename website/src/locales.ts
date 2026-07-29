@@ -68,9 +68,9 @@ export const messages = {
         }
       },
       register: {
-        kicker: '注册能力',
-        title: '操作必须有明确接口',
-        body: '参数、影响和执行函数由应用定义，AI 只负责选择。'
+        kicker: '注册函数',
+        title: '让 AI 调用应用函数',
+        body: '应用描述函数的用途和参数，Forge 将它作为工具提供给 AI，并在调用前完成校验。'
       },
       examples: {
         kicker: '真实示例',
@@ -300,9 +300,9 @@ export const messages = {
         }
       },
       register: {
-        kicker: 'Register capabilities',
-        title: 'Actions require explicit contracts',
-        body: 'Applications define parameters, effects, and execution. AI selects the action.'
+        kicker: 'Register functions',
+        title: 'Let AI call application functions',
+        body: 'Applications describe each function and its parameters. Forge exposes it as a tool and validates every call.'
       },
       examples: {
         kicker: 'Examples',
