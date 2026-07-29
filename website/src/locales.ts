@@ -21,8 +21,8 @@ export const messages = {
       hero: {
         kicker: 'Vue-first LLM integration framework',
         title: '帮 AI 对齐颗粒度',
-        problem: 'Vue AI 上下文框架',
-        lead: 'Vue 组件提供上下文与工具，应用控制执行边界。',
+        problem: '面向 Vue 应用的 AI 集成框架',
+        lead: '组件提供上下文与工具，应用控制执行边界。',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
