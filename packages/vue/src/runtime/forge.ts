@@ -162,6 +162,17 @@ export type EnchantExecutionMiddleware = (
   next: EnchantExecutionMiddlewareNext
 ) => unknown | Promise<unknown>;
 
+export interface EnchantRunMiddlewareRequest {
+  options: EnchantRunOptions;
+}
+
+export type EnchantRunMiddlewareNext = () => Promise<EnchantRunResult>;
+
+export type EnchantRunMiddleware = (
+  request: EnchantRunMiddlewareRequest,
+  next: EnchantRunMiddlewareNext
+) => EnchantRunResult | Promise<EnchantRunResult>;
+
 export interface EnchantDebugConfig {
   enabled: boolean;
   title: string;
@@ -207,6 +218,7 @@ export type EnchantForge = Plugin & {
   ): T;
   registerExporter<T>(exporter: EnchantCapabilityExporter<T>): () => void;
   registerExecutionMiddleware(middleware: EnchantExecutionMiddleware): () => void;
+  registerRunMiddleware(middleware: EnchantRunMiddleware): () => void;
   configurePolicy(config: Partial<EnchantPolicy>): void;
   syncNavigation(input: EnchantNavigationInput): void;
   bindNavigation(source: EnchantNavigationSource): () => void;
@@ -395,6 +407,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const pluginCleanups: Array<() => void> = [];
   const plugins: EnchantForgePlugin[] = [];
   const executionMiddlewares: EnchantExecutionMiddleware[] = [];
+  const runMiddlewares: EnchantRunMiddleware[] = [];
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
   let installedApp: App | undefined;
   let disposed = false;
@@ -813,8 +826,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     }
   }
 
-  async function run(value: EnchantRunOptions | string): Promise<EnchantRunResult> {
-    const request = typeof value === 'string' ? { input: value } : value;
+  async function performRun(request: EnchantRunOptions): Promise<EnchantRunResult> {
     const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     try {
       throwIfAborted(request.signal);
@@ -937,6 +949,23 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     }
   }
 
+  function invokeRun(request: EnchantRunMiddlewareRequest) {
+    let activeIndex = -1;
+    const dispatch = async (index: number): Promise<EnchantRunResult> => {
+      if (index <= activeIndex) throw new Error('Run middleware 的 next() 不能重复调用。');
+      activeIndex = index;
+      const middleware = runMiddlewares[index];
+      if (middleware) return middleware(request, () => dispatch(index + 1));
+      return performRun(request.options);
+    };
+    return dispatch(0);
+  }
+
+  function run(value: EnchantRunOptions | string) {
+    const options = typeof value === 'string' ? { input: value } : value;
+    return invokeRun({ options });
+  }
+
   function scheduleAutoCapture() {
     if (!snapshotConfig.autoCapture) return;
     if (autoCaptureTimer) clearTimeout(autoCaptureTimer);
@@ -956,6 +985,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     stopRegistrySubscription();
     while (pluginCleanups.length) pluginCleanups.pop()?.();
     executionMiddlewares.splice(0);
+    runMiddlewares.splice(0);
     registry.clear();
     if (latestInstalledForge === forge) latestInstalledForge = undefined;
   }
@@ -1006,6 +1036,13 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
       return () => {
         const index = executionMiddlewares.indexOf(middleware);
         if (index >= 0) executionMiddlewares.splice(index, 1);
+      };
+    },
+    registerRunMiddleware(middleware) {
+      runMiddlewares.push(middleware);
+      return () => {
+        const index = runMiddlewares.indexOf(middleware);
+        if (index >= 0) runMiddlewares.splice(index, 1);
       };
     },
     configurePolicy,

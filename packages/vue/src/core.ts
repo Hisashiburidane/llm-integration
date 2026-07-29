@@ -50,6 +50,9 @@ export type {
   EnchantAgentResolver,
   EnchantModelContext,
   EnchantRunOptions,
+  EnchantRunMiddleware,
+  EnchantRunMiddlewareNext,
+  EnchantRunMiddlewareRequest,
   EnchantConfirmationRequest,
   EnchantSnapshotConfig
 } from './runtime/forge';

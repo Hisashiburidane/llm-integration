@@ -1065,6 +1065,32 @@ test('execution middleware can reuse capability results across agent runs', asyn
   assert.equal(executions, 2);
 });
 
+test('run middleware wraps agent orchestration and can be removed', async () => {
+  const lifecycle = [];
+  const forge = createEnchantForge({
+    agent: {
+      async plan() {
+        lifecycle.push('agent');
+        return { message: 'finished', calls: [] };
+      }
+    }
+  });
+  const unregister = forge.registerRunMiddleware(async (request, next) => {
+    lifecycle.push(`before:${request.options.input}`);
+    const result = await next();
+    lifecycle.push(`after:${result.message}`);
+    return result;
+  });
+
+  await forge.run('inspect');
+  assert.deepEqual(lifecycle, ['before:inspect', 'agent', 'after:finished']);
+
+  unregister();
+  lifecycle.length = 0;
+  await forge.run('again');
+  assert.deepEqual(lifecycle, ['agent']);
+});
+
 test('debug plugin enables the lightweight in-page debug surface by default', () => {
   const forge = createEnchantForge();
   forge.use(createEnchantDebug({ title: 'Runtime Debug', position: 'bottom-left' }));
