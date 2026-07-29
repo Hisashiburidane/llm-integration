@@ -1,10 +1,14 @@
 # 08. Workflow and Semantic Snapshot
 
+> 状态：规划中。本文描述候选产品方向和数据模型草案，不代表
+> `@enchantforge/vue` 当前已经导出 workflow、`ExecutorStep`、持久化或 replay API。
+
 ## Workflow
 
-A workflow is a saved executor step list created from an AI interaction or user-confirmed plan.
+A future workflow may save an executor step list created from an AI interaction or
+user-confirmed plan.
 
-POC storage: localStorage.
+Possible POC storage: localStorage.
 
 ```ts
 type SavedWorkflow = {
@@ -38,7 +42,9 @@ Benefits:
 
 ## Semantic Snapshot
 
-A snapshot captures UI semantic state, not just URL.
+A future semantic restore format may capture UI operations, not just a URL. It is
+different from the current runtime `EnchantSnapshot`, which records one immutable
+capture for context provenance and constrained execution.
 
 ```ts
 type SemanticSnapshot = {

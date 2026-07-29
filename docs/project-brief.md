@@ -91,9 +91,11 @@ DOM 扫描默认关闭。原因是组件库升级或很小的模板改动都可�
 - Vue 应用级 Forge 和动态 registry；
 - `Enchant` 生命周期边界；
 - `useEnchantForm()` 和 `useEnchantAction()`；
+- `defineEnchantAction()`、`defineEnchantApi()` 和应用级能力注册；
 - metadata、capability、snapshot、policy 和 trace；
+- Agent run/capability middleware、LLM 请求调试和 OpenTelemetry Adapter；
 - 全局 Aura 助手；
 - 推荐 API 与 DOM fallback 两种表单示例；
 - Dashboard 高亮、详情和组合视图示例。
 
-下一阶段重点不是增加更多演示动作，而是验证组件 adapter、Vue Devtools/debug、权限策略和真实业务系统中的接入成本。
+下一阶段重点不是增加更多演示动作，而是继续验证组件 adapter、权限策略、真实业务系统中的接入成本，以及尚未实现的 workflow/replay 等工程化能力。

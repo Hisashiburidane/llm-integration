@@ -227,19 +227,28 @@ interface CapabilityOwnership {
 
 ## 9. Application 能力接入要求
 
-应用 capability 应通过统一协议接入，而不是修改 Forge：
+应用 capability 应通过统一协议接入，而不是修改 Forge。跨页面复用的能力通过
+`defineEnchantAction` 和 `defineEnchantApi` 集中定义：
 
 ~~~ts
-forge.registerCapability({
-  id: 'dashboard.compose',
-  owner: 'application',
-  description: '组合指定 Dashboard 面板',
-  inputSchema,
-  execute
+const dashboardApi = defineEnchantApi({
+  id: 'dashboard',
+  actions: [
+    defineEnchantAction({
+      name: 'dashboard.compose',
+      description: '组合指定 Dashboard 面板',
+      effect: 'draft',
+      inputSchema,
+      execute
+    })
+  ]
 });
+
+forge.use(dashboardApi);
 ~~~
 
-未来高层 API 可以减少上述样板代码，但不得把 execute 的业务语义移入 Core。
+局部组件能力使用 `useEnchantAction()` 绑定到最近的 `<Enchant>` 生命周期。无论采用
+应用级还是局部注册，都不得把 `execute` 的业务语义移入 Core。
 
 应用可以在页面、store、composable 或业务 Adapter 中实现 capability。代码位置由状态所有权决定。
 

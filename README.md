@@ -1,6 +1,6 @@
 # EnchantForge
 
-Progressive AI interaction experiments organized as a pnpm workspace.
+A Vue-first LLM integration framework organized as a pnpm workspace.
 
 See `AGENTS.md` for project-level instructions for coding agents.
 

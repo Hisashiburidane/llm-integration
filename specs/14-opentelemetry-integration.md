@@ -66,8 +66,11 @@ active context，业务 API 内已经启用的 fetch、HTTP 或数据库 instrum
 | `enchantforge.llm.request.count` | Counter | `{request}` |
 | `enchantforge.llm.request.duration` | Histogram | `s` |
 
-Metrics 只在提供 `meter` 时创建。结果通过 `enchantforge.outcome` 区分
-`success`、`failed`、`partial` 和 `error`。
+Metrics 只在提供 `meter` 时创建。`enchantforge.outcome` 的取值取决于观测边界：
+
+- Agent run：`success`、`failed` 或 `error`；
+- capability execution：`success`、`partial`、`failed` 或 `error`；
+- LLM request：`success`、`failed` 或 `error`。
 
 ## 5. 数据安全
 

@@ -48,7 +48,7 @@ createEnchantForge({
 - Aura 常驻时只读取 registry digest；
 - agent run 开始时生成临时 snapshot；
 - agent run 在 capture 前等待一个短暂的 registry quiet window，避免页面挂载中的注册竞态；
-- 如果 registry 在 LLM 规划期间变化，Forge 会丢弃旧计划并重新 capture/replan 一次；
+- LLM 规划期间发生的无关 registry 变化不会丢弃计划或触发 replan；
 - executor 使用该临时 snapshot 和实时 registration status；
 - 执行结束后不将 snapshot 保存到 history；
 - trace 只记录 snapshot id、version 和数量摘要。
@@ -96,7 +96,7 @@ forge.use(createEnchantDebug({
 }))
 ```
 
-插件安装到 Vue app 后会自动在页面右下角显示 Debug 控件。点击后可以查看当前 digest、navigation、policy、snapshot、capability exporter 和 execution trace；`overlay: false` 只启用 snapshot 观察，不挂载页面控件。该控件是诊断入口，不参与 Aura 会话和业务执行。
+插件安装到 Vue app 后会自动在页面右下角显示 Debug 控件。点击后可以查看当前 digest、navigation、policy、snapshot、capability exporter 和 execution trace；`overlay: false` 只关闭页面控件，不会隐式启用 snapshot 观察。需要观察并保留 snapshot 时必须显式设置 `snapshots.autoCapture: true`。该控件是诊断入口，不参与 Aura 会话和业务执行。
 
 控件徽标显示的是 trace event 数量，不是 registry version。一次 agent run 会记录 capture、request、planning、execution 和 completed 等运行事件，因此该数字会增长；页面合约版本只看 drawer 中的 `version` 字段。
 

@@ -41,10 +41,14 @@ All product docs, examples, and first-stage implementation target Vue.
 
 Adoption must be incremental:
 
-1. Add a wrapper and get basic DOM scanning.
-2. Add directives and hints to improve semantic quality.
-3. Register fields/actions for robust execution.
-4. Save repeated interactions as workflows or semantic snapshots.
+1. Add a wrapper around a component that already contributes metadata and capabilities.
+2. Use high-level composables such as `useEnchantForm()` and `useEnchantAction()`.
+3. Register reusable application APIs and configure Agent, policy, and middleware.
+4. Use lower-level context capture, tool export, and execution extension points when needed.
+
+DOM scanning is an explicitly enabled compatibility path for prototypes and legacy
+pages. Workflow persistence and semantic restore are planned capabilities, not part
+of the current progressive adoption path.
 
 ### Local-first, Global-capable
 
@@ -78,8 +82,8 @@ Examples:
 - Paste messy text and watch a form fill itself correctly.
 - A hotline transcript triggers a suggested action at the right time.
 - A validation failure is explained by a small assistant next to the form.
-- A saved workflow visibly replays page operations step by step.
-- A semantic snapshot restores a view by driving the UI, not by silently loading URL params.
+- Planned: a saved workflow visibly replays page operations step by step.
+- Planned: a semantic snapshot restores a view by driving the UI, not by silently loading URL params.
 
 ## Success Criteria
 

@@ -74,11 +74,13 @@ createApp(App).use(forge).mount('#app');`
   route?: string;
   kind?: Enchantment['kind'];
   prompt?: string;
+  spell?: string;
   state?: unknown | (() => unknown);
   scan?: 'none' | 'marked' | 'auto' | EnchantScanConfig;
   metadata?: EnchantMetadataNode[];
   capabilities?: EnchantCapabilityDefinition[];
   exposure?: 'aura' | 'local' | 'private';
+  registerGlobal?: boolean;
   active?: boolean;
   visible?: boolean;
   enabled?: boolean;
@@ -102,7 +104,9 @@ createApp(App).use(forge).mount('#app');`
   page?: string;
   agentId?: string;
   agent?: EnchantAgent;
+  caster?: EnchantAgent;
   appearance?: 'orb' | 'dock' | 'inline';
+  orb?: Component;
   title?: string;
   prompt?: string;
   placeholder?: string;
@@ -142,6 +146,7 @@ createApp(App).use(forge).mount('#app');`
     description?: string;
     provider?: string;
     fields?: (keyof TModel)[] | Partial<Record<keyof TModel, string>>;
+    fieldSchemas?: Partial<Record<keyof TModel, JsonSchema>>;
     assign?: (values: Partial<TModel>, model: TModel) => void | Promise<void>;
   }
 ): EnchantActionRegistration`,

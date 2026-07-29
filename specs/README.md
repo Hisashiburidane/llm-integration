@@ -4,7 +4,8 @@
 
 EnchantForge 对模型能力采取保守假设：模型可以解释、规划和请求执行，但应用仍是事实、规则和授权的来源。Aura 只感知当前有效且允许暴露的 Enchantment，不代表全局知识或隐含权限。
 
-当前示例用于验证核心假设。框架实现、示例和官网内容应以本目录中的规格为依据。
+当前示例用于验证核心假设。标记为当前规格的文档应与框架实现、示例和官网保持一致；
+明确标记为“规划中”的文档只描述候选方向，不代表已经交付的公共 API。
 
 ## 文档索引
 
@@ -16,10 +17,10 @@ EnchantForge 对模型能力采取保守假设：模型可以解释、规划和�
 5. [渐进式扫描](./05-progressive-scanning.md)
 6. [Aura 交互](./06-assistant-ux.md)
 7. [Executor 与 Tools](./07-executor-and-tools.md)
-8. [Workflow 与语义快照](./08-workflow-and-snapshot.md)
+8. [Workflow 与语义快照（规划中）](./08-workflow-and-snapshot.md)
 9. [安全与 Policy](./09-safety-and-policy.md)
-10. [运行时 Capture、Snapshot 与 Debug](./10-runtime-capture-and-debug.md)
-10. [微应用集成](./10-micro-app-integration.md)
+10a. [运行时 Capture、Snapshot 与 Debug](./10-runtime-capture-and-debug.md)
+10b. [微应用集成（规划中）](./10-micro-app-integration.md)
 11. [功能归属与框架边界](./11-feature-ownership-and-boundaries.md)
 12. [CopilotKit 功能重合与差异分析](./12-copilotkit-gap-analysis.md)
 13. [LLM Context 与 Tool Calling 边界](./13-llm-context-boundary.md)

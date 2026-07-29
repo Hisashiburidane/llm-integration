@@ -233,7 +233,8 @@ Core 不暂存 Ant Design Vue 等业务组件 adapter。即使首批只支持少
 | wrapper | `Enchant` | 建立局部边界，聚合 contribution，并生成 Enchantment |
 | 数据模型 | `Enchantment` | 描述一次局部 UI 增强的实时 metadata 和 capability |
 | 全局智能层 | `Aura` | 聚合有效 Enchantment，并提供默认交互界面 |
-| runtime | `useEnchant()` | 获取当前 app runtime |
+| 局部 runtime | `useEnchant()` | 在当前 `Enchant` 边界内读取 context 并执行能力 |
+| 应用 runtime | `useEnchantForge()` | 获取当前 Vue app 安装的 Forge |
 | page | `useEnchantPage()` | 获取当前页面 snapshot 和能力 |
 | registry | `useEnchantRegistry()` | 扩展和调试 API，不进入首个示例 |
 
@@ -274,8 +275,7 @@ plugin 负责：
 <Enchant
   name="shipping-form"
   prompt="把用户提供的信息填入表单，不要提交"
-  :global="true"
-  access="write"
+  exposure="aura"
 >
   <ExpressForm />
 </Enchant>
@@ -287,10 +287,12 @@ plugin 负责：
 | `prompt` | 局部语义或任务约束的标准属性 | 空 |
 | `spell` | `prompt` 的主题化别名 | 空 |
 | `scan` | `none`、`marked`、`auto` 或细粒度扫描配置 | `none` |
-| `global` | 是否向应用级 Aura 暴露 | `true` |
-| `access` | `none`、`read`、`write` 或策略引用 | `write` |
+| `exposure` | `aura`、`local` 或 `private` 暴露范围 | Forge policy 默认值 |
+| `registerGlobal` | 兼容开关；设为 `false` 时强制限制为 `local` | 未设置 |
+| `agentId` | 当前边界默认使用的 Agent Client 标识 | 继承父边界 |
+| `state` | capture 时读取的响应式状态或 getter | 空 |
 | `metadata` | 显式补充自动 metadata | 空 |
-| `knowledge` | Enchantment 的知识引用或 provider | 空 |
+| `capabilities` | 由当前边界明确提供的能力 | 空 |
 
 复杂 executor、exporter 和 adapter 配置通过 plugin、composable 或扩展 API 提供，不持续增加 wrapper props。
 
@@ -538,7 +540,7 @@ policy 决策必须发生在 executor 调用前并写入 trace。Prompt 中的�
 - 每个步骤的输入、结果、耗时和错误；
 - 执行前后关键 metadata diff。
 
-后续增加语义 snapshot、确定性步骤重放、确认点恢复、Vue Devtools、OpenTelemetry 和自定义 audit sink。trace 默认不得记录密码、token 和完整个人敏感信息，metadata schema 需要字段级 redact 配置。
+当前已经通过独立入口 `@enchantforge/vue/otel` 提供 OpenTelemetry Adapter。后续增加语义 snapshot、确定性步骤重放、确认点恢复、Vue Devtools 和自定义 audit sink。trace 默认不得记录密码、token 和完整个人敏感信息，metadata schema 需要字段级 redact 配置。
 
 ## 16. 微前端
 
@@ -601,7 +603,7 @@ qiankun 等环境中不建议主应用直接访问子应用 DOM 或共享 regist
 
 目标：形成可在多个业务系统复用的基础设施。
 
-交付：Vue Devtools、OpenTelemetry、execution replay、semantic snapshot、workflow persistence、micro-app bridge 和 MCP/skill exporter。
+已交付：OpenTelemetry Adapter。规划交付：Vue Devtools、execution replay、semantic snapshot、workflow persistence、micro-app bridge 和 MCP/skill exporter。
 
 ## 19. 主要风险
 

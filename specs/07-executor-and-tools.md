@@ -20,6 +20,9 @@ The list is not a mandatory Core tool catalog. `navigate` requires a router Adap
 
 ## Executor Step Model
 
+以下类型是 workflow/replay 的规划草案，不是当前 Core 导出的公共 API。当前执行协议
+使用 `EnchantPlanCall`、`EnchantExecutionResult` 和已注册 capability。
+
 ```ts
 type ExecutorStep =
   | { type: 'navigate'; target: string }
