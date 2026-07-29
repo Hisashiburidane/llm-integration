@@ -133,6 +133,8 @@ Detailed writing modes are defined in `docs/writing-standards.md`.
 - all modes share the same product facts and must not overstate implemented behavior
 - style never overrides natural sentence order or technical logic; do not force
   rhyme, parallel phrasing, or punctuation-driven pauses
+- abstract nouns such as capability, control, boundary, and value must name concrete
+  objects and mechanisms; do not combine them into empty enterprise slogans
 
 ## 8. Architecture Rules
 
