@@ -57,6 +57,8 @@ import App from './App.vue';
 const forge = createEnchantForge({
   llm: {
     model: __LLM_MODEL__,
+    timeout: __LLM_TIMEOUT_MS__,
+    maxTokens: __LLM_MAX_TOKENS__,
     configError: __LLM_CONFIG_ERROR__
       ? \`\${__LLM_CONFIG_ERROR__}，请检查 examples/vue/.env。\`
       : ''
