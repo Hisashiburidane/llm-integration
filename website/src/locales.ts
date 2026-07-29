@@ -30,7 +30,7 @@ export const messages = {
       minimum: {
         kicker: '先让 AI 看见',
         title: '应用知道的，AI 也该知道。',
-        body: '字段、状态和操作都在应用里。直接提供，不必让 AI 猜。',
+        body: 'EnchantForge 将应用显式提供的信息组织成 AI 上下文。',
         notes: {
           domTitle: '不从像素猜语义。',
           domBody: '优先读取组件接口。DOM 扫描只用于兼容。',
@@ -262,7 +262,7 @@ export const messages = {
       minimum: {
         kicker: 'Make the application visible',
         title: 'What the application knows, AI should know.',
-        body: 'Fields, state, and actions already exist in the application. Provide them directly instead of asking AI to infer them.',
+        body: 'EnchantForge organizes explicitly contributed application information into context an AI model can use.',
         notes: {
           domTitle: 'Do not infer semantics from pixels.',
           domBody: 'Prefer component contracts. Use DOM scanning only for compatibility.',
