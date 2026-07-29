@@ -124,6 +124,16 @@ Documentation language policy:
 - code identifiers remain English
 - comments should be minimal and useful
 
+Detailed writing modes are defined in `docs/writing-standards.md`.
+
+- portal headlines and product sections default to the product-copy standard
+- submissions, demos, and launch materials default to the promotional standard
+- README, API reference, specs, errors, and implementation notes default to the
+  technical-documentation standard
+- all modes share the same product facts and must not overstate implemented behavior
+- style never overrides natural sentence order or technical logic; do not force
+  rhyme, parallel phrasing, or punctuation-driven pauses
+
 ## 8. Architecture Rules
 
 Maintain clear boundaries:
