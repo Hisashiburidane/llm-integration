@@ -20,24 +20,25 @@ export const messages = {
     home: {
       hero: {
         kicker: 'Vue-first LLM integration framework',
-        title: '不是给应用塞一个聊天框。',
-        subtitle: '让 AI 看懂你的页面，也能在明确的边界内动手。',
-        lead: '表单字段、页面结构和可执行操作，由组件主动声明。EnchantForge 负责收集这些上下文并交给 AI，不必为每个 AI 功能重新组织提示词和工具。',
+        title: '帮 AI 对齐颗粒度。',
+        chant: '拉齐认知，统一口径；透传语义，拉通链路；形成闭环，找到抓手；收敛边界，前置风险；沉淀方法论，建立开发心智；构建能力矩阵，端到端打通；最后形成一套 AI 应用开发组合拳，完成底层赋能。',
+        pivot: '这些话听起来都对。',
+        question: '问题是，上下文呢？',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
       },
       minimum: {
-        kicker: '先别讲架构',
-        title: '最简单的接入，就是包一下。',
-        body: '把需要交给 AI 的那块 Vue 页面放进 Enchant。里面的组件把字段和能做的事报上来。就这么多。',
+        kicker: '翻译成人话',
+        title: '应用知道的，AI 也该知道。',
+        body: '表单字段、页面结构、允许公开的状态和可执行操作，本来就在 Vue 组件里。与其让模型从截图、Prompt 和 Skills 里重新猜一遍，不如让应用直接提供结构化的上下文和工具。',
         notes: {
-          domTitle: '不会偷偷扫描整张页面。',
-          domBody: '组件愿意说什么，AI 才能看到什么。老页面实在改不了，再明确开启 DOM 扫描。',
-          globalTitle: '不会把所有信息一股脑交给 AI。',
-          globalBody: '每块页面都可以单独控制：只在本地用、交给 Aura，或者完全不公开。',
-          submitTitle: '更不会替你点确认。',
-          submitBody: '填表、聚焦、高亮都可以做；付款、退款、提交这类操作，默认必须有人把关。'
+          domTitle: '不从像素猜语义。',
+          domBody: '组件可以直接提供字段和能力时，不需要让 Computer Use 反推按钮位置和页面含义。DOM 扫描只作为显式启用的兼容路径。',
+          globalTitle: '不在 Prompt 里重写应用。',
+          globalBody: 'Prompt 负责规则和意图；页面结构、局部状态与工具定义，由组件在所属生命周期内持续提供。',
+          submitTitle: '不让 Skills 替代业务接口。',
+          submitBody: '工具由应用显式实现并声明参数、影响范围与执行边界。权限和最终业务副作用仍由应用控制。'
         }
       },
       model: {
@@ -252,24 +253,25 @@ export const messages = {
     home: {
       hero: {
         kicker: 'Vue-first LLM integration framework',
-        title: 'Not another chat box for your application.',
-        subtitle: 'Give AI the context to understand your interface and the tools to act within explicit boundaries.',
-        lead: 'Components explicitly contribute form fields, interface structure, and executable actions. EnchantForge assembles that context so each AI feature does not need to rebuild its prompts and tools.',
+        title: 'Align AI at the right granularity.',
+        chant: 'Align understanding. Standardize semantics. Connect the chain. Close the loop. Find the leverage point. Constrain the boundary. Front-load risk. Build the capability matrix. Deliver end to end. Complete the foundational enablement.',
+        pivot: 'Every phrase sounds correct.',
+        question: 'But where does the context come from?',
         start: 'Start with one wrapper',
         examples: 'Open examples',
         api: 'Read the API'
       },
       minimum: {
-        kicker: 'Minimum surface',
-        title: 'One wrapper creates one AI scope.',
-        body: 'The first integration point is a Vue subtree. By default, the boundary only aggregates metadata and capabilities explicitly contributed by descendants and installed adapters.',
+        kicker: 'In plain terms',
+        title: 'What the application knows, AI should know.',
+        body: 'Form fields, interface structure, explicitly exposed state, and executable actions already exist in Vue components. The application can provide structured context and tools instead of asking a model to reconstruct them from screenshots, prompts, and skills.',
         notes: {
-          domTitle: 'No DOM traversal by default.',
-          domBody: 'Rendered markup is not treated as a stable component contract.',
-          globalTitle: 'No global exposure by default.',
-          globalBody: 'Scopes can stay local or private, or be explicitly exposed to Aura.',
-          submitTitle: 'No submit by default.',
-          submitBody: 'The executor prepares visible UI state. Final business commit remains explicit.'
+          domTitle: 'Do not infer semantics from pixels.',
+          domBody: 'When components can expose fields and capabilities directly, Computer Use does not need to infer meaning from button positions. DOM scanning remains an explicit compatibility path.',
+          globalTitle: 'Do not rewrite the application in prompts.',
+          globalBody: 'Prompts describe rules and intent. Components provide interface structure, scoped state, and tools throughout their lifecycle.',
+          submitTitle: 'Do not replace business APIs with skills.',
+          submitBody: 'Applications implement tools and declare their parameters, effects, and execution boundaries. Authorization and final business effects remain application-owned.'
         }
       },
       model: {
