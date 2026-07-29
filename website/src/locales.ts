@@ -32,8 +32,8 @@ export const messages = {
         title: '应用知道的，AI 也该知道。',
         body: 'EnchantForge 将应用显式提供的信息组织成 AI 上下文。',
         notes: {
-          domTitle: '不从像素猜语义。',
-          domBody: '优先读取组件接口。DOM 扫描只用于兼容。',
+          domTitle: '信息来自应用。',
+          domBody: '字段、状态和页面结构由应用明确提供。',
           globalTitle: '不在 Prompt 里重写应用。',
           globalBody: 'Prompt 描述规则，应用提供页面事实。',
           submitTitle: '不让 Skills 替代业务接口。',
@@ -42,7 +42,7 @@ export const messages = {
       },
       model: {
         kicker: '接入方式',
-        title: '从组件上下文，到应用级能力。',
+        title: '按需接入上下文、能力与 Agent。',
         levels: {
           component: {
             title: '组件提供上下文',
@@ -52,20 +52,15 @@ export const messages = {
             title: '应用注册能力',
             notes: ['跨页面共享', '统一参数 Schema', '业务逻辑自有', '插件式安装']
           },
+          assistant: {
+            title: '使用现成助手',
+            notes: ['对话输入', '进度反馈', 'Markdown 回答', '命令式控制']
+          },
           agent: {
             title: '接入自己的 Agent',
             notes: ['导出上下文', '导出工具', '自定义协议', '受约束执行']
-          },
-          compatibility: {
-            title: '兼容旧页面',
-            notes: ['显式开启', '限定范围', '较低置信度', '浏览器事件']
           }
         }
-      },
-      fallback: {
-        kicker: '兼容旧页面',
-        title: '只扫描明确标记的区域。',
-        body: '扫描默认关闭；启用范围明确写在代码里。'
       },
       register: {
         kicker: '注册能力',
@@ -109,9 +104,9 @@ export const messages = {
           title: '不偷偷动手',
           body: '执行过程和结果始终可见。'
         },
-        optional: {
-          title: '不拿兼容方案当主角',
-          body: 'DOM 扫描只用于兼容旧页面。'
+        owned: {
+          title: '业务归应用',
+          body: '框架管理机制，应用定义语义和副作用。'
         }
       }
     },
@@ -264,8 +259,8 @@ export const messages = {
         title: 'What the application knows, AI should know.',
         body: 'EnchantForge organizes explicitly contributed application information into context an AI model can use.',
         notes: {
-          domTitle: 'Do not infer semantics from pixels.',
-          domBody: 'Prefer component contracts. Use DOM scanning only for compatibility.',
+          domTitle: 'Information comes from the application.',
+          domBody: 'Applications explicitly provide fields, state, and interface structure.',
           globalTitle: 'Do not rewrite the application in prompts.',
           globalBody: 'Prompts describe rules. Applications provide page facts.',
           submitTitle: 'Do not replace business APIs with skills.',
@@ -274,7 +269,7 @@ export const messages = {
       },
       model: {
         kicker: 'Integration paths',
-        title: 'From component context to application capabilities.',
+        title: 'Add context, capabilities, and Agents as needed.',
         levels: {
           component: {
             title: 'Component context',
@@ -284,20 +279,15 @@ export const messages = {
             title: 'Application capabilities',
             notes: ['shared across pages', 'shared schemas', 'application logic', 'plugin install']
           },
+          assistant: {
+            title: 'Built-in assistant',
+            notes: ['conversation input', 'progress feedback', 'Markdown answers', 'imperative control']
+          },
           agent: {
             title: 'Custom Agent',
             notes: ['export context', 'export tools', 'custom protocol', 'constrained execution']
-          },
-          compatibility: {
-            title: 'Legacy compatibility',
-            notes: ['explicit opt-in', 'local scope', 'lower confidence', 'browser events']
           }
         }
-      },
-      fallback: {
-        kicker: 'Legacy compatibility',
-        title: 'Restrict DOM access to declared regions.',
-        body: 'Scanning is off by default and its scope stays visible in source code.'
       },
       register: {
         kicker: 'Register capabilities',
@@ -341,9 +331,9 @@ export const messages = {
           title: 'Visible execution',
           body: 'Execution and results remain visible.'
         },
-        optional: {
-          title: 'DOM is optional',
-          body: 'DOM scanning exists only for compatibility.'
+        owned: {
+          title: 'Application-owned semantics',
+          body: 'Core owns mechanisms. Applications own meaning and effects.'
         }
       }
     },

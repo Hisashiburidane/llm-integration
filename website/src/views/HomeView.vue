@@ -30,10 +30,6 @@ ${'</scr' + 'ipt>'}
   <ExpressForm v-model="form" />
 </template>`;
 
-const directiveCode = `<Enchant scan="marked">
-  <a-input v-enchant v-model:value="form.phone" />
-</Enchant>`;
-
 const registerCode = `useEnchantAction({
   name: 'form.reset',
   description: 'Reset the current form',
@@ -41,13 +37,13 @@ const registerCode = `useEnchantAction({
   execute: resetForm
 })`;
 
-const principles = ['explicit', 'stable', 'local', 'visible', 'optional'];
+const principles = ['explicit', 'stable', 'local', 'visible', 'owned'];
 
 const levels = [
   { name: 'component', api: 'useEnchantForm / useEnchantAction' },
   { name: 'application', api: 'defineEnchantApi' },
-  { name: 'agent', api: 'useEnchant / captureContext' },
-  { name: 'compatibility', api: 'scan="marked" / scan="auto"' }
+  { name: 'assistant', api: 'Aura' },
+  { name: 'agent', api: 'useEnchant / captureContext' }
 ];
 
 const architecture = [
@@ -120,15 +116,6 @@ function levelNotes(name: string) {
         </ul>
       </article>
     </div>
-  </section>
-
-  <section class="section code-pair">
-    <div>
-      <p class="kicker">{{ t('home.fallback.kicker') }}</p>
-      <h2>{{ t('home.fallback.title') }}</h2>
-      <p>{{ t('home.fallback.body') }}</p>
-    </div>
-    <CodeBlock :code="directiveCode" language="vue" />
   </section>
 
   <section class="section code-pair reversed">
