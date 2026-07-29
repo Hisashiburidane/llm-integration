@@ -101,6 +101,7 @@ export type {
 export { createLlmClient, parseLlmJson } from './runtime/llm-client';
 export type {
   LlmClient,
+  LlmClientDebugEvent,
   LlmClientOptions,
   LlmFunctionTool,
   LlmMessage,

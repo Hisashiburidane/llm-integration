@@ -201,7 +201,9 @@ Aura 至少展示：
 - 不确定字段和失败原因；
 - 最终 action result。
 
-调试信息不在默认面板展开。metadata tree、tools、原始模型请求和完整 trace 进入独立 debug drawer。
+调试信息不在默认面板展开。metadata tree、tools、原始模型请求、原始响应和完整 trace
+进入独立 debug drawer。LLM 调试记录应包含不带认证信息的请求 body、响应耗时、
+`finish_reason` 和 usage，便于判断 tools 是否实际发送以及模型为何没有产生 tool call。
 
 ## 8. 非目标
 

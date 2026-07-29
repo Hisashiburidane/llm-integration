@@ -284,7 +284,7 @@ export interface EnchantRunResult {
 export interface EnchantTraceEvent {
   id: string;
   source: string;
-  kind: 'snapshot' | 'request' | 'plan' | 'action' | 'result' | 'policy' | 'progress' | 'error' | 'info';
+  kind: 'snapshot' | 'request' | 'plan' | 'action' | 'result' | 'policy' | 'progress' | 'error' | 'info' | 'llm';
   title: string;
   detail?: unknown;
   timestamp: string;

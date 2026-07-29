@@ -21,6 +21,7 @@ const digest = computed(() => {
 });
 
 const events = computed(() => forge.events.slice(0, 80));
+const llmEvents = computed(() => forge.events.filter((event) => event.kind === 'llm').slice(0, 40));
 const snapshots = computed(() => forge.snapshots);
 const snapshot = computed(() => inspectedSnapshot.value ?? snapshots.value[0]);
 const positionClass = computed(() => `debug-position-${forge.debug.position}`);
@@ -182,6 +183,7 @@ onBeforeUnmount(() => {
           <nav class="debug-tabs" aria-label="Debug sections">
             <button type="button" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
             <button type="button" :class="{ active: activeTab === 'snapshot' }" @click="activeTab = 'snapshot'">Page Data</button>
+            <button type="button" :class="{ active: activeTab === 'llm' }" @click="activeTab = 'llm'">LLM ({{ llmEvents.length }})</button>
             <button type="button" :class="{ active: activeTab === 'trace' }" @click="activeTab = 'trace'">Trace ({{ events.length }})</button>
           </nav>
 
@@ -195,6 +197,10 @@ onBeforeUnmount(() => {
           </section>
           <section v-else-if="activeTab === 'snapshot'">
             <debug-snapshot-inspector :snapshot="snapshot" />
+          </section>
+          <section v-else-if="activeTab === 'llm'">
+            <p v-if="!llmEvents.length" class="debug-empty">暂无 LLM 请求。</p>
+            <pre v-else class="debug-json">{{ stringify(llmEvents) }}</pre>
           </section>
           <section v-else>
             <p v-if="!events.length" class="debug-empty">暂无 trace。</p>

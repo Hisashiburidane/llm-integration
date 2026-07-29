@@ -254,12 +254,19 @@ test('LLM client normalizes timeout and caller abort', async () => {
 
 test('LLM client sends native function tools and normalizes tool calls', async () => {
   let body;
+  const debugEvents = [];
   const client = createLlmClient({
     model: 'test',
+    maxTokens: 1024,
+    onDebug: (event) => debugEvents.push(event),
     fetcher: async (_url, init) => {
       body = JSON.parse(init.body);
       return new Response(JSON.stringify({
-        choices: [{ message: { content: '', tool_calls: [{ id: 'call-1', function: { name: 'enchant_tool_0', arguments: '{"value":"ok"}' } }] } }]
+        choices: [{
+          finish_reason: 'tool_calls',
+          message: { content: '', tool_calls: [{ id: 'call-1', function: { name: 'enchant_tool_0', arguments: '{"value":"ok"}' } }] }
+        }],
+        usage: { completion_tokens: 12 }
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
   });
@@ -271,8 +278,14 @@ test('LLM client sends native function tools and normalizes tool calls', async (
 
   assert.equal(body.tools[0].function.name, 'enchant_tool_0');
   assert.equal(body.tool_choice, 'auto');
+  assert.equal(body.max_tokens, 1024);
   assert.doesNotMatch(body.messages[0].content, /只返回 JSON/);
   assert.deepEqual(result.toolCalls[0], { id: 'call-1', name: 'enchant_tool_0', arguments: '{"value":"ok"}' });
+  assert.equal(debugEvents[0].phase, 'request');
+  assert.equal(debugEvents[0].detail.body.tools[0].function.name, 'enchant_tool_0');
+  assert.equal(debugEvents[1].phase, 'response');
+  assert.equal(debugEvents[1].detail.finishReason, 'tool_calls');
+  assert.equal(debugEvents[1].detail.usage.completion_tokens, 12);
 });
 
 test('forge rejects a capability removed after planning', async () => {
@@ -1067,6 +1080,32 @@ test('debug plugin enables the lightweight in-page debug surface by default', ()
   const disabled = createEnchantForge();
   disabled.use(createEnchantDebug({ overlay: false }));
   assert.equal(disabled.debug.enabled, false);
+});
+
+test('debug plugin records default LLM client requests and responses', async () => {
+  const forge = createEnchantForge({
+    llm: {
+      model: 'test',
+      fetcher: async () => new Response(JSON.stringify({
+        choices: [{
+          finish_reason: 'stop',
+          message: { content: '{"message":"No action","calls":[]}' }
+        }],
+        usage: { completion_tokens: 9 }
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+  });
+  forge.use(createEnchantDebug());
+  forge.registry.register(createRegistration());
+
+  await forge.run({ input: 'inspect' });
+
+  const llmEvents = forge.events.filter((event) => event.kind === 'llm');
+  assert.equal(llmEvents.length, 2);
+  assert.equal(llmEvents[0].detail.phase, 'response');
+  assert.equal(llmEvents[0].detail.detail.finishReason, 'stop');
+  assert.equal(llmEvents[1].detail.phase, 'request');
+  assert.equal(llmEvents[1].detail.detail.body.tool_choice, 'auto');
 });
 
 test('useEnchantForm emits provider-compatible field schemas', async (context) => {

@@ -369,7 +369,6 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const registry = createEnchantRegistry();
   const policyState = shallowReactive(resolveEnchantPolicy(options.policy));
   const policy = readonly(policyState) as unknown as EnchantPolicy;
-  const agent = options.agent ?? createDefaultEnchantAgent(options.llm, options.llmClient);
   const events = shallowReactive<EnchantTraceEvent[]>([]);
   const retainedSnapshots = shallowReactive<EnchantSnapshot[]>([]);
   const observationEnabled = ref(Boolean(options.snapshots?.autoCapture));
@@ -419,6 +418,20 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     options.onTrace?.(complete);
     return complete;
   }
+
+  const agent = options.agent ?? createDefaultEnchantAgent({
+    ...options.llm,
+    onDebug(event) {
+      options.llm?.onDebug?.(event);
+      if (!debugState.enabled) return;
+      trace({
+        source: event.requestId,
+        kind: 'llm',
+        title: `LLM ${event.phase}`,
+        detail: event
+      });
+    }
+  }, options.llmClient);
 
   function retainSnapshot(snapshot: EnchantSnapshot) {
     if (snapshotConfig.retention <= 0) return;

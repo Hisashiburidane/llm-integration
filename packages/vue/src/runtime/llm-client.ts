@@ -27,7 +27,9 @@ export interface LlmClientOptions {
   headers?: HeadersInit;
   configError?: string;
   timeout?: number;
+  maxTokens?: number;
   fetcher?: typeof fetch;
+  onDebug?: (event: LlmClientDebugEvent) => void;
 }
 
 export interface LlmRunOptions {
@@ -39,6 +41,7 @@ export interface LlmRunOptions {
   model?: string;
   signal?: AbortSignal;
   timeout?: number;
+  maxTokens?: number;
   tools?: LlmFunctionTool[];
   toolChoice?: 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } };
   body?: Record<string, unknown>;
@@ -52,6 +55,14 @@ export interface LlmResponse {
   content: string;
   payload: unknown;
   toolCalls?: LlmToolCall[];
+}
+
+export interface LlmClientDebugEvent {
+  requestId: string;
+  phase: 'request' | 'response' | 'error';
+  endpoint: string;
+  durationMs?: number;
+  detail: unknown;
 }
 
 export interface LlmClient {
@@ -90,6 +101,14 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
   const endpoint = options.endpoint ?? '/api/llm/chat/completions';
   const fetcher = options.fetcher ?? globalThis.fetch?.bind(globalThis);
 
+  function emitDebug(event: LlmClientDebugEvent) {
+    try {
+      options.onDebug?.(event);
+    } catch {
+      // Debug observers must never affect the transport.
+    }
+  }
+
   async function run(request: LlmRunOptions): Promise<LlmResponse> {
     if (options.configError) throw new Error(options.configError);
     if (!fetcher) throw new Error('当前环境没有可用的 fetch 实现。');
@@ -102,6 +121,9 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
     if (options.apiKey && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${options.apiKey}`);
 
     const timeout = request.timeout ?? options.timeout;
+    const maxTokens = request.maxTokens ?? options.maxTokens;
+    const requestId = `llm-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const startedAt = Date.now();
     const controller = new AbortController();
     let timedOut = false;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -116,27 +138,68 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
     }
 
     try {
+      const body = {
+        model,
+        temperature: request.temperature ?? 0,
+        messages: buildMessages(request),
+        ...(request.tools?.length ? { tools: request.tools, tool_choice: request.toolChoice ?? 'auto' } : {}),
+        ...(typeof maxTokens === 'number' && maxTokens > 0 ? { max_tokens: Math.floor(maxTokens) } : {}),
+        ...request.body
+      };
+      emitDebug({
+        requestId,
+        phase: 'request',
+        endpoint,
+        detail: {
+          method: 'POST',
+          body
+        }
+      });
       const response = await fetcher(endpoint, {
         method: 'POST',
         headers,
         signal: controller.signal,
-        body: JSON.stringify({
-          model,
-          temperature: request.temperature ?? 0,
-          messages: buildMessages(request),
-          ...(request.tools?.length ? { tools: request.tools, tool_choice: request.toolChoice ?? 'auto' } : {}),
-          ...request.body
-        })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
         const detail = await response.text();
+        emitDebug({
+          requestId,
+          phase: 'response',
+          endpoint,
+          durationMs: Date.now() - startedAt,
+          detail: {
+            status: response.status,
+            statusText: response.statusText,
+            body: detail
+          }
+        });
         throw new Error(`LLM 请求失败 (${response.status})：${detail.slice(0, 300) || response.statusText}`);
       }
 
       const payload = await response.json() as {
-        choices?: Array<{ message?: { content?: unknown; tool_calls?: Array<{ id?: string; function?: { name?: unknown; arguments?: unknown } }> } }>;
+        choices?: Array<{
+          finish_reason?: unknown;
+          message?: {
+            content?: unknown;
+            tool_calls?: Array<{ id?: string; function?: { name?: unknown; arguments?: unknown } }>;
+          };
+        }>;
+        usage?: unknown;
       };
+      emitDebug({
+        requestId,
+        phase: 'response',
+        endpoint,
+        durationMs: Date.now() - startedAt,
+        detail: {
+          status: response.status,
+          finishReason: payload.choices?.[0]?.finish_reason,
+          usage: payload.usage,
+          payload
+        }
+      });
       const message = payload.choices?.[0]?.message;
       const content = typeof message?.content === 'string' ? message.content : '';
       const toolCalls = message?.tool_calls?.flatMap((call) => {
@@ -149,8 +212,19 @@ export function createLlmClient(options: LlmClientOptions = {}): LlmClient {
       if (!content && !toolCalls?.length) throw new Error('LLM 响应中缺少 message.content 或 tool_calls。');
       return { content, payload, toolCalls };
     } catch (error) {
-      if (timedOut) throw new Error(`LLM 请求超时（${timeout}ms）。`);
-      if (request.signal?.aborted || controller.signal.aborted) throw new Error('LLM 请求已取消。');
+      const normalized = timedOut
+        ? new Error(`LLM 请求超时（${timeout}ms）。`)
+        : request.signal?.aborted || controller.signal.aborted
+          ? new Error('LLM 请求已取消。')
+          : error;
+      emitDebug({
+        requestId,
+        phase: 'error',
+        endpoint,
+        durationMs: Date.now() - startedAt,
+        detail: normalized instanceof Error ? normalized.message : normalized
+      });
+      if (normalized !== error) throw normalized;
       throw error;
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
