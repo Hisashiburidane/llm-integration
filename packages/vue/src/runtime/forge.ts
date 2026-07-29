@@ -26,6 +26,7 @@ import type {
   EnchantCapability,
   EnchantCapabilityResult,
   EnchantContribution,
+  EnchantExecutionContext,
   EnchantExecutionResult,
   Enchantment,
   EnchantMetadataNode,
@@ -145,6 +146,22 @@ export interface EnchantForgePlugin {
   install?(forge: EnchantForge, app: App): void | (() => void);
 }
 
+export interface EnchantExecutionMiddlewareRequest {
+  call: EnchantPlanCall;
+  capability: EnchantCapability;
+  enchantment: Enchantment;
+  snapshot: EnchantSnapshot;
+  input: unknown;
+  context: EnchantExecutionContext;
+}
+
+export type EnchantExecutionMiddlewareNext = () => Promise<unknown>;
+
+export type EnchantExecutionMiddleware = (
+  request: EnchantExecutionMiddlewareRequest,
+  next: EnchantExecutionMiddlewareNext
+) => unknown | Promise<unknown>;
+
 export interface EnchantDebugConfig {
   enabled: boolean;
   title: string;
@@ -189,6 +206,7 @@ export type EnchantForge = Plugin & {
     options?: EnchantSnapshotOptions
   ): T;
   registerExporter<T>(exporter: EnchantCapabilityExporter<T>): () => void;
+  registerExecutionMiddleware(middleware: EnchantExecutionMiddleware): () => void;
   configurePolicy(config: Partial<EnchantPolicy>): void;
   syncNavigation(input: EnchantNavigationInput): void;
   bindNavigation(source: EnchantNavigationSource): () => void;
@@ -377,6 +395,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const maxPlanRounds = Math.max(0, options.maxPlanRounds ?? 3);
   const pluginCleanups: Array<() => void> = [];
   const plugins: EnchantForgePlugin[] = [];
+  const executionMiddlewares: EnchantExecutionMiddleware[] = [];
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
   let installedApp: App | undefined;
   let disposed = false;
@@ -672,6 +691,18 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     trace({ source: detail.capabilityId ?? runId, kind: 'progress', title: phase, detail: event });
   }
 
+  function invokeCapability(request: EnchantExecutionMiddlewareRequest) {
+    let activeIndex = -1;
+    const dispatch = async (index: number): Promise<unknown> => {
+      if (index <= activeIndex) throw new Error('Execution middleware 的 next() 不能重复调用。');
+      activeIndex = index;
+      const middleware = executionMiddlewares[index];
+      if (middleware) return middleware(request, () => dispatch(index + 1));
+      return request.capability.execute(request.input, request.context);
+    };
+    return dispatch(0);
+  }
+
   async function execute(call: EnchantPlanCall, executeOptions: EnchantExecuteOptions): Promise<EnchantExecutionResult> {
     const runId = executeOptions.runId ?? `execute-${Date.now()}`;
     if (executeOptions.signal?.aborted) {
@@ -723,7 +754,8 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         capabilityLabel: capability.label
       });
       trace({ source: call.capabilityId, kind: 'action', title: capability.label, detail: call.input });
-      const value = await capability.execute(call.input ?? {}, {
+      const input = call.input ?? {};
+      const context: EnchantExecutionContext = {
         enchantment,
         snapshotVersion: executeOptions.snapshot.version,
         signal: executeOptions.signal,
@@ -736,6 +768,14 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
             detail: detail.label
           });
         }
+      };
+      const value = await invokeCapability({
+        call,
+        capability,
+        enchantment,
+        snapshot: executeOptions.snapshot,
+        input,
+        context
       });
       const normalized = isCapabilityResult(value) ? value : undefined;
       const result: EnchantExecutionResult = {
@@ -902,6 +942,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     if (autoCaptureTimer) clearTimeout(autoCaptureTimer);
     stopRegistrySubscription();
     while (pluginCleanups.length) pluginCleanups.pop()?.();
+    executionMiddlewares.splice(0);
     registry.clear();
     if (latestInstalledForge === forge) latestInstalledForge = undefined;
   }
@@ -947,6 +988,13 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     exportSnapshot,
     exportCapabilities,
     registerExporter,
+    registerExecutionMiddleware(middleware) {
+      executionMiddlewares.push(middleware);
+      return () => {
+        const index = executionMiddlewares.indexOf(middleware);
+        if (index >= 0) executionMiddlewares.splice(index, 1);
+      };
+    },
     configurePolicy,
     syncNavigation,
     bindNavigation,

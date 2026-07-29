@@ -269,6 +269,12 @@ createApp(App).use(createEnchantForge().use(ordersApi));
 capability 会自动合并进局部 Enchant context；设置 `page` 后只对该页面生效，避免向
 无关 Agent 暴露 tools。
 
+跨 Agent run 的节流、请求合并和结果缓存属于应用策略，不得由 Core 默认启用。Core
+提供 `forge.registerExecutionMiddleware()` 作为统一执行扩展点。middleware 位于参数
+校验和权限确认之后、业务 `execute` 之前，可以根据 capability、input 和业务时效要求
+决定调用 `next()`、复用结果或拒绝执行。需要持续刷新数据的 action 应由应用定义明确的
+刷新参数或跳过缓存条件。
+
 不得使用“仅 import 即修改全局注册表”的模块副作用。该方式无法明确绑定 Forge
 实例，在多 Vue app、SSR、测试隔离和 tree shaking 场景中行为不可靠。全局安装必须
 保留一次显式的 `forge.use(api)`。

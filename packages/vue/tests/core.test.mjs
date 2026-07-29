@@ -1015,6 +1015,42 @@ test('application APIs register reusable actions once at app scope', async () =>
   forge.dispose();
 });
 
+test('execution middleware can reuse capability results across agent runs', async () => {
+  let executions = 0;
+  const forge = createEnchantForge();
+  forge.registry.register(createRegistration({
+    effect: 'read',
+    execute(input) {
+      executions += 1;
+      return {
+        status: 'success',
+        summary: `Value ${input.value}`,
+        data: { value: input.value, executions }
+      };
+    }
+  }));
+  const results = new Map();
+  const unregister = forge.registerExecutionMiddleware(async (request, next) => {
+    const key = `${request.capability.id}:${JSON.stringify(request.input)}`;
+    if (results.has(key)) return results.get(key);
+    const result = await next();
+    results.set(key, result);
+    return result;
+  });
+  const snapshot = forge.capture({ page: 'test-page' });
+  const call = { capabilityId: 'capability:test', input: { value: 'same' } };
+
+  const first = await forge.execute(call, { snapshot });
+  const second = await forge.execute(call, { snapshot });
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(executions, 1);
+
+  unregister();
+  await forge.execute(call, { snapshot });
+  assert.equal(executions, 2);
+});
+
 test('debug plugin enables the lightweight in-page debug surface by default', () => {
   const forge = createEnchantForge();
   forge.use(createEnchantDebug({ title: 'Runtime Debug', position: 'bottom-left' }));
