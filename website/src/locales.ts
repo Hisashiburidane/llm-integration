@@ -73,7 +73,7 @@ export const messages = {
         body: '应用描述函数的用途和参数，Forge 将它作为工具提供给 AI，并在调用前完成校验。'
       },
       examples: {
-        kicker: '真实示例',
+        kicker: '示例',
         title: '从模型请求到页面结果',
         body: '每个示例都会发起真实模型请求、调用应用函数，并在页面中呈现执行结果。',
         action: '查看示例'
