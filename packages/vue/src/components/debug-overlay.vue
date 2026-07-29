@@ -7,7 +7,7 @@ import DebugSnapshotInspector from './debug-snapshot-inspector.vue';
 const VIEWPORT_GAP = 12;
 const forge = useEnchantForge();
 const open = ref(false);
-const activeTab = ref('overview');
+const activeTab = ref('snapshot');
 const inspectedSnapshot = ref<EnchantSnapshot>();
 const root = ref<HTMLElement>();
 const positioned = ref(false);

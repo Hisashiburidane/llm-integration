@@ -86,7 +86,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash));
       <CodeTabs :blocks="active.codeBlocks" />
     </article>
 
-    <a-drawer :open="debugOpen" title="运行时调试信息" width="min(1040px, 96vw)" @close="debugOpen = false">
+    <a-drawer :open="debugOpen" title="当前页面 EnchantForge 能力" width="min(1040px, 96vw)" @close="debugOpen = false">
       <ExampleDebugPanel :page-id="active.id" />
     </a-drawer>
 

@@ -33,7 +33,7 @@ function formatDetail(detail: unknown) {
     <div class="debug-heading">
       <div>
         <strong>运行时信息</strong>
-        <small>metadata tree / tool list / runtime events</small>
+        <small>capability inventory / collected data / runtime events</small>
       </div>
     </div>
 
