@@ -48,6 +48,7 @@ export const apiDocGroups: ApiDocGroup[] = [
   snapshots?: Partial<EnchantSnapshotConfig>;
   maxPlanCalls?: number;
   maxPlanRounds?: number;
+  traceLimit?: number;
   onTrace?: (event: EnchantTraceEvent) => void;
 }): EnchantForge`,
         example: `const forge = createEnchantForge({
@@ -181,6 +182,41 @@ useEnchantForm(form, {
   inputSchema: refundSchema,
   execute: prepareRefundDraft
 });`
+      },
+      {
+        id: 'application-apis',
+        copy: 'applicationApis',
+        name: 'defineEnchantAction / defineEnchantApi',
+        kind: 'factory',
+        importCode: `import {
+  defineEnchantAction,
+  defineEnchantApi
+} from '@enchantforge/vue';`,
+        signature: `function defineEnchantAction<TInput, TResult>(
+  definition: EnchantActionDefinition<TInput, TResult>
+): EnchantActionDefinition<TInput, TResult>;
+
+function defineEnchantApi(options: {
+  id: string;
+  label?: string;
+  provider?: string;
+  page?: string;
+  actions: readonly EnchantActionDefinition[];
+}): EnchantApi;`,
+        example: `const orderApi = defineEnchantApi({
+  id: 'orders',
+  actions: [
+    defineEnchantAction({
+      name: 'order.get',
+      description: '按订单号查询订单详情',
+      effect: 'read',
+      inputSchema: orderQuerySchema,
+      execute: ({ orderId }) => orderService.get(orderId)
+    })
+  ]
+});
+
+forge.use(orderApi);`
       }
     ]
   },
@@ -226,6 +262,9 @@ async function onOfflineTranscript(text: string) {
   retrieveKnowledge(query: EnchantKnowledgeQuery):
     Promise<EnchantKnowledgeResult>;
   registerExporter(exporter: EnchantCapabilityExporter): () => void;
+  registerRunMiddleware(middleware: EnchantRunMiddleware): () => void;
+  registerExecutionMiddleware(middleware: EnchantExecutionMiddleware): () => void;
+  subscribeLlm(listener: EnchantLlmObserver): () => void;
   configurePolicy(policy: Partial<EnchantPolicy>): void;
   use(plugin: EnchantForgePlugin): EnchantForge;
 }`,
@@ -238,6 +277,33 @@ const bundle = forge.captureContext({
 customAgent.run({
   context: bundle.context,
   tools: bundle.tools
+});`
+      },
+      {
+        id: 'runtime-middleware',
+        copy: 'middleware',
+        name: 'Run / Execution Middleware',
+        kind: 'interface',
+        importCode: `import type {
+  EnchantRunMiddleware,
+  EnchantExecutionMiddleware
+} from '@enchantforge/vue';`,
+        signature: `type EnchantRunMiddleware = (
+  request: { options: EnchantRunOptions },
+  next: () => Promise<EnchantRunResult>
+) => EnchantRunResult | Promise<EnchantRunResult>;
+
+type EnchantExecutionMiddleware = (
+  request: EnchantExecutionMiddlewareRequest,
+  next: () => Promise<unknown>
+) => unknown | Promise<unknown>;`,
+        example: `forge.registerExecutionMiddleware(async (request, next) => {
+  const startedAt = performance.now();
+  try {
+    return await next();
+  } finally {
+    metrics.record(request.capability.name, performance.now() - startedAt);
+  }
 });`
       }
     ]
@@ -283,7 +349,9 @@ customAgent.run({
   headers?: HeadersInit;
   configError?: string;
   timeout?: number;
+  maxTokens?: number;
   fetcher?: typeof fetch;
+  onDebug?: (event: LlmClientDebugEvent) => void;
 }): {
   run(request: LlmRunOptions): Promise<LlmResponse>;
   runJson<T>(request: LlmRunJsonOptions): Promise<T>;
@@ -371,6 +439,33 @@ const forge = createEnchantForge({ knowledge });`
     v-model="form.recipient"
   />
 </Enchant>`
+      }
+    ]
+  },
+  {
+    id: 'observability',
+    entries: [
+      {
+        id: 'open-telemetry',
+        copy: 'openTelemetry',
+        name: 'createEnchantOpenTelemetry',
+        kind: 'factory',
+        importCode: `import { createEnchantOpenTelemetry } from '@enchantforge/vue/otel';`,
+        signature: `function createEnchantOpenTelemetry(options: {
+  tracer: EnchantOpenTelemetryTracer;
+  meter?: EnchantOpenTelemetryMeter;
+  attributes?: EnchantOpenTelemetryAttributes;
+  captureInputs?: boolean;
+  captureOutputs?: boolean;
+  contentLimit?: number;
+}): EnchantForgePlugin`,
+        example: `forge.use(createEnchantOpenTelemetry({
+  tracer: trace.getTracer('enchantforge'),
+  meter: metrics.getMeter('enchantforge'),
+  attributes: {
+    'service.name': 'support-console'
+  }
+}));`
       }
     ]
   }
