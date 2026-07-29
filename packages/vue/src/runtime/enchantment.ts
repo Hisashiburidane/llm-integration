@@ -13,6 +13,7 @@ export interface EnchantMetadataBase {
   kind: string;
   label?: string;
   description?: string;
+  component?: string;
   visible: boolean;
   enabled: boolean;
   source: MetadataSource;
@@ -141,6 +142,11 @@ export interface EnchantExecutionContext {
   reportProgress(detail: EnchantProgressDetail): void;
 }
 
+export interface EnchantCapabilitySource {
+  component?: string;
+  contributionId?: string;
+}
+
 export interface EnchantCapability<TResult = unknown> {
   id: string;
   enchantmentId: string;
@@ -152,6 +158,7 @@ export interface EnchantCapability<TResult = unknown> {
   target?: string;
   effect: CapabilityEffect;
   inputSchema?: JsonSchema;
+  source?: EnchantCapabilitySource;
   execute(input: unknown, context: EnchantExecutionContext): TResult | Promise<TResult>;
 }
 
@@ -197,6 +204,7 @@ export interface EnchantTool {
   target?: string;
   effect: CapabilityEffect;
   inputSchema?: JsonSchema;
+  source?: EnchantCapabilitySource;
 }
 
 export interface EnchantMetadataTreeNode {

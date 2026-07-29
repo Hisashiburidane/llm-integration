@@ -57,6 +57,7 @@ export type {
   EnchantCapabilityDefinition,
   EnchantCapabilityOwner,
   EnchantCapabilityResult,
+  EnchantCapabilitySource,
   EnchantCaptureResult,
   EnchantChartMetadata,
   EnchantContribution,

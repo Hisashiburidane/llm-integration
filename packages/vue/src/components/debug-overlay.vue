@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useEnchantForge } from '../runtime/forge';
 import type { EnchantSnapshot } from '../runtime/enchantment';
+import DebugSnapshotInspector from './debug-snapshot-inspector.vue';
 
 const VIEWPORT_GAP = 12;
 const forge = useEnchantForge();
@@ -102,11 +103,20 @@ function endDrag() {
 }
 
 function openDebug() {
-  if (!drag.moved) open.value = true;
+  if (!drag.moved) {
+    refreshSnapshot();
+    open.value = true;
+  }
 }
 
 function refreshSnapshot() {
-  inspectedSnapshot.value = forge.capture({ retain: true });
+  inspectedSnapshot.value = forge.capture({
+    page: forge.navigation.page || undefined,
+    route: forge.navigation.route || undefined,
+    tab: forge.navigation.tab || undefined,
+    tags: forge.navigation.tags,
+    retain: true
+  });
 }
 
 function clearEvents() {
@@ -171,7 +181,7 @@ onBeforeUnmount(() => {
 
           <nav class="debug-tabs" aria-label="Debug sections">
             <button type="button" :class="{ active: activeTab === 'overview' }" @click="activeTab = 'overview'">Overview</button>
-            <button type="button" :class="{ active: activeTab === 'snapshot' }" @click="activeTab = 'snapshot'">Snapshot</button>
+            <button type="button" :class="{ active: activeTab === 'snapshot' }" @click="activeTab = 'snapshot'">Page Data</button>
             <button type="button" :class="{ active: activeTab === 'trace' }" @click="activeTab = 'trace'">Trace ({{ events.length }})</button>
           </nav>
 
@@ -184,8 +194,7 @@ onBeforeUnmount(() => {
             <pre class="debug-json">{{ stringify({ navigation: forge.navigation, policy: forge.policy, exporters: forge.exporters }) }}</pre>
           </section>
           <section v-else-if="activeTab === 'snapshot'">
-            <p v-if="!snapshot" class="debug-empty">暂无 snapshot。点击“刷新”捕获当前页面。</p>
-            <pre v-else class="debug-json">{{ stringify(snapshot) }}</pre>
+            <debug-snapshot-inspector :snapshot="snapshot" />
           </section>
           <section v-else>
             <p v-if="!events.length" class="debug-empty">暂无 trace。</p>
@@ -234,7 +243,7 @@ onBeforeUnmount(() => {
 .debug-glyph { color: #0958d9; font-weight: 700; }
 .debug-count { min-width: 16px; padding: 1px 4px; color: #fff; background: #64748b; border-radius: 8px; font-size: 9px; text-align: center; }
 
-.debug-drawer { position: fixed; z-index: 1; top: 0; right: 0; bottom: 0; display: flex; width: min(560px, 94vw); flex-direction: column; background: #fff; border-left: 1px solid #d8e0eb; box-shadow: -12px 0 40px rgb(37 55 79 / 16%); }
+.debug-drawer { position: fixed; z-index: 1; top: 0; right: 0; bottom: 0; display: flex; width: min(920px, 96vw); flex-direction: column; background: #fff; border-left: 1px solid #d8e0eb; box-shadow: -12px 0 40px rgb(37 55 79 / 16%); }
 .debug-drawer-header { display: flex; min-height: 52px; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid #e3eaf3; color: #1f2d3d; font-size: 13px; }
 .debug-actions { display: flex; gap: 6px; align-items: center; }
 .debug-actions button { padding: 5px 8px; color: #526477; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; font: inherit; font-size: 10px; }

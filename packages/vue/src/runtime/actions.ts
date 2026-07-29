@@ -52,7 +52,12 @@ let actionSequence = 0;
 
 function componentName() {
   const type = getCurrentInstance()?.type;
-  if (type && typeof type === 'object' && 'name' in type && type.name) return String(type.name);
+  if (typeof type === 'function' && type.name) return type.name;
+  if (type && typeof type === 'object') {
+    const component = type as { name?: unknown; __name?: unknown };
+    if (component.name) return String(component.name);
+    if (component.__name) return String(component.__name);
+  }
   return 'vue-component';
 }
 
@@ -85,24 +90,32 @@ export function useEnchantAction<TInput = unknown, TResult = unknown>(
 
   actionSequence += 1;
   const id = options.id ?? `${context.id}:${options.name}:${actionSequence}`;
-  const provider = options.provider ?? componentName();
+  const component = componentName();
+  const provider = options.provider ?? component;
   const unregister = context.registerContribution({
     id,
-    capture: () => ({
-      metadata: typeof options.metadata === 'function' ? options.metadata() : options.metadata,
-      capabilities: [{
-        id,
-        owner: options.owner ?? 'application',
-        provider,
-        name: options.name,
-        label: options.label ?? options.name,
-        description: options.description,
-        target: options.target,
-        effect: options.effect,
-        inputSchema: options.inputSchema,
-        execute: (input, executionContext) => options.execute(input as TInput, executionContext)
-      }]
-    })
+    capture: () => {
+      const metadata = typeof options.metadata === 'function' ? options.metadata() : options.metadata;
+      return {
+        metadata: metadata?.map((node) => ({ component, ...node })),
+        capabilities: [{
+          id,
+          owner: options.owner ?? 'application',
+          provider,
+          name: options.name,
+          label: options.label ?? options.name,
+          description: options.description,
+          target: options.target,
+          effect: options.effect,
+          inputSchema: options.inputSchema,
+          source: {
+            component,
+            contributionId: id
+          },
+          execute: (input, executionContext) => options.execute(input as TInput, executionContext)
+        }]
+      };
+    }
   });
 
   if (getCurrentScope()) onScopeDispose(unregister);

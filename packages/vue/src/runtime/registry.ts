@@ -83,7 +83,8 @@ function toTool(capability: EnchantCapability, enchantment: Enchantment): Enchan
     description: capability.description,
     target: capability.target,
     effect: capability.effect,
-    inputSchema: capability.inputSchema
+    inputSchema: capability.inputSchema,
+    source: capability.source
   };
 }
 

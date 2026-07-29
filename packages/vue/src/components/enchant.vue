@@ -125,11 +125,30 @@ function resolveState() {
   return typeof source === 'function' ? source() : unref(source);
 }
 
+function componentTypeName(type: unknown) {
+  if (typeof type === 'function' && type.name) return type.name;
+  if (!type || typeof type !== 'object') return undefined;
+  const component = type as { name?: unknown; __name?: unknown };
+  const name = component.name ?? component.__name;
+  return name ? String(name) : undefined;
+}
+
+function sourceComponentName() {
+  let current = instance?.parent;
+  while (current) {
+    const name = componentTypeName(current.type);
+    if (name && !['enchant', 'llmintegration'].includes(name.toLowerCase())) return name;
+    current = current.parent;
+  }
+  return componentTypeName(instance?.type) ?? 'Enchant';
+}
+
 function normalizeMetadata(metadata: MetadataInput[], scopeId: string): EnchantMetadataNode[] {
   return metadata.map((node) => ({
     visible: true,
     enabled: true,
     source: 'registered',
+    component: sourceComponentName(),
     ...node,
     scopeId,
     kind: node.kind || node.type || 'custom'
@@ -153,7 +172,14 @@ function capture() {
   const explicitCapabilities = [
     ...props.capabilities,
     ...capturedContributions.flatMap((contribution) => contribution.capabilities ?? [])
-  ].map((capability) => ({ ...capability, enchantmentId }));
+  ].map((capability) => ({
+    ...capability,
+    enchantmentId,
+    source: {
+      component: sourceComponentName(),
+      ...capability.source
+    }
+  }));
   const explicitNames = new Set(explicitCapabilities.map((capability) => capability.name));
   const capabilities = [
     ...scanned.capabilities.filter((capability) => !explicitNames.has(capability.name)),
@@ -177,9 +203,7 @@ function capture() {
     source: {
       scopeId,
       parentEnchantmentId: parentContext?.id,
-      component: instance?.type && typeof instance.type === 'object' && 'name' in instance.type
-        ? String(instance.type.name || 'Enchant')
-        : 'Enchant'
+      component: sourceComponentName()
     },
     version: captureVersion
   };

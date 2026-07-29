@@ -15,6 +15,10 @@ import {
   renderAuraMarkdown,
   useEnchantForm
 } from '../dist/enchantforge-vue.js';
+import {
+  buildEnchantDebugScopeTree,
+  flattenEnchantDebugMetadata
+} from '../dist/debug.js';
 
 function status(overrides = {}) {
   return { alive: true, active: true, visible: true, enabled: true, ...overrides };
@@ -997,6 +1001,7 @@ test('useEnchantForm emits provider-compatible field schemas', async (context) =
   });
   const forge = createEnchantForge();
   const Form = defineComponent({
+    name: 'SchemaTestForm',
     setup() {
       const model = ref({
         baseDashboardId: '',
@@ -1018,7 +1023,12 @@ test('useEnchantForm emits provider-compatible field schemas', async (context) =
     }
   });
   const App = defineComponent({
-    setup: () => () => h(Enchant, { name: 'schema-test', page: 'test' }, () => h(Form))
+    name: 'SchemaTestApp',
+    setup: () => () => h(
+      Enchant,
+      { name: 'schema-root', page: 'test' },
+      () => h(Enchant, { name: 'schema-test', page: 'test' }, () => h(Form))
+    )
   });
   const app = renderer.createApp(App);
   app.use(forge);
@@ -1026,7 +1036,8 @@ test('useEnchantForm emits provider-compatible field schemas', async (context) =
   context.after(() => app.unmount());
   await nextTick();
 
-  const tool = forge.capture().tools.find((item) => item.name === 'field.fill');
+  const snapshot = forge.capture();
+  const tool = snapshot.tools.find((item) => item.name === 'field.fill');
   const properties = tool.inputSchema.properties.values.properties;
   assert.equal(properties.baseDashboardId.type, 'string');
   assert.equal(properties.id.type, 'string');
@@ -1037,6 +1048,12 @@ test('useEnchantForm emits provider-compatible field schemas', async (context) =
     type: 'array',
     items: { type: 'string' }
   });
+  assert.equal(tool.source.component, 'SchemaTestForm');
+  const scopeTree = buildEnchantDebugScopeTree(snapshot);
+  assert.equal(scopeTree[0].enchantment.name, 'schema-root');
+  assert.equal(scopeTree[0].enchantment.source.component, 'SchemaTestApp');
+  assert.equal(scopeTree[0].children[0].enchantment.name, 'schema-test');
+  assert.equal(flattenEnchantDebugMetadata(snapshot)[0].component, 'SchemaTestForm');
 });
 
 test('core entry stays independent from optional UI component bundles', () => {

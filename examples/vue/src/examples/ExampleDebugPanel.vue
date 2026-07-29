@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useEnchantPage, useLlmDebugEvents } from '@enchantforge/vue';
+import {
+  EnchantSnapshotInspector,
+  useEnchantPage,
+  useLlmDebugEvents
+} from '@enchantforge/vue';
 import HighlightedCode from './HighlightedCode.vue';
 
 const props = defineProps<{
@@ -34,17 +38,8 @@ function formatDetail(detail: unknown) {
     </div>
 
     <a-tabs>
-      <a-tab-pane key="tree" tab="Metadata Tree">
-        <HighlightedCode
-          :code="formatDetail(activePage.metadataTree)"
-          language="json"
-        />
-      </a-tab-pane>
-      <a-tab-pane key="tools" tab="Tools">
-        <HighlightedCode
-          :code="formatDetail(activePage.tools)"
-          language="json"
-        />
+      <a-tab-pane key="page-data" tab="Page Data">
+        <EnchantSnapshotInspector :snapshot="activePage" />
       </a-tab-pane>
       <a-tab-pane key="events" tab="Events">
         <a-empty v-if="!visibleEvents.length" description="当前没有运行事件" />
