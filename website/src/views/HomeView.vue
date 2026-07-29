@@ -37,7 +37,7 @@ const registerCode = `useEnchantAction({
   execute: resetForm
 })`;
 
-const principles = ['explicit', 'stable', 'local', 'visible', 'owned'];
+const principles = ['context', 'tools', 'scope', 'validation', 'audit'];
 
 const integrationGroups = [
   {

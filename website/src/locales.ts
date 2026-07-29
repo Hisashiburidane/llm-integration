@@ -106,27 +106,27 @@ export const messages = {
         }
       },
       principles: {
-        kicker: '我们故意不做的事',
-        title: 'AI 可以聪明，框架不能自作聪明',
-        explicit: {
-          title: '不偷看',
-          body: '未主动提供的信息，默认不读取。'
+        kicker: '设计原则',
+        title: '应用可以检查 AI 看到了什么、调用了什么',
+        context: {
+          title: '应用决定 AI 能看到什么',
+          body: '应用提供给 Forge 的信息才会进入上下文。'
         },
-        stable: {
-          title: '不猜组件',
-          body: '优先使用 Vue 状态和公开 API。'
+        tools: {
+          title: '应用决定 AI 能调用什么',
+          body: '只有注册到 Forge 的函数才会被导出为工具。'
         },
-        local: {
-          title: '不把全世界塞进提示词',
-          body: '只提供当前任务需要的信息。'
+        scope: {
+          title: '上下文可以限定范围',
+          body: '应用可以选择当前组件、当前页面或整个应用。'
         },
-        visible: {
-          title: '不偷偷动手',
-          body: '执行过程和结果始终可见。'
+        validation: {
+          title: '每次调用都会重新校验',
+          body: 'Forge 在执行前检查目标、参数 Schema 和 Policy。'
         },
-        owned: {
-          title: '业务归应用',
-          body: '框架管理机制，应用定义语义和副作用。'
+        audit: {
+          title: '执行过程可以审计',
+          body: 'Debug 可查看模型请求和工具调用，OpenTelemetry 可记录运行链路与指标。'
         }
       }
     },
@@ -354,26 +354,26 @@ export const messages = {
       },
       principles: {
         kicker: 'Design constraints',
-        title: 'Boundaries before features',
-        explicit: {
-          title: 'Explicit by default',
-          body: 'Uncontributed information stays unread.'
+        title: 'Applications can inspect what AI sees and calls',
+        context: {
+          title: 'The application decides what AI can see',
+          body: 'Only information provided to Forge enters the context.'
         },
-        stable: {
-          title: 'Stable contracts first',
-          body: 'Prefer Vue state and public APIs.'
+        tools: {
+          title: 'The application decides what AI can call',
+          body: 'Only functions registered with Forge are exported as tools.'
         },
-        local: {
-          title: 'Generic tools, local context',
-          body: 'Provide only what the current task needs.'
+        scope: {
+          title: 'Context can be scoped',
+          body: 'Applications can select the current component, the current page, or the entire application.'
         },
-        visible: {
-          title: 'Visible execution',
-          body: 'Execution and results remain visible.'
+        validation: {
+          title: 'Every call is validated again',
+          body: 'Forge checks the target, parameter schema, and Policy before execution.'
         },
-        owned: {
-          title: 'Application-owned semantics',
-          body: 'Core owns mechanisms. Applications own meaning and effects.'
+        audit: {
+          title: 'Execution is observable',
+          body: 'Debug shows model requests and tool calls. OpenTelemetry records traces and metrics.'
         }
       }
     },
