@@ -30,14 +30,14 @@ export const messages = {
       minimum: {
         kicker: '先让 AI 看见',
         title: '应用知道的，AI 也该知道。',
-        body: 'EnchantForge 将应用显式提供的信息组织成 AI 上下文。',
+        body: 'EnchantForge 将应用提供的信息组织成 AI 可以理解的上下文。',
         notes: {
-          domTitle: '信息来自应用。',
-          domBody: '字段、状态和页面结构由应用明确提供。',
-          globalTitle: '上下文跟着页面走。',
-          globalBody: '组件挂载时加入，卸载时移除；调用时读取当前状态。',
-          submitTitle: '不只看见，还能调用。',
-          submitBody: '查询、填写、高亮等能力通过明确接口提供给 AI。'
+          domTitle: '信息来自应用本身。',
+          domBody: '字段、状态、页面结构，以及它们原本的含义。',
+          globalTitle: '上下文始终对应当前页面。',
+          globalBody: '组件的加入、离开和变化，都会反映在下一次调用中。',
+          submitTitle: '让函数，成为 AI 的能力。',
+          submitBody: '从一次页面交互，到完整业务流程。'
         }
       },
       model: {
@@ -255,16 +255,16 @@ export const messages = {
         api: 'API reference'
       },
       minimum: {
-        kicker: 'Make the application visible',
+        kicker: 'Let AI see first',
         title: 'What the application knows, AI should know.',
-        body: 'EnchantForge organizes explicitly contributed application information into context an AI model can use.',
+        body: 'EnchantForge organizes application information into context AI can understand.',
         notes: {
-          domTitle: 'Information comes from the application.',
-          domBody: 'Applications explicitly provide fields, state, and interface structure.',
-          globalTitle: 'Context follows the page.',
-          globalBody: 'Contributions join on mount, leave on unmount, and read current state when invoked.',
-          submitTitle: 'Visible and callable.',
-          submitBody: 'Queries, form updates, and highlights are exposed through explicit interfaces.'
+          domTitle: 'Information comes from the application itself.',
+          domBody: 'Fields, state, interface structure, and their original meaning.',
+          globalTitle: 'Context always reflects the current page.',
+          globalBody: 'Components joining, leaving, and changing are reflected in the next request.',
+          submitTitle: 'Turn functions into AI capabilities.',
+          submitBody: 'From a single interface interaction to an entire business workflow.'
         }
       },
       model: {
