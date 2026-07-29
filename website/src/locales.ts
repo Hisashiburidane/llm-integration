@@ -68,9 +68,9 @@ export const messages = {
         }
       },
       register: {
-        kicker: '提供工具',
+        kicker: '应用能力',
         title: 'Tools',
-        body: 'useEnchantForm 提供表单字段和填写工具；useEnchantAction 注册应用自定义工具。'
+        body: 'Form Schema 描述字段、类型与约束，并生成填写工具。Actions 描述参数与执行方式。'
       },
       examples: {
         kicker: '示例',
@@ -307,9 +307,9 @@ export const messages = {
         }
       },
       register: {
-        kicker: 'Provide tools',
+        kicker: 'Application capabilities',
         title: 'Tools',
-        body: 'useEnchantForm contributes form fields and a fill tool. useEnchantAction registers custom application tools.'
+        body: 'A form schema describes fields, types, and constraints, then generates fill tools. Actions define parameters and execution.'
       },
       examples: {
         kicker: 'Examples',
