@@ -1,11 +1,11 @@
-import type { Ref } from 'vue';
+import { watch, type Ref } from 'vue';
 import {
   useEnchant,
   useEnchantAction,
   useEnchantForge,
   type EnchantProgressEvent
 } from '@enchantforge/vue';
-import { demoOrderService } from './order-service';
+import { latestOrderDetail } from './support-api';
 
 export interface TicketDraft {
   customerName: string;
@@ -58,47 +58,20 @@ export function useCustomerServiceAgent(
   const enchant = useEnchant();
   const forge = useEnchantForge();
 
-  useEnchantAction<{ orderNo: string }>({
-    id: 'customer-service:get-order-detail',
-    name: 'support.get_order_detail',
-    label: '查询订单详情',
-    description: '根据离线 ASR 中出现的完整订单号查询后台订单 API。订单状态、商品、客户与售后状态必须以此工具返回为准，不得根据订单号猜测。',
-    provider: 'demo-order-api',
-    effect: 'read',
-    target: '订单中心',
-    inputSchema: {
-      type: 'object',
-      required: ['orderNo'],
-      additionalProperties: false,
-      properties: {
-        orderNo: {
-          type: 'string',
-          minLength: 8,
-          description: '离线 ASR 中明确出现的完整订单号'
-        }
-      }
-    },
-    async execute({ orderNo }, context) {
-      context.reportProgress({ label: `正在查询订单 ${orderNo}` });
-      const order = await demoOrderService.getOrderDetail(orderNo, context.signal);
-      notices.value = [{
-        id: `api-${Date.now()}`,
-        kind: 'api',
-        title: '订单 API 返回',
-        content: [
-          `${order.orderNo} · ${order.status}`,
-          `${order.product} · ${order.sku}`,
-          `签收：${order.deliveredAt ?? '尚未签收'} · 售后：${order.afterSaleStatus}`,
-          order.serviceHint
-        ].join('\n'),
-        timestamp: timestamp()
-      }, ...notices.value];
-      return {
-        status: 'success' as const,
-        summary: `订单 ${order.orderNo} 查询完成，当前状态为${order.status}。`,
-        data: { order }
-      };
-    }
+  watch(latestOrderDetail, (order) => {
+    if (!order) return;
+    notices.value = [{
+      id: `api-${Date.now()}`,
+      kind: 'api',
+      title: '订单 API 返回',
+      content: [
+        `${order.orderNo} · ${order.status}`,
+        `${order.product} · ${order.sku}`,
+        `签收：${order.deliveredAt ?? '尚未签收'} · 售后：${order.afterSaleStatus}`,
+        order.serviceHint
+      ].join('\n'),
+      timestamp: timestamp()
+    }, ...notices.value];
   });
 
   useEnchantAction<{ query: string }>({

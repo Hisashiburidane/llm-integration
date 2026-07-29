@@ -76,19 +76,9 @@ const asrDemoCode = stripVueStyleBlock(asrDemoCodeRaw);
 
 const customerServiceAgentCode = `<script setup lang="ts">
 import { useEnchant, useEnchantAction, useEnchantForge } from '@enchantforge/vue';
-import { demoOrderService as orderService } from './order-service';
 
 const enchant = useEnchant();
 const forge = useEnchantForge();
-
-useEnchantAction({
-  name: 'support.get_order_detail',
-  description: '根据 ASR 中的完整订单号查询后台订单详情。',
-  effect: 'read',
-  inputSchema: orderQuerySchema,
-  execute: ({ orderNo }, context) =>
-    orderService.getOrderDetail(orderNo, context.signal)
-});
 
 useEnchantAction({
   name: 'support.search_knowledge',
@@ -153,29 +143,37 @@ const productionKnowledge = createHttpKnowledgeProvider({
 
 const forge = createEnchantForge({ knowledge });`;
 
-const orderServiceCode = `export interface OrderService {
-  getOrderDetail(
-    orderNo: string,
-    signal?: AbortSignal
-  ): Promise<OrderDetail>;
-}
+const supportApiCode = `import {
+  createEnchantForge,
+  defineEnchantAction,
+  defineEnchantApi
+} from '@enchantforge/vue';
+import { orderService } from './order-service';
 
-export function createHttpOrderService(
-  endpoint = '/api/orders'
-): OrderService {
-  return {
-    async getOrderDetail(orderNo, signal) {
-      const response = await fetch(
-        \`\${endpoint}/\${encodeURIComponent(orderNo)}\`,
-        { signal }
-      );
-      if (!response.ok) {
-        throw new Error(\`订单查询失败：HTTP \${response.status}\`);
-      }
-      return response.json();
+const getOrderDetail = defineEnchantAction({
+  name: 'support.get_order_detail',
+  description: '根据完整订单号查询后台订单详情。',
+  effect: 'read',
+  inputSchema: {
+    type: 'object',
+    required: ['orderNo'],
+    properties: {
+      orderNo: { type: 'string', description: '完整订单号' }
     }
-  };
-}`;
+  },
+  execute: ({ orderNo }, context) =>
+    orderService.getOrderDetail(orderNo, context.signal)
+});
+
+export const supportApi = defineEnchantApi({
+  id: 'customer-service',
+  page: 'asr-customer-service',
+  actions: [getOrderDetail]
+});
+
+// main.ts：安装一次，页面内的 Agent 自动获得这些 tools。
+const forge = createEnchantForge().use(supportApi);
+createApp(App).use(forge).mount('#app');`;
 
 const originalTextToFormPageCode = `<script setup lang="ts">
 import ExpressForm from './ExpressForm.vue';
@@ -356,7 +354,7 @@ export const demos: DemoSpec[] = [
     codeBlocks: [
       { key: 'wrapper', tab: 'Enchant 边界', code: asrDemoCode, language: 'xml' },
       { key: 'agent', tab: '业务触发与 Tools', code: customerServiceAgentCode, language: 'typescript' },
-      { key: 'order-api', tab: 'Order API', code: orderServiceCode, language: 'typescript' },
+      { key: 'app-api', tab: '应用 API', code: supportApiCode, language: 'typescript' },
       { key: 'knowledge', tab: 'Knowledge Provider', code: knowledgeProviderCode, language: 'typescript' }
     ]
   },
