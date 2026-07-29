@@ -29,13 +29,13 @@ export const messages = {
       },
       minimum: {
         kicker: '应用上下文',
-        title: '先让 AI 看见应用',
+        title: '让 AI 看见应用',
         body: 'EnchantForge 将应用提供的信息组织成 AI 可以理解的上下文。',
         notes: {
           domTitle: '信息来自应用本身',
           domBody: '字段、状态、页面结构，以及它们原本的含义。',
-          globalTitle: '上下文始终对应当前页面',
-          globalBody: '组件的加入、离开和变化，都会反映在下一次调用中。',
+          globalTitle: '按任务选择上下文范围',
+          globalBody: '上下文可以限定到组件、页面或整个应用。范围过大会增加开销和隐私风险，范围过小则可能缺少完成任务所需的信息。',
           submitTitle: '让函数，成为 AI 的能力',
           submitBody: '从一次页面交互，到完整业务流程。'
         }
@@ -281,8 +281,8 @@ export const messages = {
         notes: {
           domTitle: 'Information comes from the application itself',
           domBody: 'Fields, state, interface structure, and their original meaning.',
-          globalTitle: 'Context always reflects the current page',
-          globalBody: 'Components joining, leaving, and changing are reflected in the next request.',
+          globalTitle: 'Choose the context scope for the task',
+          globalBody: 'Context can cover a component, a page, or the entire application. Too much increases cost and privacy risk; too little may omit information required for the task.',
           submitTitle: 'Turn functions into AI capabilities',
           submitBody: 'From a single interface interaction to an entire business workflow.'
         }
