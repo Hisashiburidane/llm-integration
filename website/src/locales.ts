@@ -74,8 +74,8 @@ export const messages = {
       },
       examples: {
         kicker: '示例',
-        title: '从模型请求到页面结果',
-        body: '每个示例都会发起真实模型请求、调用应用函数，并在页面中呈现执行结果。',
+        title: 'EnchantForge 如何接入应用',
+        body: '查看示例、接入代码和执行过程。',
         action: '查看示例'
       },
       runtime: {
@@ -321,8 +321,8 @@ export const messages = {
       },
       examples: {
         kicker: 'Examples',
-        title: 'From model request to page result',
-        body: 'Each example sends a real model request, calls application functions, and renders the result in the page.',
+        title: 'How EnchantForge integrates with applications',
+        body: 'Explore examples, integration code, and execution flow.',
         action: 'View examples'
       },
       runtime: {
