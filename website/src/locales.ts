@@ -23,9 +23,9 @@ export const messages = {
         title: '帮 AI 对齐颗粒度',
         problem: '面向 Vue 应用的 AI 集成框架',
         lead: '为 Web 应用构建 AI 上下文。',
-        start: '先看最短接入',
-        examples: '直接看它干活',
-        api: '查 API'
+        start: '快速开始',
+        examples: '查看示例',
+        api: 'API 文档'
       },
       minimum: {
         kicker: '先让 AI 看见',
@@ -255,9 +255,9 @@ export const messages = {
         title: 'Context at the right granularity',
         problem: 'An AI context framework for Vue',
         lead: 'Build AI context for web applications.',
-        start: 'Start with one wrapper',
-        examples: 'Open examples',
-        api: 'Read the API'
+        start: 'Get started',
+        examples: 'View examples',
+        api: 'API reference'
       },
       minimum: {
         kicker: 'Make the application visible',
