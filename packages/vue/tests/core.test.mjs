@@ -981,19 +981,30 @@ test('application APIs register reusable actions once at app scope', async () =>
     id: 'orders',
     label: 'Order API',
     provider: 'order-service',
+    page: 'test-page',
     actions: [getOrder]
   });
   const forge = createEnchantForge().use(ordersApi);
+  forge.registry.register(createRegistration());
 
-  const snapshot = forge.capture({ page: 'any-page' });
-  assert.equal(snapshot.enchantments[0].id, 'api:orders');
-  assert.equal(snapshot.tools.length, 1);
-  assert.equal(snapshot.tools[0].capabilityId, 'api:orders:orders.get');
-  assert.equal(snapshot.tools[0].provider, 'order-service');
+  const snapshot = forge.capture({
+    enchantmentIds: ['scope:test'],
+    includeLocal: true
+  });
+  assert.deepEqual(
+    snapshot.enchantments.map((item) => item.id),
+    ['api:orders', 'scope:test']
+  );
+  const orderTool = snapshot.tools.find((tool) => tool.name === 'orders.get');
+  assert.equal(orderTool.capabilityId, 'api:orders:orders.get');
+  assert.equal(orderTool.provider, 'order-service');
+  assert.equal(forge.capture({ page: 'other-page' }).tools.some(
+    (tool) => tool.name === 'orders.get'
+  ), false);
 
   const result = await forge.execute(
     {
-      capabilityId: snapshot.tools[0].capabilityId,
+      capabilityId: orderTool.capabilityId,
       input: { orderNo: 'EF-1' }
     },
     { snapshot }

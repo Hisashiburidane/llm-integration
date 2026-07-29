@@ -93,6 +93,7 @@ function registrationSignature(registration: EnchantRegistration) {
     id: registration.id,
     name: registration.name,
     page: registration.page,
+    contextScope: registration.contextScope,
     agentId: registration.agentId,
     route: registration.route,
     tags: registration.tags,
@@ -177,8 +178,14 @@ export function createEnchantRegistry(): EnchantRegistry {
 
   function list(options: EnchantSnapshotOptions = {}) {
     const requestedIds = options.enchantmentIds ? new Set(options.enchantmentIds) : undefined;
+    const requestedPages = requestedIds
+      ? new Set(Array.from(requestedIds).map((id) => registrations.get(id)?.page).filter(Boolean))
+      : undefined;
     return Array.from(registrations.values()).filter((registration) => {
-      if (requestedIds && !requestedIds.has(registration.id)) return false;
+      if (requestedIds && !requestedIds.has(registration.id)) {
+        if (registration.contextScope !== 'app') return false;
+        if (registration.page && !requestedPages?.has(registration.page)) return false;
+      }
       if (options.page && registration.page && registration.page !== options.page) return false;
       if (options.route && registration.route && registration.route !== options.route) return false;
       if (registration.exposure === 'private') return false;

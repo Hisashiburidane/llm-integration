@@ -256,6 +256,7 @@ export const getOrder = defineEnchantAction({
 
 export const ordersApi = defineEnchantApi({
   id: 'orders',
+  page: 'customer-service',
   actions: [getOrder]
 });
 
@@ -264,7 +265,9 @@ createApp(App).use(createEnchantForge().use(ordersApi));
 
 `defineEnchantAction` 负责让契约只声明一次；同一个定义也可以传给
 `useEnchantAction`，绑定到局部 `<Enchant>` 生命周期。`defineEnchantApi` 只负责把应用
-拥有的 actions 注册为应用级 capabilities，不接管其业务实现、权限或错误语义。
+拥有的 actions 注册为应用级 capabilities，不接管其业务实现、权限或错误语义。应用级
+capability 会自动合并进局部 Enchant context；设置 `page` 后只对该页面生效，避免向
+无关 Agent 暴露 tools。
 
 不得使用“仅 import 即修改全局注册表”的模块副作用。该方式无法明确绑定 Forge
 实例，在多 Vue app、SSR、测试隔离和 tree shaking 场景中行为不可靠。全局安装必须

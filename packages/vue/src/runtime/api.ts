@@ -13,6 +13,7 @@ export interface EnchantApiOptions {
   id: string;
   label?: string;
   provider?: string;
+  page?: string;
   actions: readonly EnchantActionDefinition<any, any>[];
 }
 
@@ -82,12 +83,15 @@ export function defineEnchantApi(options: EnchantApiOptions): EnchantApi {
       return forge.registry.register({
         id: scopeId,
         name: options.label ?? options.id,
+        page: options.page,
+        contextScope: 'app',
         exposure: 'aura',
         getStatus: () => status,
         capture: () => ({
           enchantment: {
             id: scopeId,
             name: options.label ?? options.id,
+            page: options.page,
             kind: 'custom',
             exposure: 'aura',
             status,

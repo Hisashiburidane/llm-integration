@@ -182,6 +182,7 @@ export interface EnchantRegistration {
   id: string;
   name?: string;
   page?: string;
+  contextScope?: 'local' | 'app';
   agentId?: string;
   route?: string;
   tags?: string[];
