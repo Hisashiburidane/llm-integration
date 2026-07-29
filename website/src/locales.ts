@@ -21,7 +21,7 @@ export const messages = {
       hero: {
         kicker: 'Vue-first LLM integration framework',
         title: '帮 AI 对齐颗粒度',
-        problem: '渐进式 AI 上下文框架',
+        problem: 'Vue AI 上下文框架',
         lead: 'Vue 组件提供上下文与工具，应用控制执行边界。',
         start: '先看最短接入',
         examples: '直接看它干活',
@@ -41,8 +41,8 @@ export const messages = {
         }
       },
       model: {
-        kicker: '从简单到复杂',
-        title: '简单页面少写代码，复杂系统也没被堵死。',
+        kicker: '接入方式',
+        title: '优先提供显式上下文，必要时再兼容旧页面。',
         levels: {
           contribute: {
             title: '组件自己说明白',
@@ -253,7 +253,7 @@ export const messages = {
       hero: {
         kicker: 'Vue-first LLM integration framework',
         title: 'Context at the right granularity',
-        problem: 'A progressive AI context framework',
+        problem: 'An AI context framework for Vue',
         lead: 'Vue components provide context and tools. Applications control execution boundaries.',
         start: 'Start with one wrapper',
         examples: 'Open examples',
@@ -273,8 +273,8 @@ export const messages = {
         }
       },
       model: {
-        kicker: 'Progressive model',
-        title: 'Contribute first. Scan only by choice.',
+        kicker: 'Integration paths',
+        title: 'Contribute explicitly. Scan only for compatibility.',
         levels: {
           contribute: {
             title: 'Vue contribution',
