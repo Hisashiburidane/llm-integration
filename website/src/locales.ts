@@ -42,23 +42,28 @@ export const messages = {
       },
       model: {
         kicker: '接入方式',
-        title: '按需接入上下文、能力与 Agent。',
+        title: '根据需要选择接入位置。',
+        body: '组件和应用负责提供上下文与能力；Aura 和自定义 Agent 使用这些内容。',
+        groups: {
+          provide: '应用提供',
+          consume: 'AI 使用'
+        },
         levels: {
           component: {
-            title: '组件提供上下文',
-            notes: ['字段与状态', '可调用函数', '随挂载注册', '随卸载移除']
+            title: '组件接入',
+            notes: ['注册表单模型', '提供局部函数', '绑定组件生命周期']
           },
           application: {
-            title: '应用注册能力',
-            notes: ['跨页面共享', '统一参数 Schema', '业务逻辑自有', '插件式安装']
+            title: '应用接入',
+            notes: ['注册共享能力', '跨页面使用', '通过插件安装']
           },
           assistant: {
-            title: '使用现成助手',
-            notes: ['对话输入', '进度反馈', 'Markdown 回答', '命令式控制']
+            title: '使用 Aura',
+            notes: ['默认助手界面', '会话与 Markdown', '进度和结果反馈', '支持外部控制']
           },
           agent: {
             title: '接入自己的 Agent',
-            notes: ['导出上下文', '导出工具', '自定义协议', '受约束执行']
+            notes: ['导出上下文与工具', '接入不同后端和协议', '执行仍经过框架约束']
           }
         }
       },
@@ -269,23 +274,28 @@ export const messages = {
       },
       model: {
         kicker: 'Integration paths',
-        title: 'Add context, capabilities, and Agents as needed.',
+        title: 'Choose where to integrate.',
+        body: 'Components and applications provide context and capabilities. Aura and custom Agents use them.',
+        groups: {
+          provide: 'Provided by the application',
+          consume: 'Used by AI'
+        },
         levels: {
           component: {
-            title: 'Component context',
-            notes: ['fields and state', 'typed functions', 'mount registration', 'unmount cleanup']
+            title: 'Component integration',
+            notes: ['register form models', 'expose local functions', 'follow the component lifecycle']
           },
           application: {
-            title: 'Application capabilities',
-            notes: ['shared across pages', 'shared schemas', 'application logic', 'plugin install']
+            title: 'Application integration',
+            notes: ['register shared capabilities', 'use them across pages', 'install as a plugin']
           },
           assistant: {
-            title: 'Built-in assistant',
-            notes: ['conversation input', 'progress feedback', 'Markdown answers', 'imperative control']
+            title: 'Use Aura',
+            notes: ['default assistant interface', 'conversation and Markdown', 'progress and results', 'external control']
           },
           agent: {
-            title: 'Custom Agent',
-            notes: ['export context', 'export tools', 'custom protocol', 'constrained execution']
+            title: 'Connect your own Agent',
+            notes: ['export context and tools', 'connect different backends and protocols', 'keep execution constrained by the framework']
           }
         }
       },

@@ -39,11 +39,21 @@ const registerCode = `useEnchantAction({
 
 const principles = ['explicit', 'stable', 'local', 'visible', 'owned'];
 
-const levels = [
-  { name: 'component', api: 'useEnchantForm / useEnchantAction' },
-  { name: 'application', api: 'defineEnchantApi' },
-  { name: 'assistant', api: 'Aura' },
-  { name: 'agent', api: 'useEnchant / captureContext' }
+const integrationGroups = [
+  {
+    name: 'provide',
+    levels: [
+      { name: 'component', api: 'useEnchantForm / useEnchantAction' },
+      { name: 'application', api: 'defineEnchantApi' }
+    ]
+  },
+  {
+    name: 'consume',
+    levels: [
+      { name: 'assistant', api: '<Aura />' },
+      { name: 'agent', api: 'EnchantAgent / captureContext / executeTool' }
+    ]
+  }
 ];
 
 const architecture = [
@@ -106,15 +116,20 @@ function levelNotes(name: string) {
   <section id="model" class="section">
     <p class="kicker">{{ t('home.model.kicker') }}</p>
     <h2>{{ t('home.model.title') }}</h2>
-    <div class="levels">
-      <article v-for="level in levels" :key="level.name" class="level">
-        <code>{{ level.name }}</code>
-        <h3>{{ t(`home.model.levels.${level.name}.title`) }}</h3>
-        <p>{{ level.api }}</p>
-        <ul>
-          <li v-for="note in levelNotes(level.name)" :key="note">{{ note }}</li>
-        </ul>
-      </article>
+    <p>{{ t('home.model.body') }}</p>
+    <div class="integration-groups">
+      <section v-for="group in integrationGroups" :key="group.name" class="integration-group">
+        <p class="integration-group-label">{{ t(`home.model.groups.${group.name}`) }}</p>
+        <div class="levels">
+          <article v-for="level in group.levels" :key="level.name" class="level">
+            <h3>{{ t(`home.model.levels.${level.name}.title`) }}</h3>
+            <code class="level-api">{{ level.api }}</code>
+            <ul>
+              <li v-for="note in levelNotes(level.name)" :key="note">{{ note }}</li>
+            </ul>
+          </article>
+        </div>
+      </section>
     </div>
   </section>
 
