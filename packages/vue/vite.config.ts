@@ -13,7 +13,8 @@ export default defineConfig({
         core: source('core.ts'),
         enchant: source('enchant.ts'),
         aura: source('aura.ts'),
-        debug: source('debug.ts')
+        debug: source('debug.ts'),
+        otel: source('otel.ts')
       },
       formats: ['es'],
       cssFileName: 'enchantforge-vue',

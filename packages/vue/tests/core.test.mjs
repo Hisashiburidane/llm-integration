@@ -22,6 +22,7 @@ import {
   buildEnchantDebugScopeTree,
   flattenEnchantDebugMetadata
 } from '../dist/debug.js';
+import { createEnchantOpenTelemetry } from '../dist/otel.js';
 
 function status(overrides = {}) {
   return { alive: true, active: true, visible: true, enabled: true, ...overrides };
@@ -1089,6 +1090,113 @@ test('run middleware wraps agent orchestration and can be removed', async () => 
   lifecycle.length = 0;
   await forge.run('again');
   assert.deepEqual(lifecycle, ['agent']);
+});
+
+test('OpenTelemetry adapter creates nested run and capability spans with metrics', async () => {
+  const spans = [];
+  const activeSpans = [];
+  const measurements = [];
+  const tracer = {
+    startActiveSpan(name, options, callback) {
+      const record = {
+        name,
+        parent: activeSpans.at(-1)?.name,
+        attributes: { ...options.attributes },
+        events: [],
+        exceptions: [],
+        ended: false
+      };
+      const span = {
+        setAttribute(key, value) {
+          record.attributes[key] = value;
+          return this;
+        },
+        setAttributes(attributes) {
+          Object.assign(record.attributes, attributes);
+          return this;
+        },
+        addEvent(eventName, attributes) {
+          record.events.push({ name: eventName, attributes });
+          return this;
+        },
+        setStatus(statusValue) {
+          record.status = statusValue;
+          return this;
+        },
+        recordException(error) {
+          record.exceptions.push(error);
+        },
+        end() {
+          record.ended = true;
+        }
+      };
+      spans.push(record);
+      activeSpans.push(record);
+      try {
+        const result = callback(span);
+        if (result && typeof result.then === 'function') {
+          return result.finally(() => activeSpans.pop());
+        }
+        activeSpans.pop();
+        return result;
+      } catch (error) {
+        activeSpans.pop();
+        throw error;
+      }
+    }
+  };
+  const meter = {
+    createCounter(name) {
+      return {
+        add(value, attributes) {
+          measurements.push({ type: 'counter', name, value, attributes });
+        }
+      };
+    },
+    createHistogram(name) {
+      return {
+        record(value, attributes) {
+          measurements.push({ type: 'histogram', name, value, attributes });
+        }
+      };
+    }
+  };
+  const forge = createEnchantForge({
+    agent: {
+      async plan() {
+        return {
+          message: '',
+          calls: [{ capabilityId: 'capability:test', input: { value: 'private' } }]
+        };
+      }
+    }
+  });
+  forge.registry.register(createRegistration());
+  forge.use(createEnchantOpenTelemetry({
+    tracer,
+    meter,
+    attributes: { 'service.name': 'test-app' }
+  }));
+
+  const result = await forge.run({ input: 'run private action', page: 'test-page' });
+
+  assert.equal(result.results[0].ok, true);
+  assert.deepEqual(spans.map((span) => span.name), [
+    'enchantforge.agent.run',
+    'enchantforge.capability.execute'
+  ]);
+  assert.equal(spans[1].parent, 'enchantforge.agent.run');
+  assert.equal(spans[0].attributes['service.name'], 'test-app');
+  assert.equal(spans[1].attributes['enchantforge.capability.name'], 'test.action');
+  assert.equal(spans[1].attributes['enchantforge.capability.input'], undefined);
+  assert.equal(spans.every((span) => span.ended), true);
+  assert.deepEqual(measurements.map((item) => item.name), [
+    'enchantforge.capability.execution.count',
+    'enchantforge.capability.execution.duration',
+    'enchantforge.agent.run.count',
+    'enchantforge.agent.run.duration'
+  ]);
+  assert.equal(measurements.every((item) => item.attributes['enchantforge.outcome'] === 'success'), true);
 });
 
 test('debug plugin enables the lightweight in-page debug surface by default', () => {

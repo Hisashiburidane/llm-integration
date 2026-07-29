@@ -33,6 +33,10 @@
       "types": "./dist/debug.d.ts",
       "import": "./dist/debug.js"
     },
+    "./otel": {
+      "types": "./dist/otel.d.ts",
+      "import": "./dist/otel.js"
+    },
     "./style.css": "./dist/enchantforge-vue.css"
   },
   "scripts": {

@@ -23,6 +23,7 @@ EnchantForge 对模型能力采取保守假设：模型可以解释、规划和�
 11. [功能归属与框架边界](./11-feature-ownership-and-boundaries.md)
 12. [CopilotKit 功能重合与差异分析](./12-copilotkit-gap-analysis.md)
 13. [LLM Context 与 Tool Calling 边界](./13-llm-context-boundary.md)
+14. [OpenTelemetry 集成](./14-opentelemetry-integration.md)
 
 ## 非目标
 
