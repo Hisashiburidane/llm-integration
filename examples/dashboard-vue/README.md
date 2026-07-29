@@ -4,7 +4,7 @@
 
 ## One-command demo
 
-前置环境包括 Node.js、pnpm、uv 和 sqlite3；本地没有可复用的 OpenTelemetry capture 时还需要可用的 Docker Engine，macOS 可以使用 OrbStack。
+前置环境包括 Node.js、pnpm 和 uv；SQLite 通过项目依赖安装。本地没有可复用的 OpenTelemetry capture 时还需要可用的 Docker Engine，macOS 可以使用 OrbStack。
 
 从仓库根目录执行：
 

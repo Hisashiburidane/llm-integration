@@ -101,7 +101,6 @@ has_otel_capture() {
 require_command pnpm
 require_command node
 require_command uv
-require_command sqlite3
 
 cd "$ROOT_DIR"
 
