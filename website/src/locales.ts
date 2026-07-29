@@ -74,8 +74,8 @@ export const messages = {
       },
       examples: {
         kicker: '真实示例',
-        title: '每一步都真实执行',
-        body: '自动填表、监控聚焦、坐席辅助，都使用真实上下文和工具调用。',
+        title: '从模型请求到页面结果',
+        body: '每个示例都会发起真实模型请求、调用应用函数，并在页面中呈现执行结果。',
         action: '查看示例'
       },
       runtime: {
@@ -306,8 +306,8 @@ export const messages = {
       },
       examples: {
         kicker: 'Examples',
-        title: 'Every step executes for real',
-        body: 'Form filling, dashboard focus, and agent assistance use real context and tools.',
+        title: 'From model request to page result',
+        body: 'Each example sends a real model request, calls application functions, and renders the result in the page.',
         action: 'View examples'
       },
       runtime: {
