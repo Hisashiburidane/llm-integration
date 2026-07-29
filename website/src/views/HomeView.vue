@@ -30,11 +30,14 @@ ${'</scr' + 'ipt>'}
   <ExpressForm v-model="form" />
 </template>`;
 
-const registerCode = `useEnchantAction({
-  name: 'form.reset',
-  description: 'Reset the current form',
-  effect: 'draft',
-  execute: resetForm
+const registerCode = `useEnchantForm(form)
+
+useEnchantAction({
+  name: 'order.lookup',
+  description: 'Look up an order by number',
+  effect: 'read',
+  inputSchema: orderQuerySchema,
+  execute: lookupOrder
 })`;
 
 const principles = ['context', 'tools', 'scope', 'validation', 'audit'];

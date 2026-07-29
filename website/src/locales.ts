@@ -68,9 +68,9 @@ export const messages = {
         }
       },
       register: {
-        kicker: '工具调用',
-        title: '函数 → Tools',
-        body: '应用描述函数的用途和参数，Forge 将它作为工具提供给 AI，并在调用前完成校验。'
+        kicker: '提供工具',
+        title: 'Tools',
+        body: 'useEnchantForm 提供表单字段和填写工具；useEnchantAction 注册应用自定义工具。'
       },
       examples: {
         kicker: '示例',
@@ -315,9 +315,9 @@ export const messages = {
         }
       },
       register: {
-        kicker: 'Tool calling',
-        title: 'Functions → Tools',
-        body: 'Applications describe each function and its parameters. Forge exposes it as a tool and validates every call.'
+        kicker: 'Provide tools',
+        title: 'Tools',
+        body: 'useEnchantForm contributes form fields and a fill tool. useEnchantAction registers custom application tools.'
       },
       examples: {
         kicker: 'Examples',
