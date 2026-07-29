@@ -20,9 +20,9 @@ export const messages = {
     home: {
       hero: {
         kicker: 'Vue-first LLM integration framework',
-        title: '帮 AI 对齐颗粒度。',
-        problem: '没有应用上下文，模型就是两眼一抹黑。',
-        lead: '它不知道页面由什么组成、哪些状态被允许公开，也不知道哪些操作可以执行。EnchantForge 把组件显式提供的元数据和工具组织起来，交给 AI。',
+        title: '帮 AI 对齐颗粒度',
+        problem: '渐进式 AI 上下文框架',
+        lead: 'Vue 组件提供上下文与工具，应用控制执行边界。',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
@@ -252,9 +252,9 @@ export const messages = {
     home: {
       hero: {
         kicker: 'Vue-first LLM integration framework',
-        title: 'Give AI context at the right granularity.',
-        problem: 'Without application context, even a capable model is operating blind.',
-        lead: 'It does not know how the interface is structured, which state may be exposed, or which actions are available. EnchantForge organizes metadata and tools explicitly contributed by components and makes them available to AI.',
+        title: 'Context at the right granularity',
+        problem: 'A progressive AI context framework',
+        lead: 'Vue components provide context and tools. Applications control execution boundaries.',
         start: 'Start with one wrapper',
         examples: 'Open examples',
         api: 'Read the API'
