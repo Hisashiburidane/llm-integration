@@ -48,6 +48,7 @@ export type {
   EnchantForgeOptions,
   EnchantForgePlugin,
   EnchantAgentResolver,
+  EnchantLlmObserver,
   EnchantModelContext,
   EnchantRunOptions,
   EnchantRunMiddleware,

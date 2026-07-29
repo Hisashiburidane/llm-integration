@@ -1254,6 +1254,28 @@ test('debug plugin records default LLM client requests and responses', async () 
   assert.ok(rows[0].response);
 });
 
+test('LLM lifecycle observers work without retaining debug payloads', async () => {
+  const forge = createEnchantForge({
+    llm: {
+      model: 'test',
+      fetcher: async () => new Response(JSON.stringify({
+        choices: [{
+          finish_reason: 'stop',
+          message: { content: '{"message":"No action","calls":[]}' }
+        }]
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+  });
+  const phases = [];
+  const unsubscribe = forge.subscribeLlm((event) => phases.push(event.phase));
+
+  await forge.run('inspect');
+
+  assert.deepEqual(phases, ['request', 'response']);
+  assert.equal(forge.events.some((event) => event.kind === 'llm'), false);
+  unsubscribe();
+});
+
 test('useEnchantForm emits provider-compatible field schemas', async (context) => {
   const renderer = createRenderer({
     patchProp() {},

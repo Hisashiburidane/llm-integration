@@ -40,7 +40,7 @@ import type {
   EnchantTool,
   EnchantTraceEvent
 } from './enchantment';
-import type { LlmClient, LlmClientOptions } from './llm-client';
+import type { LlmClient, LlmClientDebugEvent, LlmClientOptions } from './llm-client';
 import type {
   EnchantKnowledgeProvider,
   EnchantKnowledgeQuery,
@@ -112,6 +112,7 @@ export interface EnchantCapabilityExporter<T = unknown> {
 }
 
 export type EnchantAgentResolver = (agentId: string) => EnchantAgent | undefined;
+export type EnchantLlmObserver = (event: LlmClientDebugEvent) => void;
 
 export type EnchantContextScope = 'local' | 'page' | 'app';
 
@@ -219,6 +220,7 @@ export type EnchantForge = Plugin & {
   registerExporter<T>(exporter: EnchantCapabilityExporter<T>): () => void;
   registerExecutionMiddleware(middleware: EnchantExecutionMiddleware): () => void;
   registerRunMiddleware(middleware: EnchantRunMiddleware): () => void;
+  subscribeLlm(listener: EnchantLlmObserver): () => void;
   configurePolicy(config: Partial<EnchantPolicy>): void;
   syncNavigation(input: EnchantNavigationInput): void;
   bindNavigation(source: EnchantNavigationSource): () => void;
@@ -408,6 +410,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
   const plugins: EnchantForgePlugin[] = [];
   const executionMiddlewares: EnchantExecutionMiddleware[] = [];
   const runMiddlewares: EnchantRunMiddleware[] = [];
+  const llmObservers = new Set<EnchantLlmObserver>();
   let autoCaptureTimer: ReturnType<typeof setTimeout> | undefined;
   let installedApp: App | undefined;
   let disposed = false;
@@ -436,6 +439,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     ...options.llm,
     onDebug(event) {
       options.llm?.onDebug?.(event);
+      llmObservers.forEach((listener) => listener(event));
       if (!debugState.enabled) return;
       trace({
         source: event.requestId,
@@ -986,6 +990,7 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
     while (pluginCleanups.length) pluginCleanups.pop()?.();
     executionMiddlewares.splice(0);
     runMiddlewares.splice(0);
+    llmObservers.clear();
     registry.clear();
     if (latestInstalledForge === forge) latestInstalledForge = undefined;
   }
@@ -1044,6 +1049,10 @@ export function createEnchantForge(options: EnchantForgeOptions = {}): EnchantFo
         const index = runMiddlewares.indexOf(middleware);
         if (index >= 0) runMiddlewares.splice(index, 1);
       };
+    },
+    subscribeLlm(listener) {
+      llmObservers.add(listener);
+      return () => llmObservers.delete(listener);
     },
     configurePolicy,
     syncNavigation,
