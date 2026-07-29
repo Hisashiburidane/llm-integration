@@ -76,13 +76,23 @@ const asrDemoCode = stripVueStyleBlock(asrDemoCodeRaw);
 
 const customerServiceAgentCode = `<script setup lang="ts">
 import { useEnchant, useEnchantAction, useEnchantForge } from '@enchantforge/vue';
+import { demoOrderService as orderService } from './order-service';
 
 const enchant = useEnchant();
 const forge = useEnchantForge();
 
 useEnchantAction({
+  name: 'support.get_order_detail',
+  description: '根据 ASR 中的完整订单号查询后台订单详情。',
+  effect: 'read',
+  inputSchema: orderQuerySchema,
+  execute: ({ orderNo }, context) =>
+    orderService.getOrderDetail(orderNo, context.signal)
+});
+
+useEnchantAction({
   name: 'support.search_knowledge',
-  description: '检索真实售后规则；给坐席建议前必须调用。',
+  description: '客户描述具体问题后，检索匹配的售后规则。',
   effect: 'read',
   inputSchema: knowledgeQuerySchema,
   execute: ({ query }, context) => forge.retrieveKnowledge({
@@ -94,7 +104,7 @@ useEnchantAction({
 
 useEnchantAction({
   name: 'support.update_ticket_draft',
-  description: '把离线 ASR 中明确出现的信息写入工单草稿，不提交。',
+  description: '把 ASR 或读取工具确认的信息写入工单草稿，不提交。',
   effect: 'draft',
   inputSchema: ticketDraftSchema,
   execute: updateTicketDraft
@@ -112,9 +122,10 @@ async function onOfflineTranscript(latest: string, transcript: string) {
   await enchant.run({
     input: \`本次新增：\${latest}\\n累计转写：\${transcript}\`,
     prompt: [
-      '先检索售后知识库。',
-      '只提取客户明确说出的事实，禁止补全。',
-      '更新工单草稿，并根据检索结果给坐席下一步建议。',
+      '出现订单号时先查询订单 API。',
+      '出现具体问题时再检索售后知识库。',
+      '只使用 ASR 原文和读取工具返回的事实。',
+      '更新工单草稿，并根据订单或规则结果给坐席建议。',
       '不得提交工单或承诺退款、换新已经获批。'
     ].join('\\n')
   });
@@ -141,6 +152,30 @@ const productionKnowledge = createHttpKnowledgeProvider({
 });
 
 const forge = createEnchantForge({ knowledge });`;
+
+const orderServiceCode = `export interface OrderService {
+  getOrderDetail(
+    orderNo: string,
+    signal?: AbortSignal
+  ): Promise<OrderDetail>;
+}
+
+export function createHttpOrderService(
+  endpoint = '/api/orders'
+): OrderService {
+  return {
+    async getOrderDetail(orderNo, signal) {
+      const response = await fetch(
+        \`\${endpoint}/\${encodeURIComponent(orderNo)}\`,
+        { signal }
+      );
+      if (!response.ok) {
+        throw new Error(\`订单查询失败：HTTP \${response.status}\`);
+      }
+      return response.json();
+    }
+  };
+}`;
 
 const originalTextToFormPageCode = `<script setup lang="ts">
 import ExpressForm from './ExpressForm.vue';
@@ -314,13 +349,14 @@ export const demos: DemoSpec[] = [
     id: 'asr-customer-service',
     title: '实时坐席辅助',
     status: '真实 API',
-    summary: '三种人物语速的 ASR online/offline 数据流；业务组件主动触发 Agent，检索售后知识、更新工单草稿并提示人工坐席。',
+    summary: '三种人物语速的 ASR online/offline 数据流；业务组件主动触发 Agent，查询订单 API、检索售后知识、更新工单草稿并提示人工坐席。',
     suggestions: [],
     showAura: false,
     component: AsrCustomerServiceDemo,
     codeBlocks: [
       { key: 'wrapper', tab: 'Enchant 边界', code: asrDemoCode, language: 'xml' },
       { key: 'agent', tab: '业务触发与 Tools', code: customerServiceAgentCode, language: 'typescript' },
+      { key: 'order-api', tab: 'Order API', code: orderServiceCode, language: 'typescript' },
       { key: 'knowledge', tab: 'Knowledge Provider', code: knowledgeProviderCode, language: 'typescript' }
     ]
   },

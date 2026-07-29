@@ -217,6 +217,7 @@
   background: #fff;
 }
 .assistant-notice.result { border-color: #cddcec; border-left-color: #347fc8; }
+.assistant-notice.api { border-color: #ead9bd; border-left-color: #c17b22; }
 .assistant-notice.knowledge { border-color: #d9d5ef; border-left-color: #6d5fc4; }
 .assistant-notice.error { border-color: #eed0d0; border-left-color: #c24444; }
 .assistant-notice > div { display: flex; align-items: center; justify-content: space-between; }

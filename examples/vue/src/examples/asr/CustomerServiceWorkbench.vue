@@ -100,7 +100,7 @@ function progressLabel(event: EnchantProgressEvent) {
     capturing: '正在读取客服工作台上下文',
     planning: '正在理解离线转写',
     authorizing: '正在检查工具权限',
-    executing: '正在更新工单草稿',
+    executing: '正在调用业务工具',
     responding: '正在整理坐席建议',
     completed: '本轮分析完成',
     failed: '本轮分析失败'
@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
       <div>
         <span class="console-kicker">Live assistance / {{ scenario.id }}-0728</span>
         <h2>售后热线坐席工作台</h2>
-        <p>模拟 ASR partial/final 数据流，业务组件在离线结果到达后主动触发 Agent。</p>
+        <p>离线 ASR 到达后由业务组件触发 Agent，自动查询订单 API、售后规则并更新草稿。</p>
       </div>
       <div class="console-actions">
         <a-button :disabled="isRunning" type="primary" @click="startSimulation">
@@ -252,6 +252,7 @@ onBeforeUnmount(() => {
     <div class="analysis-policy">
       <span><b>触发</b>{{ checkpointCount }} 个语义检查点</span>
       <span><b>上下文</b>本次新增 + 累计 offline</span>
+      <span><b>数据</b>订单 API + Knowledge Provider</span>
       <span><b>队列</b>串行执行 · pending latest-wins</span>
     </div>
 
@@ -321,7 +322,7 @@ onBeforeUnmount(() => {
           <div v-if="!notices.length" class="assistant-idle">
             <span class="assistant-orb">A</span>
             <strong>等待可分析的 offline 文本</strong>
-            <p>助手不会监听每个 partial；业务组件决定何时提交稳定转写。</p>
+            <p>订单事实来自业务 API，处理规则来自知识库；业务组件决定何时提交稳定转写。</p>
           </div>
           <TransitionGroup name="assistant-slide" tag="div" class="assistant-list">
             <article v-for="notice in notices" :key="notice.id" :class="['assistant-notice', notice.kind]">
@@ -336,7 +337,8 @@ onBeforeUnmount(() => {
 
         <footer>
           <span>执行边界</span>
-          <strong>检索知识 · 填写草稿 · 高亮</strong>
+          <strong>查询订单 · 检索知识 · 填写草稿 · 高亮</strong>
+          <small>Order API: demo-order-api</small>
           <small>Knowledge: demo-support-knowledge</small>
           <small>未提供提交、退款或换新审批工具</small>
         </footer>

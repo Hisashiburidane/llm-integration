@@ -5,6 +5,7 @@ import {
   useEnchantForge,
   type EnchantProgressEvent
 } from '@enchantforge/vue';
+import { demoOrderService } from './order-service';
 
 export interface TicketDraft {
   customerName: string;
@@ -21,7 +22,7 @@ export type TicketField = keyof TicketDraft;
 
 export interface AssistantNotice {
   id: string;
-  kind: 'knowledge' | 'coach' | 'result' | 'error';
+  kind: 'api' | 'knowledge' | 'coach' | 'result' | 'error';
   title: string;
   content: string;
   timestamp: string;
@@ -57,11 +58,54 @@ export function useCustomerServiceAgent(
   const enchant = useEnchant();
   const forge = useEnchantForge();
 
+  useEnchantAction<{ orderNo: string }>({
+    id: 'customer-service:get-order-detail',
+    name: 'support.get_order_detail',
+    label: '查询订单详情',
+    description: '根据离线 ASR 中出现的完整订单号查询后台订单 API。订单状态、商品、客户与售后状态必须以此工具返回为准，不得根据订单号猜测。',
+    provider: 'demo-order-api',
+    effect: 'read',
+    target: '订单中心',
+    inputSchema: {
+      type: 'object',
+      required: ['orderNo'],
+      additionalProperties: false,
+      properties: {
+        orderNo: {
+          type: 'string',
+          minLength: 8,
+          description: '离线 ASR 中明确出现的完整订单号'
+        }
+      }
+    },
+    async execute({ orderNo }, context) {
+      context.reportProgress({ label: `正在查询订单 ${orderNo}` });
+      const order = await demoOrderService.getOrderDetail(orderNo, context.signal);
+      notices.value = [{
+        id: `api-${Date.now()}`,
+        kind: 'api',
+        title: '订单 API 返回',
+        content: [
+          `${order.orderNo} · ${order.status}`,
+          `${order.product} · ${order.sku}`,
+          `签收：${order.deliveredAt ?? '尚未签收'} · 售后：${order.afterSaleStatus}`,
+          order.serviceHint
+        ].join('\n'),
+        timestamp: timestamp()
+      }, ...notices.value];
+      return {
+        status: 'success' as const,
+        summary: `订单 ${order.orderNo} 查询完成，当前状态为${order.status}。`,
+        data: { order }
+      };
+    }
+  });
+
   useEnchantAction<{ query: string }>({
     id: 'customer-service:search-knowledge',
     name: 'support.search_knowledge',
     label: '检索售后知识库',
-    description: '根据当前客户问题检索真实售后规则。给坐席建议前必须先调用，并以返回 chunks 为规则依据。',
+    description: '当客户已经描述具体故障、缺件或售后诉求时，检索对应处理规则，并以返回 chunks 为规则依据。',
     provider: 'customer-service-demo',
     effect: 'read',
     target: '售后知识库',
@@ -114,7 +158,7 @@ export function useCustomerServiceAgent(
     id: 'customer-service:update-ticket-draft',
     name: 'support.update_ticket_draft',
     label: '更新工单草稿',
-    description: '把离线 ASR 中明确出现的客服工单信息写入草稿。只填写有证据的字段，不提交工单。',
+    description: '把离线 ASR 中明确出现的信息或订单 API 已确认的事实写入工单草稿。只填写有工具结果支持的字段，不提交工单。',
     provider: 'customer-service-demo',
     effect: 'draft',
     target: '当前售后工单草稿',
@@ -127,14 +171,14 @@ export function useCustomerServiceAgent(
           type: 'object',
           additionalProperties: false,
           properties: {
-            customerName: { type: 'string', description: '客户明确说出的姓名' },
+            customerName: { type: 'string', description: '客户明确说出的姓名或订单 API 返回的客户姓名' },
             orderNo: { type: 'string', description: '客户明确说出的完整订单号' },
             category: {
               type: 'string',
               description: '问题分类',
               enum: ['商品破损', '物流异常', '使用故障', '退换货']
             },
-            product: { type: 'string', description: '涉及的商品' },
+            product: { type: 'string', description: '客户明确提到或订单 API 返回的商品' },
             issue: { type: 'string', description: '基于原话整理的客观问题描述' },
             request: { type: 'string', description: '客户明确提出的处理诉求' },
             contactWindow: { type: 'string', description: '客户明确提出的方便联系时段' },
@@ -169,7 +213,7 @@ export function useCustomerServiceAgent(
       highlightedFields.value = entries.map(([field]) => field);
       return {
         status: 'success' as const,
-        summary: `已根据离线转写更新 ${entries.length} 个草稿字段，未提交工单。`,
+        summary: `已根据已确认信息更新 ${entries.length} 个草稿字段，未提交工单。`,
         data: { updatedFields: highlightedFields.value }
       };
     }
@@ -179,7 +223,7 @@ export function useCustomerServiceAgent(
     id: 'customer-service:present-coaching',
     name: 'support.present_coaching',
     label: '向坐席显示辅助建议',
-    description: '根据当前已确认的信息给坐席一条简短、可执行的下一步建议，并高亮相关草稿字段。',
+    description: '根据订单 API、知识库或当前已确认的信息给坐席一条简短、可执行的下一步建议，并高亮相关草稿字段。',
     provider: 'customer-service-demo',
     effect: 'visual',
     target: '坐席辅助提示区',
@@ -192,7 +236,7 @@ export function useCustomerServiceAgent(
           type: 'string',
           minLength: 4,
           maxLength: 100,
-          description: '给人工坐席的简短建议，不要对客户作出未经授权的承诺'
+          description: '给人工坐席的简短建议，说明依据来自订单 API 或售后规则，不要作出未经授权的承诺'
         },
         fieldIds: {
           type: 'array',
@@ -233,9 +277,11 @@ export function useCustomerServiceAgent(
         '提取有明确证据的工单字段，并给人工坐席一条下一步建议。'
       ].join('\n'),
       prompt: [
-        '先调用 support.search_knowledge 检索当前问题的售后规则；没有检索结果时也不得自行编造规则。',
-        '必须调用 support.update_ticket_draft 更新已确认的信息，禁止补全客户没有说过的事实。',
-        '只有看到知识库 tool result 后，才能调用 support.present_coaching 给坐席简短建议，并在建议中说明规则依据。',
+        '累计转写中出现完整订单号时，先调用 support.get_order_detail；商品、订单状态、客户和售后状态必须以订单 API tool result 为准。',
+        '客户已经描述具体故障、缺件或售后诉求时，再调用 support.search_knowledge 检索处理规则；没有检索结果时不得自行编造规则。',
+        '读取工具返回前，不要生成依赖其结果的写入或建议；先读取，下一轮再根据 tool result 继续。',
+        '必须调用 support.update_ticket_draft 更新已确认的信息。只能使用 ASR 原文或读取工具明确返回的事实。',
+        '获得订单 API 或知识库的 tool result 后，可以调用 support.present_coaching；建议必须说明依据来自订单状态、售后规则或两者。',
         '建议可以要求继续确认信息，但不能承诺退款、换新、补发或赔付已经获批。',
         '工单只能保持草稿状态。'
       ].join('\n'),
