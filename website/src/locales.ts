@@ -22,8 +22,8 @@ export const messages = {
         kicker: 'Vue-first LLM integration framework',
         title: '帮 AI 对齐颗粒度。',
         chant: '拉齐认知，统一口径；透传语义，拉通链路；形成闭环，找到抓手；收敛边界，前置风险；沉淀方法论，建立开发心智；构建能力矩阵，端到端打通；最后形成一套 AI 应用开发组合拳，完成底层赋能。',
-        pivot: '这些话听起来都对。',
-        question: '问题是，上下文呢？',
+        pivot: '句法完整，语义悬空。',
+        question: '术语密度很高，信息增益约等于零。',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
@@ -255,8 +255,8 @@ export const messages = {
         kicker: 'Vue-first LLM integration framework',
         title: 'Align AI at the right granularity.',
         chant: 'Align understanding. Standardize semantics. Connect the chain. Close the loop. Find the leverage point. Constrain the boundary. Front-load risk. Build the capability matrix. Deliver end to end. Complete the foundational enablement.',
-        pivot: 'Every phrase sounds correct.',
-        question: 'But where does the context come from?',
+        pivot: 'The syntax is complete. The semantics are ungrounded.',
+        question: 'High jargon density. Approximately zero information gain.',
         start: 'Start with one wrapper',
         examples: 'Open examples',
         api: 'Read the API'
