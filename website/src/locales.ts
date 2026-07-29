@@ -22,7 +22,7 @@ export const messages = {
         kicker: 'Vue-first LLM integration framework',
         title: '帮 AI 对齐颗粒度',
         problem: '面向 Vue 应用的 AI 集成框架',
-        lead: '让 Vue 组件拥有自己的 AI 上下文。',
+        lead: '为 Web 应用构建 AI 上下文。',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
@@ -254,7 +254,7 @@ export const messages = {
         kicker: 'Vue-first LLM integration framework',
         title: 'Context at the right granularity',
         problem: 'An AI context framework for Vue',
-        lead: 'Give Vue components their own AI context.',
+        lead: 'Build AI context for web applications.',
         start: 'Start with one wrapper',
         examples: 'Open examples',
         api: 'Read the API'
