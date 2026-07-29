@@ -19,9 +19,10 @@ export const messages = {
     },
     home: {
       hero: {
-        kicker: '不是给应用塞一个聊天框',
-        title: '让 AI 真正看懂你的页面，也真的能动手。',
-        lead: '表单里有什么、按钮能做什么、当前页面发生了什么，不用每做一个 AI 功能就重新拼一遍提示词。组件把这些信息说清楚，EnchantForge 负责把它们交给 AI。',
+        kicker: 'Vue-first LLM integration framework',
+        title: '不是给应用塞一个聊天框。',
+        subtitle: '让 AI 看懂你的页面，也能在明确的边界内动手。',
+        lead: '表单字段、页面结构和可执行操作，由组件主动声明。EnchantForge 负责收集这些上下文并交给 AI，不必为每个 AI 功能重新组织提示词和工具。',
         start: '先看最短接入',
         examples: '直接看它干活',
         api: '查 API'
@@ -250,9 +251,10 @@ export const messages = {
     },
     home: {
       hero: {
-        kicker: 'Progressive AI interaction for Vue',
-        title: 'Make Vue interfaces readable and executable by AI.',
-        lead: 'Add a scope boundary. Components contribute metadata and constrained functions. DOM access remains an explicit compatibility option.',
+        kicker: 'Vue-first LLM integration framework',
+        title: 'Not another chat box for your application.',
+        subtitle: 'Give AI the context to understand your interface and the tools to act within explicit boundaries.',
+        lead: 'Components explicitly contribute form fields, interface structure, and executable actions. EnchantForge assembles that context so each AI feature does not need to rebuild its prompts and tools.',
         start: 'Start with one wrapper',
         examples: 'Open examples',
         api: 'Read the API'

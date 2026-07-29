@@ -68,6 +68,7 @@ function levelNotes(name: string) {
     <div class="hero-copy">
       <p class="kicker">{{ t('home.hero.kicker') }}</p>
       <h1>{{ t('home.hero.title') }}</h1>
+      <p class="hero-subtitle">{{ t('home.hero.subtitle') }}</p>
       <p class="lead">{{ t('home.hero.lead') }}</p>
       <div class="actions">
         <a class="button primary" href="#start">{{ t('home.hero.start') }}</a>
