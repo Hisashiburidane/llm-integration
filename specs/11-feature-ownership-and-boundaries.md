@@ -243,6 +243,33 @@ forge.registerCapability({
 
 应用可以在页面、store、composable 或业务 Adapter 中实现 capability。代码位置由状态所有权决定。
 
+应用中跨页面复用的 API 应集中定义，再通过应用级插件一次安装：
+
+~~~ts
+export const getOrder = defineEnchantAction({
+  name: 'orders.get',
+  description: '根据完整订单号查询订单详情',
+  effect: 'read',
+  inputSchema: orderQuerySchema,
+  execute: ({ orderNo }, context) => orderService.get(orderNo, context.signal)
+});
+
+export const ordersApi = defineEnchantApi({
+  id: 'orders',
+  actions: [getOrder]
+});
+
+createApp(App).use(createEnchantForge().use(ordersApi));
+~~~
+
+`defineEnchantAction` 负责让契约只声明一次；同一个定义也可以传给
+`useEnchantAction`，绑定到局部 `<Enchant>` 生命周期。`defineEnchantApi` 只负责把应用
+拥有的 actions 注册为应用级 capabilities，不接管其业务实现、权限或错误语义。
+
+不得使用“仅 import 即修改全局注册表”的模块副作用。该方式无法明确绑定 Forge
+实例，在多 Vue app、SSR、测试隔离和 tree shaking 场景中行为不可靠。全局安装必须
+保留一次显式的 `forge.use(api)`。
+
 ## 10. 文案所有权
 
 文案必须跟随产生该事实的所有者：

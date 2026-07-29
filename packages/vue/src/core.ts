@@ -15,6 +15,12 @@ export type {
   EnchantFormFillInput,
   EnchantFormOptions
 } from './runtime/actions';
+export { defineEnchantAction, defineEnchantApi } from './runtime/api';
+export type {
+  EnchantActionDefinition,
+  EnchantApi,
+  EnchantApiOptions
+} from './runtime/api';
 export { vEnchant, vEnchantIgnore } from './runtime/dom-directives';
 export type { EnchantScan, EnchantScanConfig, EnchantScanMode } from './runtime/dom-adapter';
 export {

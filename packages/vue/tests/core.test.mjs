@@ -11,6 +11,8 @@ import {
   createHttpKnowledgeProvider,
   createLlmClient,
   createStaticKnowledgeProvider,
+  defineEnchantAction,
+  defineEnchantApi,
   evaluateEnchantPolicy,
   renderAuraMarkdown,
   useEnchantForm
@@ -949,6 +951,57 @@ test('forge dispose runs plugin cleanup and clears its app-owned registry', () =
 
   assert.equal(cleaned, true);
   assert.equal(forge.digest().activeEnchantments, 0);
+});
+
+test('application APIs register reusable actions once at app scope', async () => {
+  const calls = [];
+  const getOrder = defineEnchantAction({
+    name: 'orders.get',
+    label: 'Query order',
+    description: 'Query one order by its exact order number.',
+    effect: 'read',
+    inputSchema: {
+      type: 'object',
+      required: ['orderNo'],
+      additionalProperties: false,
+      properties: {
+        orderNo: { type: 'string', minLength: 4 }
+      }
+    },
+    execute(input) {
+      calls.push(input);
+      return {
+        status: 'success',
+        summary: `Order ${input.orderNo}`,
+        data: { orderNo: input.orderNo }
+      };
+    }
+  });
+  const ordersApi = defineEnchantApi({
+    id: 'orders',
+    label: 'Order API',
+    provider: 'order-service',
+    actions: [getOrder]
+  });
+  const forge = createEnchantForge().use(ordersApi);
+
+  const snapshot = forge.capture({ page: 'any-page' });
+  assert.equal(snapshot.enchantments[0].id, 'api:orders');
+  assert.equal(snapshot.tools.length, 1);
+  assert.equal(snapshot.tools[0].capabilityId, 'api:orders:orders.get');
+  assert.equal(snapshot.tools[0].provider, 'order-service');
+
+  const result = await forge.execute(
+    {
+      capabilityId: snapshot.tools[0].capabilityId,
+      input: { orderNo: 'EF-1' }
+    },
+    { snapshot }
+  );
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, [{ orderNo: 'EF-1' }]);
+
+  forge.dispose();
 });
 
 test('debug plugin enables the lightweight in-page debug surface by default', () => {
