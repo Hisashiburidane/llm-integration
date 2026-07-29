@@ -34,10 +34,10 @@ export const messages = {
         notes: {
           domTitle: '信息来自应用。',
           domBody: '字段、状态和页面结构由应用明确提供。',
-          globalTitle: '不在 Prompt 里重写应用。',
-          globalBody: 'Prompt 描述规则，应用提供页面事实。',
-          submitTitle: '不让 Skills 替代业务接口。',
-          submitBody: '工具、权限和副作用都由应用负责。'
+          globalTitle: '上下文跟着页面走。',
+          globalBody: '组件挂载时加入，卸载时移除；调用时读取当前状态。',
+          submitTitle: '不只看见，还能调用。',
+          submitBody: '查询、填写、高亮等能力通过明确接口提供给 AI。'
         }
       },
       model: {
@@ -261,10 +261,10 @@ export const messages = {
         notes: {
           domTitle: 'Information comes from the application.',
           domBody: 'Applications explicitly provide fields, state, and interface structure.',
-          globalTitle: 'Do not rewrite the application in prompts.',
-          globalBody: 'Prompts describe rules. Applications provide page facts.',
-          submitTitle: 'Do not replace business APIs with skills.',
-          submitBody: 'Applications own tools, authorization, and effects.'
+          globalTitle: 'Context follows the page.',
+          globalBody: 'Contributions join on mount, leave on unmount, and read current state when invoked.',
+          submitTitle: 'Visible and callable.',
+          submitBody: 'Queries, form updates, and highlights are exposed through explicit interfaces.'
         }
       },
       model: {
