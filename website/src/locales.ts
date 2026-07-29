@@ -81,52 +81,44 @@ export const messages = {
       runtime: {
         kicker: '运行机制',
         title: '从注册到执行',
-        body: 'Forge 在调用时构建当前上下文与工具，并在执行前校验 Agent 返回的工具调用。',
+        body: '调用时构建当前上下文与工具，执行前校验返回的工具调用',
         rows: {
           register: {
             title: '注册',
-            body: 'Enchant 收集组件提供的信息和函数，并绑定组件生命周期。'
+            body: '收集组件提供的信息和函数，绑定组件生命周期'
           },
           capture: {
             title: '捕获',
-            body: 'Forge 根据当前有效的注册项生成上下文与工具。'
+            body: '根据当前有效的注册项生成上下文与工具'
           },
           plan: {
             title: '规划',
-            body: 'Agent 根据用户请求、上下文和工具生成调用计划。'
+            body: '根据用户请求、上下文和工具生成调用计划'
           },
           validate: {
             title: '校验',
-            body: 'Forge 检查调用目标、参数 Schema 和 Policy。'
+            body: '检查调用目标、参数 Schema 和 Policy'
           },
           execute: {
             title: '执行',
-            body: 'Forge 调用应用函数，并记录执行结果和错误。'
+            body: '调用应用函数，记录执行结果和错误'
           }
         }
       },
       principles: {
         kicker: '设计原则',
-        title: '应用可以检查 AI 看到了什么、调用了什么',
-        context: {
-          title: '应用决定 AI 能看到什么',
-          body: '应用提供给 Forge 的信息才会进入上下文。'
-        },
-        tools: {
-          title: '应用决定 AI 能调用什么',
-          body: '只有注册到 Forge 的函数才会被导出为工具。'
-        },
+        title: 'Control',
         scope: {
-          title: '上下文可以限定范围',
-          body: '应用可以选择当前组件、当前页面或整个应用。'
+          title: 'Scope',
+          body: '上下文与工具范围'
         },
-        validation: {
-          title: '每次调用都会重新校验',
-          body: 'Forge 在执行前检查目标、参数 Schema 和 Policy。'
+        policy: {
+          title: 'Policy',
+          body: '执行前校验'
         },
         audit: {
-          title: '执行过程可以审计',
-          body: 'Debug 可查看模型请求和工具调用，OpenTelemetry 可记录运行链路与指标。'
+          title: 'Audit',
+          body: '请求、调用、结果与指标'
         }
       }
     },
@@ -328,52 +320,44 @@ export const messages = {
       runtime: {
         kicker: 'Runtime',
         title: 'From registration to execution',
-        body: 'Forge builds current context and tools when invoked, then validates Agent tool calls before execution.',
+        body: 'Build current context and tools on invocation, then validate tool calls before execution',
         rows: {
           register: {
             title: 'Register',
-            body: 'Enchant collects information and functions from components and binds them to the component lifecycle.'
+            body: 'Collect component information and functions, bound to the component lifecycle'
           },
           capture: {
             title: 'Capture',
-            body: 'Forge generates context and tools from the registrations that are currently active.'
+            body: 'Generate context and tools from active registrations'
           },
           plan: {
             title: 'Plan',
-            body: 'The Agent produces a call plan from the user request, context, and tools.'
+            body: 'Produce a call plan from the user request, context, and tools'
           },
           validate: {
             title: 'Validate',
-            body: 'Forge checks the target, parameter schema, and Policy.'
+            body: 'Check the target, parameter schema, and Policy'
           },
           execute: {
             title: 'Execute',
-            body: 'Forge calls the application function and records its result or error.'
+            body: 'Call the application function and record its result or error'
           }
         }
       },
       principles: {
-        kicker: 'Design constraints',
-        title: 'Applications can inspect what AI sees and calls',
-        context: {
-          title: 'The application decides what AI can see',
-          body: 'Only information provided to Forge enters the context.'
-        },
-        tools: {
-          title: 'The application decides what AI can call',
-          body: 'Only functions registered with Forge are exported as tools.'
-        },
+        kicker: 'Design principle',
+        title: 'Control',
         scope: {
-          title: 'Context can be scoped',
-          body: 'Applications can select the current component, the current page, or the entire application.'
+          title: 'Scope',
+          body: 'Context and tools'
         },
-        validation: {
-          title: 'Every call is validated again',
-          body: 'Forge checks the target, parameter schema, and Policy before execution.'
+        policy: {
+          title: 'Policy',
+          body: 'Pre-execution validation'
         },
         audit: {
-          title: 'Execution is observable',
-          body: 'Debug shows model requests and tool calls. OpenTelemetry records traces and metrics.'
+          title: 'Audit',
+          body: 'Requests, calls, results, and metrics'
         }
       }
     },

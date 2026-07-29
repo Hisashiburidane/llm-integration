@@ -40,7 +40,7 @@ useEnchantAction({
   execute: lookupOrder
 })`;
 
-const principles = ['context', 'tools', 'scope', 'validation', 'audit'];
+const principles = ['scope', 'policy', 'audit'];
 
 const integrationGroups = [
   {
