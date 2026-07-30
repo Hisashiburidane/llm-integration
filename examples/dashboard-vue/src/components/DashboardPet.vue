@@ -53,6 +53,7 @@ const forge = useEnchantForge();
 const attentionVersion = usePanelAttentionVersion();
 const memories = ref(new Map<string, RouteMemory>());
 const open = ref(false);
+const appearanceOpen = ref(false);
 const silent = ref(false);
 const bubbleVisible = ref(false);
 const visibleTipId = ref('');
@@ -158,6 +159,7 @@ const rootStyle = computed(() => ({
 }));
 const rootClasses = computed(() => ({
   open: open.value,
+  'appearance-open': appearanceOpen.value,
   positioned: positioned.value,
   dragging: dragging.value,
   working: memory.value.loading,
@@ -371,7 +373,13 @@ function toggleOpen() {
     suppressClick = false;
     return;
   }
+  if (open.value) appearanceOpen.value = false;
   open.value = !open.value;
+}
+
+function closeConsole() {
+  appearanceOpen.value = false;
+  open.value = false;
 }
 
 function performPetAction(action: Exclude<PetAction, 'idle'>) {
@@ -464,7 +472,7 @@ onBeforeUnmount(() => {
           <span>PAGE GUIDE</span>
           <strong>电子向导</strong>
         </div>
-        <button type="button" aria-label="关闭页面向导" @click="open = false">×</button>
+        <button type="button" aria-label="关闭页面向导" @click="closeConsole">×</button>
       </header>
       <div class="pet-status">
         <span class="status-light" :class="{ working: memory.loading, error: memory.error }"></span>
@@ -483,7 +491,7 @@ onBeforeUnmount(() => {
         <button type="button" @click="performPetAction('scan')">扫描</button>
         <button type="button" @click="performPetAction('nap')">打盹</button>
       </div>
-      <div class="pet-variants">
+      <div v-if="appearanceOpen" class="pet-variants">
         <span>选择形象</span>
         <button
           v-for="variant in petVariants"
@@ -509,6 +517,15 @@ onBeforeUnmount(() => {
         <span>{{ memory.contextCount }} contexts</span>
         <span>{{ memory.capabilityCount }} tools</span>
         <span>{{ formatTime(memory.generatedAt) }}</span>
+        <button
+          type="button"
+          :aria-expanded="appearanceOpen"
+          aria-label="更多设置"
+          title="更多设置"
+          @click="appearanceOpen = !appearanceOpen"
+        >
+          ···
+        </button>
       </footer>
     </section>
 
@@ -1664,6 +1681,7 @@ onBeforeUnmount(() => {
   overflow: auto;
   list-style: none;
 }
+.appearance-open .pet-tip-list { max-height: 340px; }
 .pet-tip-list li { padding: 10px 11px; border: 1px solid #e1e8ef; border-radius: 7px; background: #f9fbfd; }
 .pet-tip-list li > span { color: #3978b8; font: 700 8px/1 "IBM Plex Mono", monospace; text-transform: uppercase; }
 .pet-tip-list strong { display: block; margin-top: 5px; color: #263d56; font-size: 11px; }
@@ -1673,6 +1691,18 @@ onBeforeUnmount(() => {
 .pet-empty { color: #7b8da1; background: #f7f9fc; }
 .pet-error { color: #a22b2b; background: #fff3f3; }
 .pet-console footer { display: flex; gap: 14px; padding: 10px 14px; border-top: 1px solid #e7edf3; color: #8495a8; font: 8px/1 "IBM Plex Mono", monospace; }
+.pet-console footer button {
+  padding: 0 2px;
+  border: 0;
+  margin-left: auto;
+  color: #9baaba;
+  background: transparent;
+  cursor: pointer;
+  font: 700 11px/1 "IBM Plex Mono", monospace;
+  letter-spacing: .08em;
+}
+.pet-console footer button:hover,
+.pet-console footer button[aria-expanded="true"] { color: #2f6fae; }
 @keyframes pet-idle {
   0%, 70%, 100% { transform: translateY(0); }
   75%, 90% { transform: translateY(-2px); }
