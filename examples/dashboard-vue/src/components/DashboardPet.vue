@@ -25,7 +25,7 @@ interface RouteMemory {
 }
 
 type PetAction = 'idle' | 'look' | 'hop' | 'scan' | 'nap';
-type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime';
+type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime' | 'morgana';
 
 const PET_POSITION_KEY = 'enchantforge.dashboard-pet.position';
 const PET_SILENT_KEY = 'enchantforge.dashboard-pet.silent';
@@ -37,7 +37,8 @@ const petVariants: Array<{ id: PetVariant; name: string; badge: string }> = [
   { id: 'robot', name: '机器人', badge: 'GUIDE' },
   { id: 'cat', name: '终端猫', badge: 'CAT.EXE' },
   { id: 'ghost', name: '小幽灵', badge: 'BOO' },
-  { id: 'slime', name: '史莱姆', badge: 'SLIME' }
+  { id: 'slime', name: '史莱姆', badge: 'SLIME' },
+  { id: 'morgana', name: '摩尔加纳', badge: 'MONA' }
 ];
 
 const props = defineProps<{
@@ -727,6 +728,107 @@ onBeforeUnmount(() => {
 }
 .avatar-cat .pet-label { color: #ffe0a8; text-shadow: 1px 1px 0 #55280f; }
 .avatar-cat .pet-feet i { border-color: #55280f; background: #c7651b; }
+
+.avatar-morgana .pet-avatar {
+  border-color: #05080b;
+  color: #f5f7f6;
+  background: #111a22;
+  box-shadow:
+    inset 2px 2px 0 #43505b,
+    inset -3px -3px 0 #05080b,
+    4px 4px 0 #d30b20;
+}
+.avatar-morgana .pet-avatar:hover { background: #192630; }
+.avatar-morgana .pet-antenna {
+  top: -10px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  background: #111a22;
+  box-shadow:
+    35px 0 0 #111a22,
+    2px -2px 0 #05080b,
+    37px -2px 0 #05080b;
+}
+.avatar-morgana .pet-antenna::before {
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 7px;
+  background: #7f929b;
+  box-shadow: 35px 0 0 #7f929b;
+  animation: none;
+}
+.avatar-morgana .pet-screen {
+  position: relative;
+  border-color: #05080b;
+  background: #edf4f1;
+  box-shadow:
+    inset 2px 2px 0 #fff,
+    2px 2px 0 #05080b;
+}
+.avatar-morgana .pet-screen::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 8px;
+  height: 5px;
+  background: #111a22;
+  content: "";
+  transform: translateX(-50%);
+}
+.avatar-morgana .pet-screen i {
+  width: 7px;
+  height: 7px;
+  background: #20b4e5;
+  box-shadow:
+    inset 2px 0 0 #a8eeff,
+    2px 2px 0 #07151d;
+}
+.avatar-morgana .pet-screen b {
+  width: 5px;
+  height: 3px;
+  background: #101820;
+  box-shadow:
+    -3px -2px 0 #101820,
+    3px -2px 0 #101820;
+}
+.avatar-morgana .pet-label {
+  width: 38px;
+  padding: 2px 0;
+  margin: 4px auto 0;
+  color: #15100a;
+  background: #f5c928;
+  text-shadow: none;
+}
+.avatar-morgana .pet-feet i { border-color: #05080b; background: #111a22; }
+.avatar-morgana .pet-speech {
+  padding-top: 15px;
+  border: 3px solid #08090b;
+  border-radius: 0;
+  color: #232326;
+  box-shadow: 5px 5px 0 #d30b20;
+}
+.avatar-morgana .pet-speech::before {
+  position: absolute;
+  top: -10px;
+  left: 9px;
+  padding: 3px 8px;
+  color: #fff;
+  background: #08090b;
+  box-shadow: 3px 0 0 #d30b20;
+  content: "MONA";
+  font: 800 8px/1 "IBM Plex Mono", monospace;
+  letter-spacing: .12em;
+}
+.avatar-morgana .pet-speech::after {
+  border-color: #08090b;
+  border-width: 0 0 3px 3px;
+}
+.avatar-morgana.bubble-left .pet-speech::after {
+  border-width: 0 3px 3px 0;
+}
+.avatar-morgana .pet-speech strong { color: #08090b; }
 
 .avatar-ghost .pet-avatar {
   border-color: #294461;
