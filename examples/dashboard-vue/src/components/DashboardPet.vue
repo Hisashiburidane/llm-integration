@@ -747,23 +747,40 @@ onBeforeUnmount(() => {
   z-index: 0;
   top: -7px;
   left: 2px;
+  width: 54px;
+  height: 19px;
+  background: transparent;
+  box-shadow: none;
+}
+.avatar-husky .pet-antenna::before,
+.avatar-husky .pet-antenna::after {
+  position: absolute;
+  top: 0;
   width: 15px;
   height: 19px;
-  background: #111a22;
+  background: #52697c;
   box-shadow:
-    39px 0 0 #111a22,
-    3px -3px 0 #05080b,
-    42px -3px 0 #05080b;
-}
-.avatar-husky .pet-antenna::before {
-  top: 5px;
-  left: 4px;
-  width: 7px;
-  height: 9px;
-  background: #7f929b;
-  box-shadow: 39px 0 0 #7f929b;
+    inset 3px 6px 0 #dbe7ea,
+    2px 2px 0 #182734;
+  clip-path: polygon(
+    6px 0,
+    9px 0,
+    9px 3px,
+    12px 3px,
+    12px 7px,
+    15px 7px,
+    15px 19px,
+    0 19px,
+    0 7px,
+    3px 7px,
+    3px 3px,
+    6px 3px
+  );
+  content: "";
   animation: none;
 }
+.avatar-husky .pet-antenna::before { left: 0; }
+.avatar-husky .pet-antenna::after { right: 0; }
 .avatar-husky .pet-screen {
   position: relative;
   z-index: 1;
@@ -771,7 +788,7 @@ onBeforeUnmount(() => {
   height: 58px;
   padding: 14px 9px 7px;
   border: 0;
-  background: #080d12;
+  background: #52697c;
   box-shadow: none;
   clip-path: polygon(
     12px 0,
@@ -803,68 +820,84 @@ onBeforeUnmount(() => {
     7px 3px,
     12px 3px
   );
-  filter: drop-shadow(4px 4px 0 #70899d);
+  filter: drop-shadow(4px 4px 0 #263746);
   grid-template-rows: 1fr 12px;
 }
 .avatar-husky .pet-screen::before {
   position: absolute;
   z-index: 1;
-  top: 3px;
-  left: 50%;
-  width: 12px;
-  height: 9px;
-  background: #111a22;
+  top: 1px;
+  left: 25px;
+  width: 8px;
+  height: 23px;
+  background: #edf4f1;
+  clip-path: polygon(
+    2px 0,
+    6px 0,
+    6px 4px,
+    8px 4px,
+    8px 18px,
+    6px 18px,
+    6px 23px,
+    2px 23px,
+    2px 18px,
+    0 18px,
+    0 4px,
+    2px 4px
+  );
   content: "";
-  transform: translateX(-50%);
 }
 .avatar-husky .pet-screen::after {
   position: absolute;
   z-index: 0;
-  inset: 5px;
+  bottom: 5px;
+  left: 7px;
+  width: 44px;
+  height: 28px;
   background: #edf4f1;
   clip-path: polygon(
-    9px 0,
-    calc(100% - 9px) 0,
-    calc(100% - 9px) 3px,
-    calc(100% - 4px) 3px,
-    calc(100% - 4px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 4px) calc(100% - 8px),
-    calc(100% - 4px) calc(100% - 3px),
-    calc(100% - 9px) calc(100% - 3px),
-    calc(100% - 9px) 100%,
-    9px 100%,
-    9px calc(100% - 3px),
-    4px calc(100% - 3px),
-    4px calc(100% - 8px),
-    0 calc(100% - 8px),
-    0 8px,
-    4px 8px,
-    4px 3px,
-    9px 3px
+    0 4px,
+    7px 4px,
+    7px 0,
+    16px 0,
+    22px 7px,
+    28px 0,
+    37px 0,
+    37px 4px,
+    44px 4px,
+    44px 20px,
+    39px 20px,
+    39px 24px,
+    31px 24px,
+    31px 28px,
+    13px 28px,
+    13px 24px,
+    5px 24px,
+    5px 20px,
+    0 20px
   );
   content: "";
 }
 .avatar-husky .pet-screen i {
   position: relative;
   z-index: 2;
-  width: 7px;
-  height: 7px;
-  background: #20b4e5;
+  width: 8px;
+  height: 9px;
+  background: #1fb7ef;
   box-shadow:
-    inset 2px 0 0 #a8eeff,
-    2px 2px 0 #07151d;
+    inset 3px 2px 0 #c5f4ff,
+    2px 2px 0 #15222c;
 }
 .avatar-husky .pet-screen b {
   position: relative;
   z-index: 2;
-  width: 5px;
-  height: 3px;
-  background: #101820;
+  width: 7px;
+  height: 5px;
+  background: #111820;
   box-shadow:
-    -3px -2px 0 #101820,
-    3px -2px 0 #101820;
+    0 3px 0 #111820,
+    -3px 5px 0 #111820,
+    3px 5px 0 #111820;
 }
 .avatar-husky .pet-label {
   position: absolute;
@@ -877,6 +910,15 @@ onBeforeUnmount(() => {
   color: #15100a;
   background: #e34a4a;
   text-shadow: none;
+}
+.avatar-husky .pet-label::after {
+  position: absolute;
+  bottom: -4px;
+  left: 14px;
+  width: 5px;
+  height: 5px;
+  background: #f4c842;
+  content: "";
 }
 .avatar-husky .pet-feet { display: none; }
 
