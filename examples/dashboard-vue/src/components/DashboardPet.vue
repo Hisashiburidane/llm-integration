@@ -33,6 +33,8 @@ const PET_VARIANT_KEY = 'enchantforge.dashboard-pet.variant';
 const PET_WIDTH = 58;
 const PET_HEIGHT = 66;
 const EDGE_GAP = 12;
+const TIP_MIN_DELAY = 18_000;
+const TIP_MAX_DELAY = 30_000;
 const petVariants: Array<{ id: PetVariant; name: string; badge: string }> = [
   { id: 'robot', name: '机器人', badge: 'GUIDE' },
   { id: 'cat', name: '终端猫', badge: 'CAT.EXE' },
@@ -181,6 +183,7 @@ function scheduleGeneration(force = false) {
   if (generationTimer) clearTimeout(generationTimer);
   controller?.abort();
   controller = undefined;
+  stopTipSchedule();
   generationTimer = setTimeout(() => {
     generationTimer = undefined;
     void generate(force);
@@ -197,6 +200,7 @@ async function generate(force: boolean) {
   const existing = memories.value.get(route);
   if (!force && existing?.signature === signature && existing.tips.length) {
     if (!bubbleVisible.value) showNextTip();
+    scheduleTip();
     return;
   }
 
@@ -230,6 +234,7 @@ async function generate(force: boolean) {
       error: ''
     });
     showNextTip();
+    scheduleTip();
   } catch (cause) {
     if (runController.signal.aborted || route !== props.route) return;
     updateMemory(route, {
@@ -244,6 +249,7 @@ async function generate(force: boolean) {
 
 function clearMemory() {
   controller?.abort();
+  stopTipSchedule();
   memories.value.clear();
   memoryRevision.value += 1;
   clearPanelAttention();
@@ -252,6 +258,7 @@ function clearMemory() {
 }
 
 function refresh() {
+  stopTipSchedule();
   if (!silent.value) bubbleVisible.value = true;
   scheduleGeneration(true);
 }
@@ -273,14 +280,28 @@ function showNextTip() {
 
 function dismissBubble() {
   bubbleVisible.value = false;
+  scheduleTip();
+}
+
+function stopTipSchedule() {
+  if (tipTimer) clearTimeout(tipTimer);
+  tipTimer = undefined;
 }
 
 function scheduleTip() {
-  if (tipTimer) clearTimeout(tipTimer);
+  stopTipSchedule();
+  if (
+    silent.value
+    || memory.value.loading
+    || Boolean(memory.value.error)
+    || !memory.value.tips.length
+  ) return;
+  const delay = TIP_MIN_DELAY + Math.round(Math.random() * (TIP_MAX_DELAY - TIP_MIN_DELAY));
   tipTimer = setTimeout(() => {
+    tipTimer = undefined;
     showNextTip();
     scheduleTip();
-  }, 14000 + Math.round(Math.random() * 12000));
+  }, delay);
 }
 
 function toggleSilent() {
@@ -290,8 +311,13 @@ function toggleSilent() {
   } catch {
     // Storage is optional.
   }
-  if (silent.value) bubbleVisible.value = false;
-  else showNextTip();
+  if (silent.value) {
+    stopTipSchedule();
+    bubbleVisible.value = false;
+  } else {
+    showNextTip();
+    scheduleTip();
+  }
 }
 
 function selectPetVariant(variant: PetVariant) {
@@ -421,10 +447,14 @@ watch(
 
 watch(attentionVersion, () => {
   if (attentionTimer) clearTimeout(attentionTimer);
-  attentionTimer = setTimeout(showNextTip, 900);
+  attentionTimer = setTimeout(() => {
+    showNextTip();
+    scheduleTip();
+  }, 900);
 });
 
 watch(() => props.route, () => {
+  stopTipSchedule();
   visibleTipId.value = '';
   bubbleVisible.value = false;
 });
@@ -448,13 +478,12 @@ onMounted(() => {
   });
   positioned.value = true;
   window.addEventListener('resize', handleResize);
-  scheduleTip();
   scheduleIdleAction();
 });
 
 onBeforeUnmount(() => {
   if (generationTimer) clearTimeout(generationTimer);
-  if (tipTimer) clearTimeout(tipTimer);
+  stopTipSchedule();
   if (attentionTimer) clearTimeout(attentionTimer);
   if (idleTimer) clearTimeout(idleTimer);
   if (actionTimer) clearTimeout(actionTimer);
