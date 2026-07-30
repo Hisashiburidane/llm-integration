@@ -1244,7 +1244,7 @@ onBeforeUnmount(() => {
     6px 3px,
     12px 3px
   );
-  filter: drop-shadow(2px 2px 0 #858b8d);
+  filter: drop-shadow(2px 2px 0 #b4b8b8);
   content: "";
 }
 .avatar-bb8 .pet-avatar::after {
@@ -1273,40 +1273,40 @@ onBeforeUnmount(() => {
   position: absolute;
   z-index: 2;
   top: 0;
-  left: 10px;
+  left: 9px;
   display: block;
-  width: 38px;
-  height: 28px;
+  width: 40px;
+  height: 30px;
   padding: 0;
   border: 0;
-  background: #4b565c;
+  background: #8b9598;
   box-shadow: none;
   clip-path: polygon(
-    11px 0,
-    27px 0,
-    27px 2px,
-    32px 2px,
-    32px 5px,
-    36px 5px,
-    36px 9px,
-    38px 9px,
-    38px 28px,
-    0 28px,
-    0 9px,
-    2px 9px,
+    12px 0,
+    28px 0,
+    28px 2px,
+    34px 2px,
+    34px 5px,
+    38px 5px,
+    38px 10px,
+    40px 10px,
+    40px 30px,
+    0 30px,
+    0 10px,
+    2px 10px,
     2px 5px,
     6px 5px,
     6px 2px,
-    11px 2px
+    12px 2px
   );
-  filter: drop-shadow(2px 2px 0 #858b8d);
+  filter: drop-shadow(2px 2px 0 #b4b8b8);
 }
 .avatar-bb8 .pet-screen::before {
   position: absolute;
   z-index: 1;
-  right: 0;
-  bottom: 4px;
-  left: 0;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
   height: 5px;
   background: #e9861c;
   content: "";
@@ -1314,15 +1314,15 @@ onBeforeUnmount(() => {
 .avatar-bb8 .pet-screen::after {
   position: absolute;
   z-index: 0;
-  inset: 2px 2px 1px;
+  inset: 3px;
   background: #eceee9;
   content: "";
 }
 .avatar-bb8 .pet-screen i:first-child {
   position: absolute;
   z-index: 2;
-  top: 8px;
-  left: 11px;
+  top: 9px;
+  left: 12px;
   width: 8px;
   height: 8px;
   background: #18252d;
@@ -1334,8 +1334,8 @@ onBeforeUnmount(() => {
 .avatar-bb8 .pet-screen i:nth-child(2) {
   position: absolute;
   z-index: 2;
-  top: 11px;
-  right: 8px;
+  top: 12px;
+  right: 9px;
   width: 4px;
   height: 4px;
   background: #d73528;
@@ -1353,7 +1353,7 @@ onBeforeUnmount(() => {
   display: block;
   width: 52px;
   height: 52px;
-  background: #4b565c;
+  background: #8b9598;
   clip-path: polygon(
     13px 0,
     39px 0,
@@ -1384,7 +1384,7 @@ onBeforeUnmount(() => {
     7px 3px,
     13px 3px
   );
-  filter: drop-shadow(3px 3px 0 #858b8d);
+  filter: drop-shadow(3px 3px 0 #b4b8b8);
 }
 .avatar-bb8 .pet-feet i { display: none; }
 
