@@ -1,6 +1,5 @@
 import type { Component } from 'vue';
 import TextToFormDemo from './TextToFormDemo.vue';
-import DomTextToFormDemo from './DomTextToFormDemo.vue';
 import UseEnchantActionDemo from './UseEnchantActionDemo.vue';
 import FocusViewDemo from './FocusViewDemo.vue';
 import AsrCustomerServiceDemo from './AsrCustomerServiceDemo.vue';
@@ -10,7 +9,6 @@ import enchantExpressFormCodeRaw from './text-to-form/EnchantExpressForm.vue?raw
 import apiExpressFormCodeRaw from './text-to-form/ApiExpressForm.vue?raw';
 import actionExpressFormCodeRaw from './text-to-form/ActionExpressForm.vue?raw';
 import apiActionExpressFormCodeRaw from './text-to-form/ApiActionExpressForm.vue?raw';
-import domScanExpressFormCodeRaw from './text-to-form/DomScanExpressForm.vue?raw';
 import asrDemoCodeRaw from './AsrCustomerServiceDemo.vue?raw';
 
 export type CodeBlock = {
@@ -73,7 +71,6 @@ const enchantExpressFormCode = stripVueStyleBlock(enchantExpressFormCodeRaw);
 const apiExpressFormCode = stripVueStyleBlock(apiExpressFormCodeRaw);
 const actionExpressFormCode = stripVueStyleBlock(actionExpressFormCodeRaw);
 const apiActionExpressFormCode = stripVueStyleBlock(apiActionExpressFormCodeRaw);
-const domScanExpressFormCode = stripVueStyleBlock(domScanExpressFormCodeRaw);
 const asrDemoCode = stripVueStyleBlock(asrDemoCodeRaw);
 
 const customerServiceAgentCode = `<script setup lang="ts">
@@ -226,17 +223,6 @@ const supportExecutionPolicyCode = `export const supportExecutionPolicy = {
 
 forge.use(supportExecutionPolicy);`;
 
-const originalTextToFormPageCode = `<script setup lang="ts">
-import ExpressForm from './ExpressForm.vue';
-import { shippingFormState } from './shippingFormStore';
-</script>
-
-<template>
-  <a-card title="快递表单" size="small" class="demo-card">
-    <ExpressForm v-model="shippingFormState" />
-  </a-card>
-</template>`;
-
 const originalFocusViewCode = `<script setup lang="ts">
 import { panelGroups } from './focus/k8sDashboard';
 </script>
@@ -377,21 +363,6 @@ export const demos: DemoSpec[] = [
       { key: 'wrapper', tab: 'Enchant 边界', code: apiActionExpressFormCode, language: 'xml' },
       { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
       { key: 'assistant', tab: '全局助手', code: assistantUsageCode('use-enchant-action', shippingSuggestions), language: 'xml' }
-    ]
-  },
-  {
-    id: 'text-to-form-dom',
-    title: '快递填表：DOM 扫描',
-    status: '可运行',
-    summary: '最低改造成本的兼容模式。显式配置 scan="auto" 后扫描局部 DOM，并通过浏览器 input/change/blur 事件写入表单。',
-    suggestions: shippingSuggestions,
-    component: DomTextToFormDemo,
-    codeBlocks: [
-      { key: 'form', tab: '表单组件', code: expressFormCode, language: 'xml' },
-      { key: 'page-before', tab: '页面接入前', code: originalTextToFormPageCode, language: 'xml' },
-      { key: 'wrapper', tab: 'DOM 扫描接入', code: domScanExpressFormCode, language: 'xml' },
-      { key: 'forge', tab: '应用配置', code: forgeSetupCode, language: 'typescript' },
-      { key: 'assistant', tab: '全局助手', code: assistantUsageCode('text-to-form-dom', shippingSuggestions), language: 'xml' }
     ]
   },
   {
