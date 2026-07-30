@@ -70,6 +70,7 @@ let tipTimer: ReturnType<typeof setTimeout> | undefined;
 let attentionTimer: ReturnType<typeof setTimeout> | undefined;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let actionTimer: ReturnType<typeof setTimeout> | undefined;
+let actionFrame: number | undefined;
 let controller: AbortController | undefined;
 let suppressClick = false;
 let dragStart: {
@@ -117,7 +118,7 @@ const currentTip = computed(() => (
   memory.value.tips.find((tip) => tip.id === visibleTipId.value) ?? rankedTips.value[0]
 ));
 const statusText = computed(() => {
-  if (memory.value.loading) return '正在了解当前页面';
+  if (memory.value.loading) return '正在对齐页面颗粒度';
   if (memory.value.error) return '建议暂时不可用';
   if (memory.value.tips.length) return `${memory.value.tips.length} 条页面提示`;
   return '还没有页面记忆';
@@ -343,15 +344,26 @@ function toggleOpen() {
   open.value = !open.value;
 }
 
+function performPetAction(action: Exclude<PetAction, 'idle'>) {
+  if (actionTimer) clearTimeout(actionTimer);
+  if (actionFrame) cancelAnimationFrame(actionFrame);
+  petAction.value = 'idle';
+  actionFrame = requestAnimationFrame(() => {
+    actionFrame = undefined;
+    petAction.value = action;
+    actionTimer = setTimeout(() => {
+      petAction.value = 'idle';
+      actionTimer = undefined;
+    }, action === 'nap' ? 2600 : 1300);
+  });
+}
+
 function scheduleIdleAction() {
   if (idleTimer) clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
     if (!dragging.value && !memory.value.loading) {
-      const actions: PetAction[] = ['look', 'hop', 'scan', 'nap'];
-      petAction.value = actions[Math.floor(Math.random() * actions.length)] ?? 'look';
-      actionTimer = setTimeout(() => {
-        petAction.value = 'idle';
-      }, petAction.value === 'nap' ? 2600 : 1300);
+      const actions: Array<Exclude<PetAction, 'idle'>> = ['look', 'hop', 'scan', 'nap'];
+      performPetAction(actions[Math.floor(Math.random() * actions.length)] ?? 'look');
     }
     scheduleIdleAction();
   }, 4200 + Math.round(Math.random() * 5200));
@@ -404,6 +416,7 @@ onBeforeUnmount(() => {
   if (attentionTimer) clearTimeout(attentionTimer);
   if (idleTimer) clearTimeout(idleTimer);
   if (actionTimer) clearTimeout(actionTimer);
+  if (actionFrame) cancelAnimationFrame(actionFrame);
   window.removeEventListener('resize', handleResize);
   controller?.abort();
 });
@@ -428,6 +441,13 @@ onBeforeUnmount(() => {
         <button type="button" :disabled="memory.loading" @click="refresh">重新生成</button>
         <button type="button" @click="toggleSilent">{{ silent ? '恢复提示' : '静默提示' }}</button>
         <button type="button" :disabled="!memories.size && !attention.panels.length" @click="clearMemory">清空记忆</button>
+      </div>
+      <div class="pet-moves">
+        <span>待机动作</span>
+        <button type="button" @click="performPetAction('look')">看看</button>
+        <button type="button" @click="performPetAction('hop')">蹦一下</button>
+        <button type="button" @click="performPetAction('scan')">扫描</button>
+        <button type="button" @click="performPetAction('nap')">打盹</button>
       </div>
       <p v-if="memory.error" class="pet-error">{{ memory.error }}</p>
       <ol v-else-if="rankedTips.length" class="pet-tip-list">
@@ -502,13 +522,17 @@ onBeforeUnmount(() => {
   position: relative;
   width: 58px;
   height: 66px;
-  padding: 9px 8px 7px;
-  border: 1px solid #8ba2bc;
-  border-radius: 12px 12px 16px 16px;
+  padding: 10px 8px 8px;
+  border: 2px solid #091c30;
+  border-radius: 0;
   color: #d8f3ff;
   background: #18314f;
-  box-shadow: 0 10px 28px rgb(15 39 67 / 24%);
+  box-shadow:
+    inset 2px 2px 0 #52718f,
+    inset -3px -3px 0 #0e2842,
+    4px 4px 0 rgb(9 28 48 / 34%);
   cursor: grab;
+  image-rendering: pixelated;
   touch-action: none;
   user-select: none;
   animation: pet-idle 2.4s steps(2, end) infinite;
@@ -517,12 +541,14 @@ onBeforeUnmount(() => {
 .pet-avatar::after {
   position: absolute;
   z-index: -1;
-  right: 8px;
-  bottom: -9px;
-  left: 8px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgb(12 31 52 / 22%);
+  right: 5px;
+  bottom: -10px;
+  left: 5px;
+  height: 4px;
+  background: rgb(12 31 52 / 28%);
+  box-shadow:
+    5px 3px 0 rgb(12 31 52 / 16%),
+    -5px 3px 0 rgb(12 31 52 / 16%);
   content: "";
   animation: pet-shadow 2.4s steps(2, end) infinite;
 }
@@ -532,21 +558,22 @@ onBeforeUnmount(() => {
 .working .pet-avatar::after { animation: pet-work-shadow 700ms steps(2, end) infinite; }
 .pet-antenna {
   position: absolute;
-  top: -9px;
-  left: 27px;
-  width: 2px;
+  top: -10px;
+  left: 26px;
+  width: 4px;
   height: 10px;
   background: #4f6f91;
 }
 .pet-antenna::before {
   position: absolute;
-  top: -3px;
+  top: -4px;
   left: -2px;
-  width: 6px;
+  width: 8px;
   height: 6px;
-  border-radius: 50%;
   background: #63d5ff;
-  box-shadow: 0 0 8px rgb(99 213 255 / 70%);
+  box-shadow:
+    2px -2px 0 #b7efff,
+    -2px 2px 0 #287fa3;
   content: "";
   animation: pet-signal 1.6s steps(3, end) infinite;
 }
@@ -556,30 +583,38 @@ onBeforeUnmount(() => {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 8px;
   place-items: center;
-  border: 1px solid #426789;
-  border-radius: 6px;
+  border: 2px solid #071522;
+  border-radius: 0;
   background: #0a1c2d;
+  box-shadow:
+    inset 2px 2px 0 #153b59,
+    2px 2px 0 #2d5372;
 }
 .pet-screen i {
-  width: 5px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   background: #6ee7ff;
-  box-shadow: 0 0 5px rgb(110 231 255 / 72%);
+  box-shadow:
+    2px 0 0 #257e9a,
+    0 2px 0 #257e9a;
   animation: pet-blink 5.2s steps(1, end) infinite;
 }
 .pet-screen b {
-  width: 14px;
-  height: 4px;
+  width: 10px;
+  height: 2px;
   grid-column: 1 / -1;
-  border-bottom: 2px solid #6ee7ff;
-  border-radius: 50%;
+  background: #6ee7ff;
+  box-shadow:
+    -3px -2px 0 #6ee7ff,
+    3px -2px 0 #6ee7ff;
 }
 .pet-label {
   display: block;
   margin-top: 6px;
   color: #9dc0dc;
-  font: 700 8px/1 "IBM Plex Mono", monospace;
-  letter-spacing: .16em;
+  font: 800 8px/1 "IBM Plex Mono", monospace;
+  letter-spacing: .12em;
+  text-shadow: 1px 1px 0 #091c30;
 }
 .pet-feet {
   position: absolute;
@@ -590,11 +625,12 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 .pet-feet i {
-  width: 11px;
-  height: 5px;
-  border: 1px solid #63809e;
-  border-radius: 0 0 4px 4px;
+  width: 12px;
+  height: 6px;
+  border: 2px solid #091c30;
+  border-radius: 0;
   background: #18314f;
+  box-shadow: 2px 2px 0 rgb(9 28 48 / 28%);
 }
 .pet-z {
   position: absolute;
@@ -614,7 +650,7 @@ onBeforeUnmount(() => {
   box-shadow: none;
   animation: none;
 }
-.action-nap .pet-screen b { width: 6px; border-radius: 50%; }
+.action-nap .pet-screen b { width: 6px; box-shadow: none; }
 .action-nap .pet-z {
   display: block;
   animation: pet-dream 1.2s steps(3, end) infinite;
@@ -733,6 +769,27 @@ onBeforeUnmount(() => {
 }
 .pet-actions button:hover:not(:disabled) { border-color: #8fb7ed; color: #1d5f9f; }
 .pet-actions button:disabled { cursor: not-allowed; opacity: .45; }
+.pet-moves {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 9px 14px 0;
+}
+.pet-moves > span {
+  margin-right: 2px;
+  color: #8495a8;
+  font: 8px/1 "IBM Plex Mono", monospace;
+}
+.pet-moves button {
+  padding: 4px 6px;
+  border: 1px solid #dce5ee;
+  border-radius: 4px;
+  color: #60758b;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 8px;
+}
+.pet-moves button:hover { border-color: #8fb7ed; color: #1d5f9f; background: #f1f7fd; }
 .pet-tip-list {
   display: grid;
   max-height: 430px;
@@ -757,10 +814,10 @@ onBeforeUnmount(() => {
 }
 @keyframes pet-shadow {
   0%, 70%, 100% { transform: scaleX(1); opacity: 1; }
-  75%, 90% { transform: scaleX(.84); opacity: .7; }
+  75%, 90% { transform: scaleX(.8); opacity: .7; }
 }
 @keyframes pet-blink {
-  0%, 45%, 49%, 100% { height: 7px; }
+  0%, 45%, 49%, 100% { height: 6px; }
   46%, 48% { height: 2px; }
 }
 @keyframes pet-signal {
