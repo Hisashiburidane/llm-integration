@@ -1196,7 +1196,7 @@ onBeforeUnmount(() => {
 .avatar-bb8 .pet-avatar:hover { background: transparent; }
 .avatar-bb8 .pet-avatar::before {
   position: absolute;
-  z-index: 0;
+  z-index: 1;
   bottom: 0;
   left: 5px;
   width: 48px;
@@ -1244,12 +1244,7 @@ onBeforeUnmount(() => {
     6px 3px,
     12px 3px
   );
-  filter:
-    drop-shadow(2px 0 0 #566168)
-    drop-shadow(-2px 0 0 #566168)
-    drop-shadow(0 2px 0 #566168)
-    drop-shadow(0 -2px 0 #566168)
-    drop-shadow(3px 3px 0 #858b8d);
+  filter: drop-shadow(2px 2px 0 #858b8d);
   content: "";
 }
 .avatar-bb8 .pet-avatar::after {
@@ -1277,53 +1272,57 @@ onBeforeUnmount(() => {
 .avatar-bb8 .pet-screen {
   position: absolute;
   z-index: 2;
-  top: 1px;
-  left: 12px;
+  top: 0;
+  left: 10px;
   display: block;
-  width: 34px;
-  height: 24px;
+  width: 38px;
+  height: 28px;
   padding: 0;
   border: 0;
-  background: #eceee9;
+  background: #4b565c;
   box-shadow: none;
   clip-path: polygon(
-    10px 0,
-    24px 0,
-    24px 2px,
-    29px 2px,
-    29px 5px,
+    11px 0,
+    27px 0,
+    27px 2px,
+    32px 2px,
     32px 5px,
-    32px 9px,
-    34px 9px,
-    34px 24px,
-    0 24px,
+    36px 5px,
+    36px 9px,
+    38px 9px,
+    38px 28px,
+    0 28px,
     0 9px,
     2px 9px,
     2px 5px,
-    5px 5px,
-    5px 2px,
-    10px 2px
+    6px 5px,
+    6px 2px,
+    11px 2px
   );
-  filter:
-    drop-shadow(1px 0 0 #4f5a60)
-    drop-shadow(-1px 0 0 #4f5a60)
-    drop-shadow(0 1px 0 #4f5a60)
-    drop-shadow(0 -1px 0 #4f5a60)
-    drop-shadow(2px 2px 0 #858b8d);
+  filter: drop-shadow(2px 2px 0 #858b8d);
 }
 .avatar-bb8 .pet-screen::before {
   position: absolute;
+  z-index: 1;
   right: 0;
-  bottom: 3px;
+  bottom: 4px;
   left: 0;
   height: 5px;
   background: #e9861c;
   content: "";
 }
+.avatar-bb8 .pet-screen::after {
+  position: absolute;
+  z-index: 0;
+  inset: 2px 2px 1px;
+  background: #eceee9;
+  content: "";
+}
 .avatar-bb8 .pet-screen i:first-child {
   position: absolute;
-  top: 7px;
-  left: 9px;
+  z-index: 2;
+  top: 8px;
+  left: 11px;
   width: 8px;
   height: 8px;
   background: #18252d;
@@ -1334,8 +1333,9 @@ onBeforeUnmount(() => {
 }
 .avatar-bb8 .pet-screen i:nth-child(2) {
   position: absolute;
-  top: 10px;
-  right: 7px;
+  z-index: 2;
+  top: 11px;
+  right: 8px;
   width: 4px;
   height: 4px;
   background: #d73528;
@@ -1343,8 +1343,50 @@ onBeforeUnmount(() => {
   animation: pet-signal 1.6s steps(3, end) infinite;
 }
 .avatar-bb8 .pet-screen b,
-.avatar-bb8 .pet-label,
-.avatar-bb8 .pet-feet { display: none; }
+.avatar-bb8 .pet-label { display: none; }
+.avatar-bb8 .pet-feet {
+  position: absolute;
+  z-index: 0;
+  right: auto;
+  bottom: -2px;
+  left: 3px;
+  display: block;
+  width: 52px;
+  height: 52px;
+  background: #4b565c;
+  clip-path: polygon(
+    13px 0,
+    39px 0,
+    39px 3px,
+    45px 3px,
+    45px 7px,
+    49px 7px,
+    49px 13px,
+    52px 13px,
+    52px 39px,
+    49px 39px,
+    49px 45px,
+    45px 45px,
+    45px 49px,
+    39px 49px,
+    39px 52px,
+    13px 52px,
+    13px 49px,
+    7px 49px,
+    7px 45px,
+    3px 45px,
+    3px 39px,
+    0 39px,
+    0 13px,
+    3px 13px,
+    3px 7px,
+    7px 7px,
+    7px 3px,
+    13px 3px
+  );
+  filter: drop-shadow(3px 3px 0 #858b8d);
+}
+.avatar-bb8 .pet-feet i { display: none; }
 
 .avatar-retro-pc .pet-avatar {
   padding: 0;
