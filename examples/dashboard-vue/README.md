@@ -125,7 +125,7 @@ LLM_MODEL=gpt-4o-mini
 
 Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；Aura 和电子向导共享该代理入口，页面不读取上游地址或 API Key。
 
-应用左下角的电子向导与 Aura 独立运行。每次切换页面后，它会读取当前页面公开的结构和 Policy 允许的 Tool 目录，在不注册 Function Tools、也不持有 executor 的前提下生成页面使用提示。提示按路由缓存在浏览器内存中，可以从向导菜单重新生成或清空。
+应用内的电子向导与 Aura 独立运行。每次切换页面后，它会读取当前页面公开的结构和 Policy 允许的 Tool 目录，在不注册 Function Tools、也不持有 executor 的前提下生成页面使用提示。向导可以拖动并记住位置，点击气泡只关闭当前提示；除非开启静默，后续仍会按时间和 Panel 关注变化选择提示。提示按路由缓存在浏览器内存中，可以从向导菜单重新生成或清空。
 
 Dashboard Panel 只记录进入顺序、停留时间和选择次数，用于从已生成的提示中选择更符合当前关注点的内容。关注数据不写入 Enchant metadata，不触发 registry version 变化，也不会采集原始鼠标坐标。
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { createLlmClient, useEnchantForge } from '@enchantforge/vue';
 import {
   buildPetCapabilityCatalog,
@@ -24,6 +24,14 @@ interface RouteMemory {
   error: string;
 }
 
+type PetAction = 'idle' | 'look' | 'hop' | 'scan' | 'nap';
+
+const PET_POSITION_KEY = 'enchantforge.dashboard-pet.position';
+const PET_SILENT_KEY = 'enchantforge.dashboard-pet.silent';
+const PET_WIDTH = 58;
+const PET_HEIGHT = 66;
+const EDGE_GAP = 12;
+
 const props = defineProps<{
   page: string;
   route: string;
@@ -33,7 +41,14 @@ const forge = useEnchantForge();
 const attentionVersion = usePanelAttentionVersion();
 const memories = ref(new Map<string, RouteMemory>());
 const open = ref(false);
-const tipCursor = ref(0);
+const silent = ref(false);
+const bubbleVisible = ref(false);
+const visibleTipId = ref('');
+const positioned = ref(false);
+const dragging = ref(false);
+const petAction = ref<PetAction>('idle');
+const position = ref({ x: 20, y: 20 });
+const viewport = ref({ width: 0, height: 0 });
 const memoryRevision = ref(0);
 const client = createLlmClient({
   model: __LLM_MODEL__,
@@ -51,8 +66,19 @@ const client = createLlmClient({
 });
 
 let generationTimer: ReturnType<typeof setTimeout> | undefined;
-let rotationTimer: ReturnType<typeof setInterval> | undefined;
+let tipTimer: ReturnType<typeof setTimeout> | undefined;
+let attentionTimer: ReturnType<typeof setTimeout> | undefined;
+let idleTimer: ReturnType<typeof setTimeout> | undefined;
+let actionTimer: ReturnType<typeof setTimeout> | undefined;
 let controller: AbortController | undefined;
+let suppressClick = false;
+let dragStart: {
+  pointerId: number;
+  clientX: number;
+  clientY: number;
+  x: number;
+  y: number;
+} | undefined;
 
 function emptyMemory(): RouteMemory {
   return {
@@ -75,7 +101,7 @@ const attention = computed(() => {
   attentionVersion.value;
   return snapshotPanelAttention(props.page);
 });
-const rankedTips = computed(() => {
+const scoredTips = computed(() => {
   const panelWeights = new Map(attention.value.panels.map((panel, index) => [
     panel.panelId,
     Math.max(1, 12 - index * 2)
@@ -83,13 +109,12 @@ const rankedTips = computed(() => {
   return memory.value.tips
     .map((tip, index) => ({
       tip,
-      score: tip.relatedPanelIds.reduce((total, panelId) => total + (panelWeights.get(panelId) ?? 0), 0) - index * 0.01
-    }))
-    .sort((left, right) => right.score - left.score)
-    .map((item) => item.tip);
+      score: 1 + tip.relatedPanelIds.reduce((total, panelId) => total + (panelWeights.get(panelId) ?? 0), 0) - index * 0.001
+    }));
 });
+const rankedTips = computed(() => [...scoredTips.value].sort((left, right) => right.score - left.score).map((item) => item.tip));
 const currentTip = computed(() => (
-  rankedTips.value.length ? rankedTips.value[tipCursor.value % rankedTips.value.length] : undefined
+  memory.value.tips.find((tip) => tip.id === visibleTipId.value) ?? rankedTips.value[0]
 ));
 const statusText = computed(() => {
   if (memory.value.loading) return '正在了解当前页面';
@@ -97,6 +122,32 @@ const statusText = computed(() => {
   if (memory.value.tips.length) return `${memory.value.tips.length} 条页面提示`;
   return '还没有页面记忆';
 });
+const showSpeech = computed(() => (
+  !silent.value
+  && bubbleVisible.value
+  && Boolean(currentTip.value || memory.value.loading || memory.value.error)
+));
+const bubbleOnLeft = computed(() => {
+  const availableWidth = Math.min(320, Math.max(220, viewport.value.width - 112));
+  return position.value.x + PET_WIDTH + availableWidth + 28 > viewport.value.width;
+});
+const consoleOnLeft = computed(() => position.value.x + 360 + EDGE_GAP > viewport.value.width);
+const consoleBelow = computed(() => position.value.y < Math.min(430, viewport.value.height * 0.56));
+const rootStyle = computed(() => ({
+  left: `${position.value.x}px`,
+  top: `${position.value.y}px`
+}));
+const rootClasses = computed(() => ({
+  open: open.value,
+  positioned: positioned.value,
+  dragging: dragging.value,
+  working: memory.value.loading,
+  silent: silent.value,
+  'bubble-left': bubbleOnLeft.value,
+  'console-left': consoleOnLeft.value,
+  'console-below': consoleBelow.value,
+  [`action-${petAction.value}`]: true
+}));
 
 function updateMemory(route: string, patch: Partial<RouteMemory>) {
   const current = memories.value.get(route) ?? emptyMemory();
@@ -122,7 +173,10 @@ async function generate(force: boolean) {
   const capabilities = buildPetCapabilityCatalog(bundle.snapshot);
   const signature = petContextSignature(context, capabilities);
   const existing = memories.value.get(route);
-  if (!force && existing?.signature === signature && existing.tips.length) return;
+  if (!force && existing?.signature === signature && existing.tips.length) {
+    if (!bubbleVisible.value) showNextTip();
+    return;
+  }
 
   controller?.abort();
   const runController = new AbortController();
@@ -153,13 +207,14 @@ async function generate(force: boolean) {
       loading: false,
       error: ''
     });
-    tipCursor.value = 0;
+    showNextTip();
   } catch (cause) {
     if (runController.signal.aborted || route !== props.route) return;
     updateMemory(route, {
       loading: false,
       error: cause instanceof Error ? cause.message : '页面提示生成失败。'
     });
+    if (!silent.value) bubbleVisible.value = true;
   } finally {
     if (controller === runController) controller = undefined;
   }
@@ -170,15 +225,136 @@ function clearMemory() {
   memories.value.clear();
   memoryRevision.value += 1;
   clearPanelAttention();
-  tipCursor.value = 0;
+  visibleTipId.value = '';
+  bubbleVisible.value = false;
 }
 
 function refresh() {
+  if (!silent.value) bubbleVisible.value = true;
   scheduleGeneration(true);
 }
 
-function nextTip() {
-  if (rankedTips.value.length > 1) tipCursor.value = (tipCursor.value + 1) % rankedTips.value.length;
+function showNextTip() {
+  if (silent.value || !scoredTips.value.length) return;
+  const alternatives = scoredTips.value.length > 1
+    ? scoredTips.value.filter((item) => item.tip.id !== visibleTipId.value)
+    : scoredTips.value;
+  const total = alternatives.reduce((sum, item) => sum + Math.max(0.1, item.score), 0);
+  let cursor = Math.random() * total;
+  const selected = alternatives.find((item) => {
+    cursor -= Math.max(0.1, item.score);
+    return cursor <= 0;
+  }) ?? alternatives[alternatives.length - 1];
+  visibleTipId.value = selected?.tip.id ?? '';
+  bubbleVisible.value = Boolean(selected);
+}
+
+function dismissBubble() {
+  bubbleVisible.value = false;
+}
+
+function scheduleTip() {
+  if (tipTimer) clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => {
+    showNextTip();
+    scheduleTip();
+  }, 14000 + Math.round(Math.random() * 12000));
+}
+
+function toggleSilent() {
+  silent.value = !silent.value;
+  try {
+    window.localStorage.setItem(PET_SILENT_KEY, silent.value ? '1' : '0');
+  } catch {
+    // Storage is optional.
+  }
+  if (silent.value) bubbleVisible.value = false;
+  else showNextTip();
+}
+
+function clampPosition(value: { x: number; y: number }) {
+  return {
+    x: Math.min(Math.max(EDGE_GAP, value.x), Math.max(EDGE_GAP, viewport.value.width - PET_WIDTH - EDGE_GAP)),
+    y: Math.min(Math.max(EDGE_GAP, value.y), Math.max(EDGE_GAP, viewport.value.height - PET_HEIGHT - EDGE_GAP))
+  };
+}
+
+function savePosition() {
+  try {
+    window.localStorage.setItem(PET_POSITION_KEY, JSON.stringify(position.value));
+  } catch {
+    // Storage is optional.
+  }
+}
+
+function handleResize() {
+  viewport.value = { width: window.innerWidth, height: window.innerHeight };
+  position.value = clampPosition(position.value);
+}
+
+function startDrag(event: PointerEvent) {
+  if (event.button !== 0) return;
+  dragStart = {
+    pointerId: event.pointerId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    x: position.value.x,
+    y: position.value.y
+  };
+  suppressClick = false;
+  petAction.value = 'idle';
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function movePet(event: PointerEvent) {
+  if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - dragStart.clientX;
+  const deltaY = event.clientY - dragStart.clientY;
+  if (!dragging.value && Math.hypot(deltaX, deltaY) < 4) return;
+  dragging.value = true;
+  suppressClick = true;
+  position.value = clampPosition({
+    x: dragStart.x + deltaX,
+    y: dragStart.y + deltaY
+  });
+}
+
+function endDrag(event: PointerEvent) {
+  if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+  if ((event.currentTarget as HTMLElement).hasPointerCapture(event.pointerId)) {
+    (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+  }
+  dragStart = undefined;
+  const didDrag = dragging.value;
+  if (didDrag) savePosition();
+  dragging.value = false;
+  if (didDrag) {
+    window.setTimeout(() => {
+      suppressClick = false;
+    }, 0);
+  }
+}
+
+function toggleOpen() {
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+  open.value = !open.value;
+}
+
+function scheduleIdleAction() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (!dragging.value && !memory.value.loading) {
+      const actions: PetAction[] = ['look', 'hop', 'scan', 'nap'];
+      petAction.value = actions[Math.floor(Math.random() * actions.length)] ?? 'look';
+      actionTimer = setTimeout(() => {
+        petAction.value = 'idle';
+      }, petAction.value === 'nap' ? 2600 : 1300);
+    }
+    scheduleIdleAction();
+  }, 4200 + Math.round(Math.random() * 5200));
 }
 
 function formatTime(value: number | undefined) {
@@ -193,17 +369,48 @@ watch(
   { immediate: true, flush: 'post' }
 );
 
-rotationTimer = setInterval(nextTip, 12000);
+watch(attentionVersion, () => {
+  if (attentionTimer) clearTimeout(attentionTimer);
+  attentionTimer = setTimeout(showNextTip, 900);
+});
+
+watch(() => props.route, () => {
+  visibleTipId.value = '';
+  bubbleVisible.value = false;
+});
+
+onMounted(() => {
+  viewport.value = { width: window.innerWidth, height: window.innerHeight };
+  let restoredPosition: { x?: unknown; y?: unknown } | undefined;
+  try {
+    restoredPosition = JSON.parse(window.localStorage.getItem(PET_POSITION_KEY) ?? 'null') as { x?: unknown; y?: unknown } | undefined;
+    silent.value = window.localStorage.getItem(PET_SILENT_KEY) === '1';
+  } catch {
+    restoredPosition = undefined;
+  }
+  position.value = clampPosition({
+    x: typeof restoredPosition?.x === 'number' ? restoredPosition.x : 20,
+    y: typeof restoredPosition?.y === 'number' ? restoredPosition.y : window.innerHeight - PET_HEIGHT - 20
+  });
+  positioned.value = true;
+  window.addEventListener('resize', handleResize);
+  scheduleTip();
+  scheduleIdleAction();
+});
 
 onBeforeUnmount(() => {
   if (generationTimer) clearTimeout(generationTimer);
-  if (rotationTimer) clearInterval(rotationTimer);
+  if (tipTimer) clearTimeout(tipTimer);
+  if (attentionTimer) clearTimeout(attentionTimer);
+  if (idleTimer) clearTimeout(idleTimer);
+  if (actionTimer) clearTimeout(actionTimer);
+  window.removeEventListener('resize', handleResize);
   controller?.abort();
 });
 </script>
 
 <template>
-  <aside class="dashboard-pet" :class="{ open }" aria-label="页面向导">
+  <aside class="dashboard-pet" :class="rootClasses" :style="rootStyle" aria-label="页面向导">
     <section v-if="open" class="pet-console">
       <header>
         <div>
@@ -219,6 +426,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="pet-actions">
         <button type="button" :disabled="memory.loading" @click="refresh">重新生成</button>
+        <button type="button" @click="toggleSilent">{{ silent ? '恢复提示' : '静默提示' }}</button>
         <button type="button" :disabled="!memories.size && !attention.panels.length" @click="clearMemory">清空记忆</button>
       </div>
       <p v-if="memory.error" class="pet-error">{{ memory.error }}</p>
@@ -239,12 +447,14 @@ onBeforeUnmount(() => {
     </section>
 
     <button
-      v-if="currentTip || memory.loading || memory.error"
+      v-if="showSpeech"
+      :key="currentTip?.id ?? statusText"
       type="button"
       class="pet-speech"
-      :aria-label="currentTip ? `提示：${currentTip.title}` : statusText"
-      @click="open = true"
+      :aria-label="currentTip ? `关闭提示：${currentTip.title}` : `关闭提示：${statusText}`"
+      @click="dismissBubble"
     >
+      <span class="speech-close" aria-hidden="true">×</span>
       <template v-if="currentTip">
         <strong>{{ currentTip.title }}</strong>
         <span>{{ currentTip.body }}</span>
@@ -252,14 +462,27 @@ onBeforeUnmount(() => {
       <span v-else>{{ statusText }}</span>
     </button>
 
-    <button type="button" class="pet-avatar" :aria-expanded="open" aria-label="打开页面向导" @click="open = !open">
+    <button
+      type="button"
+      class="pet-avatar"
+      :aria-expanded="open"
+      :aria-grabbed="dragging"
+      aria-label="打开或拖动页面向导"
+      @pointerdown="startDrag"
+      @pointermove="movePet"
+      @pointerup="endDrag"
+      @pointercancel="endDrag"
+      @click="toggleOpen"
+    >
       <span class="pet-antenna"></span>
+      <span class="pet-z" aria-hidden="true">Z</span>
       <span class="pet-screen">
         <i></i>
         <i></i>
         <b></b>
       </span>
       <span class="pet-label">GUIDE</span>
+      <span class="pet-feet" aria-hidden="true"><i></i><i></i></span>
     </button>
   </aside>
 </template>
@@ -268,13 +491,13 @@ onBeforeUnmount(() => {
 .dashboard-pet {
   position: fixed;
   z-index: 950;
-  bottom: 20px;
-  left: 20px;
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
+  width: 58px;
+  height: 66px;
+  opacity: 0;
+  transition: opacity 120ms ease;
   font-family: "IBM Plex Sans", sans-serif;
 }
+.dashboard-pet.positioned { opacity: 1; }
 .pet-avatar {
   position: relative;
   width: 58px;
@@ -285,9 +508,28 @@ onBeforeUnmount(() => {
   color: #d8f3ff;
   background: #18314f;
   box-shadow: 0 10px 28px rgb(15 39 67 / 24%);
-  cursor: pointer;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  animation: pet-idle 2.4s steps(2, end) infinite;
 }
 .pet-avatar:hover { background: #204166; }
+.pet-avatar::after {
+  position: absolute;
+  z-index: -1;
+  right: 8px;
+  bottom: -9px;
+  left: 8px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(12 31 52 / 22%);
+  content: "";
+  animation: pet-shadow 2.4s steps(2, end) infinite;
+}
+.dragging .pet-avatar { cursor: grabbing; animation: none; }
+.dragging .pet-avatar::after { animation: none; }
+.working .pet-avatar { animation: pet-work 700ms steps(2, end) infinite; }
+.working .pet-avatar::after { animation: pet-work-shadow 700ms steps(2, end) infinite; }
 .pet-antenna {
   position: absolute;
   top: -9px;
@@ -306,6 +548,7 @@ onBeforeUnmount(() => {
   background: #63d5ff;
   box-shadow: 0 0 8px rgb(99 213 255 / 70%);
   content: "";
+  animation: pet-signal 1.6s steps(3, end) infinite;
 }
 .pet-screen {
   display: grid;
@@ -322,6 +565,7 @@ onBeforeUnmount(() => {
   height: 7px;
   background: #6ee7ff;
   box-shadow: 0 0 5px rgb(110 231 255 / 72%);
+  animation: pet-blink 5.2s steps(1, end) infinite;
 }
 .pet-screen b {
   width: 14px;
@@ -337,36 +581,97 @@ onBeforeUnmount(() => {
   font: 700 8px/1 "IBM Plex Mono", monospace;
   letter-spacing: .16em;
 }
+.pet-feet {
+  position: absolute;
+  right: 12px;
+  bottom: -4px;
+  left: 12px;
+  display: flex;
+  justify-content: space-between;
+}
+.pet-feet i {
+  width: 11px;
+  height: 5px;
+  border: 1px solid #63809e;
+  border-radius: 0 0 4px 4px;
+  background: #18314f;
+}
+.pet-z {
+  position: absolute;
+  top: -16px;
+  right: -8px;
+  display: none;
+  color: #3b82f6;
+  font: 700 10px/1 "IBM Plex Mono", monospace;
+}
+.action-look .pet-screen i { transform: translateX(4px); animation: none; }
+.action-hop .pet-avatar { animation: pet-hop 900ms steps(4, end) 1; }
+.action-hop .pet-avatar::after { animation: pet-hop-shadow 900ms steps(4, end) 1; }
+.action-scan .pet-screen { animation: pet-scan 900ms steps(4, end) 1; }
+.action-scan .pet-antenna { animation: pet-signal-fast 300ms steps(2, end) infinite; }
+.action-nap .pet-screen i {
+  height: 2px;
+  box-shadow: none;
+  animation: none;
+}
+.action-nap .pet-screen b { width: 6px; border-radius: 50%; }
+.action-nap .pet-z {
+  display: block;
+  animation: pet-dream 1.2s steps(3, end) infinite;
+}
 .pet-speech {
-  position: relative;
+  position: absolute;
+  bottom: 30px;
+  left: calc(100% + 14px);
   width: min(320px, calc(100vw - 112px));
-  padding: 12px 14px;
+  padding: 12px 26px 12px 14px;
   border: 1px solid #cbd8e6;
-  border-radius: 14px 14px 4px 14px;
+  border-radius: 14px 14px 14px 4px;
   color: #3d526a;
   background: #fff;
   box-shadow: 0 10px 30px rgb(26 50 78 / 14%);
   cursor: pointer;
   text-align: left;
+  animation: speech-pop 180ms steps(3, end);
 }
 .pet-speech::after {
   position: absolute;
-  right: -9px;
+  left: -9px;
   bottom: 10px;
   width: 16px;
   height: 16px;
-  border-right: 1px solid #cbd8e6;
+  border-left: 1px solid #cbd8e6;
   border-bottom: 1px solid #cbd8e6;
   background: #fff;
   content: "";
+  transform: rotate(45deg);
+}
+.bubble-left .pet-speech {
+  right: calc(100% + 14px);
+  left: auto;
+  border-radius: 14px 14px 4px 14px;
+}
+.bubble-left .pet-speech::after {
+  right: -9px;
+  left: auto;
+  border-right: 1px solid #cbd8e6;
+  border-bottom: 1px solid #cbd8e6;
+  border-left: 0;
   transform: rotate(-45deg);
 }
 .pet-speech strong, .pet-speech span { display: block; }
 .pet-speech strong { margin-bottom: 4px; color: #18314f; font-size: 11px; }
 .pet-speech span { font-size: 10px; line-height: 1.55; }
+.pet-speech .speech-close {
+  position: absolute;
+  top: 5px;
+  right: 7px;
+  color: #9aa9b9;
+  font: 12px/1 "IBM Plex Mono", monospace;
+}
 .pet-console {
   position: absolute;
-  bottom: 78px;
+  bottom: calc(100% + 14px);
   left: 0;
   width: min(360px, calc(100vw - 32px));
   max-height: min(620px, calc(100vh - 120px));
@@ -375,6 +680,14 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   background: #fff;
   box-shadow: 0 22px 54px rgb(22 46 73 / 22%);
+}
+.console-left .pet-console {
+  right: 0;
+  left: auto;
+}
+.console-below .pet-console {
+  top: calc(100% + 14px);
+  bottom: auto;
 }
 .pet-console header {
   display: flex;
@@ -438,9 +751,60 @@ onBeforeUnmount(() => {
 .pet-empty { color: #7b8da1; background: #f7f9fc; }
 .pet-error { color: #a22b2b; background: #fff3f3; }
 .pet-console footer { display: flex; gap: 14px; padding: 10px 14px; border-top: 1px solid #e7edf3; color: #8495a8; font: 8px/1 "IBM Plex Mono", monospace; }
+@keyframes pet-idle {
+  0%, 70%, 100% { transform: translateY(0); }
+  75%, 90% { transform: translateY(-2px); }
+}
+@keyframes pet-shadow {
+  0%, 70%, 100% { transform: scaleX(1); opacity: 1; }
+  75%, 90% { transform: scaleX(.84); opacity: .7; }
+}
+@keyframes pet-blink {
+  0%, 45%, 49%, 100% { height: 7px; }
+  46%, 48% { height: 2px; }
+}
+@keyframes pet-signal {
+  0%, 100% { opacity: .45; }
+  50% { opacity: 1; }
+}
+@keyframes pet-signal-fast {
+  0%, 100% { background: #6ee7ff; box-shadow: 0 0 4px rgb(110 231 255 / 60%); }
+  50% { background: #fbbf24; box-shadow: 0 0 10px rgb(251 191 36 / 80%); }
+}
+@keyframes pet-work {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-3px) rotate(1deg); }
+}
+@keyframes pet-work-shadow {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(.76); }
+}
+@keyframes pet-hop {
+  0%, 100% { transform: translateY(0); }
+  25%, 50% { transform: translateY(-10px); }
+  75% { transform: translateY(-3px); }
+}
+@keyframes pet-hop-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 1; }
+  25%, 50% { transform: scaleX(.55); opacity: .45; }
+  75% { transform: scaleX(.8); opacity: .7; }
+}
+@keyframes pet-scan {
+  0%, 100% { box-shadow: inset 0 0 0 rgb(99 213 255 / 0%); }
+  25% { box-shadow: inset 12px 0 0 rgb(99 213 255 / 16%); }
+  50% { box-shadow: inset -12px 0 0 rgb(99 213 255 / 16%); }
+  75% { box-shadow: inset 0 0 12px rgb(99 213 255 / 22%); }
+}
+@keyframes pet-dream {
+  0% { transform: translate(0, 4px) scale(.8); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translate(7px, -8px) scale(1.1); opacity: 0; }
+}
+@keyframes speech-pop {
+  0% { transform: scale(.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
 @media (max-width: 620px) {
-  .dashboard-pet { bottom: 14px; left: 14px; }
   .pet-speech { width: min(250px, calc(100vw - 96px)); }
-  .pet-console { bottom: 74px; }
 }
 </style>
