@@ -25,7 +25,7 @@ interface RouteMemory {
 }
 
 type PetAction = 'idle' | 'look' | 'hop' | 'scan' | 'nap';
-type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime' | 'morgana';
+type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime' | 'husky' | 'morgana';
 
 const PET_POSITION_KEY = 'enchantforge.dashboard-pet.position';
 const PET_SILENT_KEY = 'enchantforge.dashboard-pet.silent';
@@ -38,6 +38,7 @@ const petVariants: Array<{ id: PetVariant; name: string; badge: string }> = [
   { id: 'cat', name: '终端猫', badge: 'CAT.EXE' },
   { id: 'ghost', name: '小幽灵', badge: 'BOO' },
   { id: 'slime', name: '史莱姆', badge: 'SLIME' },
+  { id: 'husky', name: '哈士奇', badge: 'HUSKY' },
   { id: 'morgana', name: '摩尔加纳', badge: 'MONA' }
 ];
 
@@ -729,6 +730,156 @@ onBeforeUnmount(() => {
 .avatar-cat .pet-label { color: #ffe0a8; text-shadow: 1px 1px 0 #55280f; }
 .avatar-cat .pet-feet i { border-color: #55280f; background: #c7651b; }
 
+.avatar-husky .pet-avatar {
+  padding: 0;
+  border: 0;
+  color: #f5f7f6;
+  background: transparent;
+  box-shadow: none;
+}
+.avatar-husky .pet-avatar:hover { background: transparent; }
+.avatar-husky .pet-avatar::after {
+  right: 7px;
+  bottom: -3px;
+  left: 7px;
+}
+.avatar-husky .pet-antenna {
+  z-index: 0;
+  top: -7px;
+  left: 2px;
+  width: 15px;
+  height: 19px;
+  background: #111a22;
+  box-shadow:
+    39px 0 0 #111a22,
+    3px -3px 0 #05080b,
+    42px -3px 0 #05080b;
+}
+.avatar-husky .pet-antenna::before {
+  top: 5px;
+  left: 4px;
+  width: 7px;
+  height: 9px;
+  background: #7f929b;
+  box-shadow: 39px 0 0 #7f929b;
+  animation: none;
+}
+.avatar-husky .pet-screen {
+  position: relative;
+  z-index: 1;
+  width: 58px;
+  height: 58px;
+  padding: 14px 9px 7px;
+  border: 0;
+  background: #080d12;
+  box-shadow: none;
+  clip-path: polygon(
+    12px 0,
+    46px 0,
+    46px 3px,
+    51px 3px,
+    51px 7px,
+    55px 7px,
+    55px 12px,
+    58px 12px,
+    58px 46px,
+    55px 46px,
+    55px 51px,
+    51px 51px,
+    51px 55px,
+    46px 55px,
+    46px 58px,
+    12px 58px,
+    12px 55px,
+    7px 55px,
+    7px 51px,
+    3px 51px,
+    3px 46px,
+    0 46px,
+    0 12px,
+    3px 12px,
+    3px 7px,
+    7px 7px,
+    7px 3px,
+    12px 3px
+  );
+  filter: drop-shadow(4px 4px 0 #70899d);
+  grid-template-rows: 1fr 12px;
+}
+.avatar-husky .pet-screen::before {
+  position: absolute;
+  z-index: 1;
+  top: 3px;
+  left: 50%;
+  width: 12px;
+  height: 9px;
+  background: #111a22;
+  content: "";
+  transform: translateX(-50%);
+}
+.avatar-husky .pet-screen::after {
+  position: absolute;
+  z-index: 0;
+  inset: 5px;
+  background: #edf4f1;
+  clip-path: polygon(
+    9px 0,
+    calc(100% - 9px) 0,
+    calc(100% - 9px) 3px,
+    calc(100% - 4px) 3px,
+    calc(100% - 4px) 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 4px) calc(100% - 8px),
+    calc(100% - 4px) calc(100% - 3px),
+    calc(100% - 9px) calc(100% - 3px),
+    calc(100% - 9px) 100%,
+    9px 100%,
+    9px calc(100% - 3px),
+    4px calc(100% - 3px),
+    4px calc(100% - 8px),
+    0 calc(100% - 8px),
+    0 8px,
+    4px 8px,
+    4px 3px,
+    9px 3px
+  );
+  content: "";
+}
+.avatar-husky .pet-screen i {
+  position: relative;
+  z-index: 2;
+  width: 7px;
+  height: 7px;
+  background: #20b4e5;
+  box-shadow:
+    inset 2px 0 0 #a8eeff,
+    2px 2px 0 #07151d;
+}
+.avatar-husky .pet-screen b {
+  position: relative;
+  z-index: 2;
+  width: 5px;
+  height: 3px;
+  background: #101820;
+  box-shadow:
+    -3px -2px 0 #101820,
+    3px -2px 0 #101820;
+}
+.avatar-husky .pet-label {
+  position: absolute;
+  z-index: 2;
+  bottom: 1px;
+  left: 13px;
+  width: 32px;
+  padding: 3px 0;
+  margin: 0;
+  color: #15100a;
+  background: #e34a4a;
+  text-shadow: none;
+}
+.avatar-husky .pet-feet { display: none; }
+
 .avatar-morgana .pet-avatar {
   padding: 0;
   border: 0;
@@ -744,23 +895,23 @@ onBeforeUnmount(() => {
 }
 .avatar-morgana .pet-antenna {
   z-index: 0;
-  top: -7px;
+  top: -8px;
   left: 2px;
   width: 15px;
-  height: 19px;
-  background: #111a22;
+  height: 20px;
+  background: #080d12;
   box-shadow:
-    39px 0 0 #111a22,
-    3px -3px 0 #05080b,
-    42px -3px 0 #05080b;
+    39px 0 0 #080d12,
+    3px -3px 0 #000,
+    42px -3px 0 #000;
 }
 .avatar-morgana .pet-antenna::before {
-  top: 5px;
+  top: 6px;
   left: 4px;
   width: 7px;
   height: 9px;
-  background: #7f929b;
-  box-shadow: 39px 0 0 #7f929b;
+  background: #50616c;
+  box-shadow: 39px 0 0 #50616c;
   animation: none;
 }
 .avatar-morgana .pet-screen {
@@ -768,7 +919,7 @@ onBeforeUnmount(() => {
   z-index: 1;
   width: 58px;
   height: 58px;
-  padding: 14px 9px 7px;
+  padding: 13px 8px 7px;
   border: 0;
   background: #080d12;
   box-shadow: none;
@@ -808,62 +959,59 @@ onBeforeUnmount(() => {
 .avatar-morgana .pet-screen::before {
   position: absolute;
   z-index: 1;
-  top: 3px;
-  left: 50%;
+  top: 2px;
+  left: 23px;
   width: 12px;
-  height: 9px;
-  background: #111a22;
+  height: 6px;
+  background: #18252f;
+  box-shadow:
+    -4px 3px 0 #18252f,
+    4px 3px 0 #18252f;
   content: "";
-  transform: translateX(-50%);
 }
 .avatar-morgana .pet-screen::after {
   position: absolute;
   z-index: 0;
-  inset: 5px;
+  bottom: 5px;
+  left: 15px;
+  width: 28px;
+  height: 17px;
   background: #edf4f1;
   clip-path: polygon(
-    9px 0,
-    calc(100% - 9px) 0,
-    calc(100% - 9px) 3px,
-    calc(100% - 4px) 3px,
-    calc(100% - 4px) 8px,
-    100% 8px,
-    100% calc(100% - 8px),
-    calc(100% - 4px) calc(100% - 8px),
-    calc(100% - 4px) calc(100% - 3px),
-    calc(100% - 9px) calc(100% - 3px),
-    calc(100% - 9px) 100%,
-    9px 100%,
-    9px calc(100% - 3px),
-    4px calc(100% - 3px),
-    4px calc(100% - 8px),
-    0 calc(100% - 8px),
-    0 8px,
-    4px 8px,
-    4px 3px,
-    9px 3px
+    5px 0,
+    23px 0,
+    23px 3px,
+    28px 3px,
+    28px 12px,
+    23px 12px,
+    23px 17px,
+    5px 17px,
+    5px 14px,
+    0 14px,
+    0 3px,
+    5px 3px
   );
   content: "";
 }
 .avatar-morgana .pet-screen i {
   position: relative;
   z-index: 2;
-  width: 7px;
-  height: 7px;
-  background: #20b4e5;
+  width: 9px;
+  height: 10px;
+  background: #18aee0;
   box-shadow:
-    inset 2px 0 0 #a8eeff,
-    2px 2px 0 #07151d;
+    inset 3px 2px 0 #b8f1ff,
+    2px 2px 0 #000;
 }
 .avatar-morgana .pet-screen b {
   position: relative;
   z-index: 2;
-  width: 5px;
+  width: 4px;
   height: 3px;
-  background: #101820;
+  background: #111820;
   box-shadow:
-    -3px -2px 0 #101820,
-    3px -2px 0 #101820;
+    -3px -2px 0 #111820,
+    3px -2px 0 #111820;
 }
 .avatar-morgana .pet-label {
   position: absolute;
@@ -878,6 +1026,7 @@ onBeforeUnmount(() => {
   text-shadow: none;
 }
 .avatar-morgana .pet-feet { display: none; }
+
 .avatar-morgana .pet-speech {
   padding-top: 15px;
   border: 3px solid #08090b;
@@ -1127,6 +1276,8 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 9px 14px 0;
 }
+.pet-variants { flex-wrap: wrap; }
+.pet-variants > span { flex-basis: 100%; }
 .pet-moves > span,
 .pet-variants > span {
   margin-right: 2px;
