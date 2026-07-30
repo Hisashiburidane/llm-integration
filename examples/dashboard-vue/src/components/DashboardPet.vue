@@ -130,6 +130,7 @@ const rankedTips = computed(() => [...scoredTips.value].sort((left, right) => ri
 const currentTip = computed(() => (
   memory.value.tips.find((tip) => tip.id === visibleTipId.value) ?? rankedTips.value[0]
 ));
+const petWidth = computed(() => petVariant.value === 'retro-pc' ? 80 : PET_WIDTH);
 const variantDefinition = computed(() => (
   petVariants.find((variant) => variant.id === petVariant.value) ?? petVariants[0]!
 ));
@@ -146,13 +147,14 @@ const showSpeech = computed(() => (
 ));
 const bubbleOnLeft = computed(() => {
   const availableWidth = Math.min(320, Math.max(220, viewport.value.width - 112));
-  return position.value.x + PET_WIDTH + availableWidth + 28 > viewport.value.width;
+  return position.value.x + petWidth.value + availableWidth + 28 > viewport.value.width;
 });
 const consoleOnLeft = computed(() => position.value.x + 360 + EDGE_GAP > viewport.value.width);
 const consoleBelow = computed(() => position.value.y < Math.min(430, viewport.value.height * 0.56));
 const rootStyle = computed(() => ({
   left: `${position.value.x}px`,
-  top: `${position.value.y}px`
+  top: `${position.value.y}px`,
+  width: `${petWidth.value}px`
 }));
 const rootClasses = computed(() => ({
   open: open.value,
@@ -292,6 +294,7 @@ function toggleSilent() {
 
 function selectPetVariant(variant: PetVariant) {
   petVariant.value = variant;
+  position.value = clampPosition(position.value);
   try {
     window.localStorage.setItem(PET_VARIANT_KEY, variant);
   } catch {
@@ -302,7 +305,7 @@ function selectPetVariant(variant: PetVariant) {
 
 function clampPosition(value: { x: number; y: number }) {
   return {
-    x: Math.min(Math.max(EDGE_GAP, value.x), Math.max(EDGE_GAP, viewport.value.width - PET_WIDTH - EDGE_GAP)),
+    x: Math.min(Math.max(EDGE_GAP, value.x), Math.max(EDGE_GAP, viewport.value.width - petWidth.value - EDGE_GAP)),
     y: Math.min(Math.max(EDGE_GAP, value.y), Math.max(EDGE_GAP, viewport.value.height - PET_HEIGHT - EDGE_GAP))
   };
 }
@@ -1353,15 +1356,17 @@ onBeforeUnmount(() => {
 .avatar-retro-pc .pet-avatar::before {
   position: absolute;
   z-index: 0;
-  right: -5px;
-  bottom: 2px;
-  width: 18px;
-  height: 45px;
+  right: -20px;
+  bottom: 1px;
+  width: 28px;
+  height: 49px;
   border: 2px solid #5d594c;
   background:
-    linear-gradient(#625f54 0 0) 3px 7px / 10px 2px no-repeat,
-    linear-gradient(#8a8472 0 0) 3px 13px / 10px 3px no-repeat,
-    linear-gradient(#2fa06a 0 0) 4px 33px / 3px 3px no-repeat,
+    linear-gradient(#625f54 0 0) 4px 7px / 18px 3px no-repeat,
+    linear-gradient(#8a8472 0 0) 4px 15px / 18px 4px no-repeat,
+    linear-gradient(#777263 0 0) 4px 23px / 12px 2px no-repeat,
+    linear-gradient(#2fa06a 0 0) 5px 37px / 4px 4px no-repeat,
+    linear-gradient(#d7a92a 0 0) 13px 37px / 4px 4px no-repeat,
     #c9c3ad;
   box-shadow:
     inset 2px 2px 0 #f2eddc,
