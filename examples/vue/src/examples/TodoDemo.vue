@@ -10,7 +10,7 @@ defineProps<{ demo: DemoSpec }>();
       <a-alert
         type="warning"
         show-icon
-        message="完成标准：真实 LLM 请求、结构化响应校验、真实页面动作执行，以及失败状态展示。"
+        message="完成标准：模型请求、结构化响应校验、页面动作执行，以及失败状态展示。"
       />
     </template>
   </a-result>

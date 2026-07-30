@@ -24,7 +24,7 @@ export type CodeBlock = {
 export type DemoSpec = {
   id: string;
   title: string;
-  status: '真实 API' | 'TODO';
+  status: '可运行' | 'TODO';
   summary: string;
   suggestions: string[];
   showAura?: boolean;
@@ -352,7 +352,7 @@ export const demos: DemoSpec[] = [
   {
     id: 'text-to-form',
     title: '快递填表：组件 API',
-    status: '真实 API',
+    status: '可运行',
     summary: '推荐接入方式。表单通过 useEnchantForm 提供字段 metadata 和响应式写入 capability，不读取 DOM。',
     suggestions: shippingSuggestions,
     component: TextToFormDemo,
@@ -367,7 +367,7 @@ export const demos: DemoSpec[] = [
   {
     id: 'use-enchant-action',
     title: '快递填表：定制 Action',
-    status: '真实 API',
+    status: '可运行',
     summary: '只暴露一个应用拥有的异步填表函数，不暴露 model 或通用字段写入能力；执行进度通过 Aura 实时展示。',
     suggestions: shippingSuggestions,
     component: UseEnchantActionDemo,
@@ -382,7 +382,7 @@ export const demos: DemoSpec[] = [
   {
     id: 'text-to-form-dom',
     title: '快递填表：DOM 扫描',
-    status: '真实 API',
+    status: '可运行',
     summary: '最低改造成本的兼容模式。显式配置 scan="auto" 后扫描局部 DOM，并通过浏览器 input/change/blur 事件写入表单。',
     suggestions: shippingSuggestions,
     component: DomTextToFormDemo,
@@ -397,7 +397,7 @@ export const demos: DemoSpec[] = [
   {
     id: 'asr-customer-service',
     title: '实时坐席辅助',
-    status: '真实 API',
+    status: '可运行',
     summary: '三种人物语速的 ASR online/offline 数据流；业务组件主动触发 Agent，查询订单 API、检索售后知识、识别表达情绪、更新工单草稿并提示人工坐席。',
     suggestions: [],
     showAura: false,
@@ -413,7 +413,7 @@ export const demos: DemoSpec[] = [
   {
     id: 'focus-view',
     title: 'K8s Focus View',
-    status: '真实 API',
+    status: '可运行',
     summary: 'Enchant 负责采集 panel metadata；Dashboard 在应用层注册高亮、详情和组合 capability，并拥有对应视图状态。',
     suggestions: focusViewSuggestions,
     component: FocusViewDemo,
