@@ -25,7 +25,7 @@ interface RouteMemory {
 }
 
 type PetAction = 'idle' | 'look' | 'hop' | 'scan' | 'nap';
-type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime' | 'husky' | 'morgana';
+type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime' | 'husky' | 'morgana' | 'bb8' | 'retro-pc';
 
 const PET_POSITION_KEY = 'enchantforge.dashboard-pet.position';
 const PET_SILENT_KEY = 'enchantforge.dashboard-pet.silent';
@@ -39,7 +39,9 @@ const petVariants: Array<{ id: PetVariant; name: string; badge: string }> = [
   { id: 'ghost', name: '小幽灵', badge: 'BOO' },
   { id: 'slime', name: '史莱姆', badge: 'SLIME' },
   { id: 'husky', name: '哈士奇', badge: 'HUSKY' },
-  { id: 'morgana', name: '摩尔加纳', badge: 'MONA' }
+  { id: 'morgana', name: '摩尔加纳', badge: 'MONA' },
+  { id: 'bb8', name: 'BB-8', badge: 'BB-8' },
+  { id: 'retro-pc', name: '复古机箱', badge: 'ATX 98' }
 ];
 
 const props = defineProps<{
@@ -1181,6 +1183,247 @@ onBeforeUnmount(() => {
   text-shadow: 1px 1px 0 #16462e;
 }
 .avatar-slime .pet-feet i { border-color: #16462e; background: #39a96b; }
+
+.avatar-bb8 .pet-avatar {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.avatar-bb8 .pet-avatar:hover { background: transparent; }
+.avatar-bb8 .pet-avatar::before {
+  position: absolute;
+  z-index: 0;
+  bottom: 0;
+  left: 5px;
+  width: 48px;
+  height: 48px;
+  background:
+    radial-gradient(circle at 50% 50%, #263746 0 3px, #eceeea 4px 8px, transparent 9px),
+    conic-gradient(
+      from 0deg,
+      #e9861c 0 12%,
+      #e6e8e4 12% 25%,
+      #e9861c 25% 37%,
+      #f4f3ec 37% 50%,
+      #e9861c 50% 62%,
+      #e1e4df 62% 75%,
+      #e9861c 75% 87%,
+      #f4f3ec 87% 100%
+    );
+  clip-path: polygon(
+    12px 0,
+    36px 0,
+    36px 3px,
+    42px 3px,
+    42px 7px,
+    46px 7px,
+    46px 12px,
+    48px 12px,
+    48px 36px,
+    46px 36px,
+    46px 41px,
+    42px 41px,
+    42px 45px,
+    36px 45px,
+    36px 48px,
+    12px 48px,
+    12px 45px,
+    6px 45px,
+    6px 41px,
+    2px 41px,
+    2px 36px,
+    0 36px,
+    0 12px,
+    2px 12px,
+    2px 7px,
+    6px 7px,
+    6px 3px,
+    12px 3px
+  );
+  filter: drop-shadow(3px 3px 0 #6d6f6d);
+  content: "";
+}
+.avatar-bb8 .pet-avatar::after {
+  right: 6px;
+  bottom: -7px;
+  left: 6px;
+}
+.avatar-bb8 .pet-antenna {
+  z-index: 3;
+  top: -7px;
+  left: 27px;
+  width: 2px;
+  height: 11px;
+  background: #30383d;
+}
+.avatar-bb8 .pet-antenna::before {
+  top: -2px;
+  left: 4px;
+  width: 2px;
+  height: 8px;
+  background: #8a8e8c;
+  box-shadow: none;
+  animation: none;
+}
+.avatar-bb8 .pet-screen {
+  position: absolute;
+  z-index: 2;
+  top: 1px;
+  left: 12px;
+  display: block;
+  width: 34px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: #eceee9;
+  box-shadow: none;
+  clip-path: polygon(
+    10px 0,
+    24px 0,
+    24px 2px,
+    29px 2px,
+    29px 5px,
+    32px 5px,
+    32px 9px,
+    34px 9px,
+    34px 24px,
+    0 24px,
+    0 9px,
+    2px 9px,
+    2px 5px,
+    5px 5px,
+    5px 2px,
+    10px 2px
+  );
+  filter: drop-shadow(2px 2px 0 #626866);
+}
+.avatar-bb8 .pet-screen::before {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  left: 0;
+  height: 5px;
+  background: #e9861c;
+  content: "";
+}
+.avatar-bb8 .pet-screen i:first-child {
+  position: absolute;
+  top: 7px;
+  left: 9px;
+  width: 8px;
+  height: 8px;
+  background: #18252d;
+  box-shadow:
+    inset 2px 2px 0 #60737c,
+    2px 2px 0 #c86c12;
+  animation: none;
+}
+.avatar-bb8 .pet-screen i:nth-child(2) {
+  position: absolute;
+  top: 10px;
+  right: 7px;
+  width: 4px;
+  height: 4px;
+  background: #d73528;
+  box-shadow: 1px 1px 0 #74302a;
+  animation: pet-signal 1.6s steps(3, end) infinite;
+}
+.avatar-bb8 .pet-screen b,
+.avatar-bb8 .pet-label,
+.avatar-bb8 .pet-feet { display: none; }
+
+.avatar-retro-pc .pet-avatar {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.avatar-retro-pc .pet-avatar:hover { background: transparent; }
+.avatar-retro-pc .pet-avatar::before {
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 2px;
+  width: 18px;
+  height: 45px;
+  border: 2px solid #5d594c;
+  background:
+    linear-gradient(#625f54 0 0) 3px 7px / 10px 2px no-repeat,
+    linear-gradient(#8a8472 0 0) 3px 13px / 10px 3px no-repeat,
+    linear-gradient(#2fa06a 0 0) 4px 33px / 3px 3px no-repeat,
+    #c9c3ad;
+  box-shadow:
+    inset 2px 2px 0 #f2eddc,
+    inset -2px -2px 0 #8e8876,
+    3px 3px 0 rgb(64 61 51 / 28%);
+  content: "";
+}
+.avatar-retro-pc .pet-avatar::after {
+  right: 2px;
+  bottom: -7px;
+  left: 2px;
+}
+.avatar-retro-pc .pet-antenna { display: none; }
+.avatar-retro-pc .pet-screen {
+  position: absolute;
+  z-index: 1;
+  top: 3px;
+  left: 0;
+  width: 44px;
+  height: 39px;
+  padding: 8px 7px 7px;
+  border: 2px solid #5d594c;
+  border-radius: 0;
+  background: #c9c3ad;
+  box-shadow:
+    inset 2px 2px 0 #f4efdf,
+    inset -3px -3px 0 #8e8876,
+    3px 3px 0 rgb(64 61 51 / 28%);
+  grid-template-rows: 1fr 8px;
+}
+.avatar-retro-pc .pet-screen::before {
+  position: absolute;
+  z-index: 0;
+  inset: 5px 5px 7px;
+  border: 2px solid #3d4b4e;
+  background: #17353a;
+  box-shadow: inset 2px 2px 0 #0c2024;
+  content: "";
+}
+.avatar-retro-pc .pet-screen i,
+.avatar-retro-pc .pet-screen b {
+  position: relative;
+  z-index: 1;
+  background: #78e3d1;
+  box-shadow: 1px 1px 0 #266e68;
+}
+.avatar-retro-pc .pet-screen b {
+  width: 10px;
+  height: 2px;
+  box-shadow:
+    -3px -2px 0 #78e3d1,
+    3px -2px 0 #78e3d1;
+}
+.avatar-retro-pc .pet-label {
+  position: absolute;
+  z-index: 2;
+  bottom: 3px;
+  left: 3px;
+  width: 35px;
+  height: 10px;
+  padding-top: 2px;
+  margin: 0;
+  border: 2px solid #5d594c;
+  color: #605b4c;
+  background: #d8d2bd;
+  box-shadow:
+    inset 1px 1px 0 #fff9e7,
+    2px 2px 0 #8e8876;
+  font-size: 6px;
+  text-shadow: none;
+}
+.avatar-retro-pc .pet-feet { display: none; }
 
 .action-look .pet-screen i { transform: translateX(4px); animation: none; }
 .action-hop .pet-avatar { animation: pet-hop 900ms steps(4, end) 1; }
