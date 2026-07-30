@@ -4,7 +4,7 @@ export const messages = {
       home: '首页',
       start: '快速开始',
       model: '接入方式',
-      examples: '真实示例',
+      examples: '示例',
       runtime: '怎么工作',
       api: 'API 文档'
     },
