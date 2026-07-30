@@ -11,10 +11,6 @@ export interface PetCapability {
   label: string;
   description: string;
   effect: EnchantTool['effect'];
-  target?: string;
-  inputSchema?: Record<string, unknown>;
-  scopeId: string;
-  scopeName: string;
 }
 
 export interface PetContextNode {
@@ -35,6 +31,7 @@ export interface PetPageContext {
     id: string;
     name: string;
     kind: string;
+    description?: string;
     metadata: PetContextNode[];
   }>;
 }
@@ -50,12 +47,9 @@ export interface PetTip {
 
 const PET_PROMPT = [
   '你是可视化数据平台中的页面向导。',
-  '根据页面结构、能力目录和用户关注记录，生成 4-6 条简短、具体、可以立即理解的使用提示。',
-  '能力目录用于说明页面支持什么，不是可调用的 function tools。不要声称已经执行任何操作。',
-  '不要编造数据结论。没有读取真实数据时，只能建议用户可以查看、询问或操作什么。',
-  '优先覆盖页面主要区域和不同类型的能力；如果存在 Panel，提示应尽量关联明确的 Panel ID。',
-  'relatedTools 只能填写能力目录中存在的 name，relatedPanelIds 只能填写页面结构中存在的 Panel ID。',
-  'category 只能是 guide、suggestion 或 help。',
+  '根据页面与能力摘要生成 3-4 条简短、具体的使用提示。',
+  '不要声称已经执行操作，不要编造数据结论。',
+  '只引用摘要中存在的 Tool name 和 Panel ID。',
   '返回 JSON：{"tips":[{"id":"","title":"","body":"","category":"guide","relatedPanelIds":[],"relatedTools":[]}]}'
 ].join('\n');
 
@@ -69,25 +63,36 @@ function shortText(value: unknown, maxLength: number) {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : '';
 }
 
-function projectMetadata(node: EnchantMetadataNode): PetContextNode {
+function projectMetadata(node: EnchantMetadataNode): PetContextNode | undefined {
+  // Panel enchantments already carry their own id, title and description.
+  if (node.kind === 'panel') return undefined;
   const title = 'title' in node && typeof node.title === 'string' ? node.title : undefined;
   const text = 'text' in node && typeof node.text === 'string' ? node.text : undefined;
+  const children = 'children' in node
+    ? node.children.flatMap((child): PetContextNode[] => {
+      const projected = projectMetadata(child);
+      return projected ? [projected] : [];
+    })
+    : [];
   return {
     id: node.id,
-    label: node.label ?? title ?? text ?? node.id,
+    label: shortText(node.label ?? title ?? text ?? node.id, 80),
     kind: node.kind,
-    description: node.description,
-    ...('children' in node ? { children: node.children.map(projectMetadata) } : {})
+    ...(shortText(node.description, 160) ? { description: shortText(node.description, 160) } : {}),
+    ...(children.length ? { children } : {})
   };
 }
 
 function collectPanelIds(context: PetPageContext) {
   const ids = new Set<string>();
   const visit = (node: PetContextNode) => {
-    if (node.kind === 'panel') ids.add(node.id);
+    if (node.kind === 'panel-reference') ids.add(node.id);
     node.children?.forEach(visit);
   };
-  context.areas.forEach((area) => area.metadata.forEach(visit));
+  context.areas.forEach((area) => {
+    if (area.kind === 'panel') ids.add(area.id);
+    area.metadata.forEach(visit);
+  });
   return ids;
 }
 
@@ -98,30 +103,47 @@ export function buildPetPageContext(snapshot: EnchantSnapshot): PetPageContext {
     route: snapshot.route,
     tab: snapshot.tab,
     tags: snapshot.tags,
-    areas: snapshot.enchantments.map((enchantment) => ({
-      id: enchantment.id,
-      name: enchantment.name ?? enchantment.id,
-      kind: enchantment.kind,
-      metadata: enchantment.metadata.map(projectMetadata)
-    }))
+    areas: snapshot.enchantments.map((enchantment) => {
+      const panel = enchantment.metadata.find((node) => node.kind === 'panel');
+      return {
+        id: enchantment.id,
+        name: shortText(enchantment.name ?? enchantment.id, 80),
+        kind: enchantment.kind,
+        ...(shortText(panel?.description, 160) ? { description: shortText(panel?.description, 160) } : {}),
+        metadata: enchantment.metadata.flatMap((node): PetContextNode[] => {
+          const projected = projectMetadata(node);
+          return projected ? [projected] : [];
+        })
+      };
+    })
   };
 }
 
 export function buildPetCapabilityCatalog(snapshot: EnchantSnapshot): PetCapability[] {
-  const scopes = new Map(snapshot.enchantments.map((enchantment) => [
-    enchantment.id,
-    enchantment.name ?? enchantment.id
-  ]));
-  return snapshot.tools.map((tool) => ({
-    name: tool.name,
-    label: tool.label,
-    description: tool.description,
-    effect: tool.effect,
-    target: tool.target,
-    inputSchema: tool.inputSchema,
-    scopeId: tool.enchantmentId,
-    scopeName: scopes.get(tool.enchantmentId) ?? tool.enchantmentId
-  }));
+  const capabilities = new Map<string, PetCapability>();
+  snapshot.tools.forEach((tool) => {
+    if (capabilities.has(tool.name)) return;
+    capabilities.set(tool.name, {
+      name: tool.name,
+      label: shortText(tool.label, 80),
+      description: shortText(tool.description, 180),
+      effect: tool.effect
+    });
+  });
+  return [...capabilities.values()];
+}
+
+function projectAttention(attention: PanelAttentionSnapshot) {
+  return {
+    panels: attention.panels.slice(0, 6).map((panel) => ({
+      panelId: panel.panelId,
+      title: panel.title,
+      visits: panel.visits,
+      selections: panel.selections,
+      dwellMs: panel.dwellMs
+    })),
+    trail: attention.trail.slice(-6).map(({ panelId, title }) => ({ panelId, title }))
+  };
 }
 
 export function petContextSignature(
@@ -155,11 +177,11 @@ export async function generatePetTips(options: {
     context: {
       page: options.context,
       capabilities: options.capabilities,
-      attention: options.attention
+      attention: projectAttention(options.attention)
     },
     toolChoice: 'none',
-    temperature: 0.35,
-    maxTokens: 1400,
+    temperature: 0.25,
+    maxTokens: 700,
     signal: options.signal
   });
   const rawTips = payload && typeof payload === 'object' && Array.isArray((payload as { tips?: unknown }).tips)
@@ -167,11 +189,11 @@ export async function generatePetTips(options: {
     : [];
   const knownTools = new Set(options.capabilities.map((capability) => capability.name));
   const knownPanels = collectPanelIds(options.context);
-  const tips = rawTips.slice(0, 6).flatMap((value, index): PetTip[] => {
+  const tips = rawTips.slice(0, 4).flatMap((value, index): PetTip[] => {
     if (!value || typeof value !== 'object') return [];
     const item = value as Record<string, unknown>;
-    const title = shortText(item.title, 42);
-    const body = shortText(item.body, 220);
+    const title = shortText(item.title, 32);
+    const body = shortText(item.body, 160);
     if (!title || !body) return [];
     const category = ['guide', 'suggestion', 'help'].includes(String(item.category))
       ? item.category as PetTip['category']
