@@ -1241,7 +1241,12 @@ onBeforeUnmount(() => {
     6px 3px,
     12px 3px
   );
-  filter: drop-shadow(3px 3px 0 #6d6f6d);
+  filter:
+    drop-shadow(2px 0 0 #566168)
+    drop-shadow(-2px 0 0 #566168)
+    drop-shadow(0 2px 0 #566168)
+    drop-shadow(0 -2px 0 #566168)
+    drop-shadow(3px 3px 0 #858b8d);
   content: "";
 }
 .avatar-bb8 .pet-avatar::after {
@@ -1296,7 +1301,12 @@ onBeforeUnmount(() => {
     5px 2px,
     10px 2px
   );
-  filter: drop-shadow(2px 2px 0 #626866);
+  filter:
+    drop-shadow(1px 0 0 #4f5a60)
+    drop-shadow(-1px 0 0 #4f5a60)
+    drop-shadow(0 1px 0 #4f5a60)
+    drop-shadow(0 -1px 0 #4f5a60)
+    drop-shadow(2px 2px 0 #858b8d);
 }
 .avatar-bb8 .pet-screen::before {
   position: absolute;
@@ -1343,7 +1353,7 @@ onBeforeUnmount(() => {
 .avatar-retro-pc .pet-avatar::before {
   position: absolute;
   z-index: 0;
-  right: 0;
+  right: -5px;
   bottom: 2px;
   width: 18px;
   height: 45px;
@@ -1368,7 +1378,7 @@ onBeforeUnmount(() => {
 .avatar-retro-pc .pet-screen {
   position: absolute;
   z-index: 1;
-  top: 3px;
+  top: 8px;
   left: 0;
   width: 44px;
   height: 39px;
@@ -1389,6 +1399,17 @@ onBeforeUnmount(() => {
   border: 2px solid #3d4b4e;
   background: #17353a;
   box-shadow: inset 2px 2px 0 #0c2024;
+  content: "";
+}
+.avatar-retro-pc .pet-screen::after {
+  position: absolute;
+  bottom: -9px;
+  left: 14px;
+  width: 11px;
+  height: 9px;
+  border-right: 2px solid #5d594c;
+  border-left: 2px solid #5d594c;
+  background: #b9b39f;
   content: "";
 }
 .avatar-retro-pc .pet-screen i,
