@@ -226,6 +226,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <CallerEmotionPet
+    :active="phase === 'listening' || agentRunning"
+    :insight="emotionInsight"
+    :speaker="scenario.shortName"
+  />
+
   <section class="service-console">
     <header class="console-header">
       <div>
@@ -335,12 +341,6 @@ onBeforeUnmount(() => {
           </div>
           <span class="assistant-mark" :class="{ running: agentRunning }">A</span>
         </header>
-
-        <CallerEmotionPet
-          :active="phase === 'listening' || agentRunning"
-          :insight="emotionInsight"
-          :speaker="scenario.shortName"
-        />
 
         <div class="assistant-feed">
           <div v-if="!notices.length" class="assistant-idle">
