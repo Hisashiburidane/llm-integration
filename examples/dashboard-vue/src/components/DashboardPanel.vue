@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onBeforeUnmount } from 'vue';
 import ChartCanvas from './ChartCanvas.vue';
 import { formatMetricValue } from '../query/format';
+import { enterPanel, leavePanel, selectPanel } from '../runtime/panel-attention';
 import type { DatasetDefinition, PanelConfig, QueryResult } from '../model/types';
 
 const props = defineProps<{
@@ -11,6 +12,7 @@ const props = defineProps<{
   highlighted: boolean;
   lowlight: boolean;
   selected: boolean;
+  attentionScope?: string;
 }>();
 
 const emit = defineEmits<{
@@ -114,10 +116,36 @@ function displayDimensionValue(row: Record<string, unknown>, dimension: string) 
   return String(row[`${dimension}Label`] ?? row[dimension] ?? '-');
 }
 
+let pointerInside = false;
+
+function handlePointerEnter() {
+  pointerInside = true;
+  enterPanel(props.attentionScope, props.panel.id, props.panel.title);
+}
+
+function handlePointerLeave() {
+  pointerInside = false;
+  leavePanel(props.attentionScope, props.panel.id);
+}
+
+function handleSelect() {
+  selectPanel(props.attentionScope, props.panel.id, props.panel.title);
+  emit('select', props.panel);
+}
+
+onBeforeUnmount(() => {
+  if (pointerInside) leavePanel(props.attentionScope, props.panel.id);
+});
 </script>
 
 <template>
-  <article class="dashboard-panel" :class="{ highlighted, lowlight, selected }" @click="emit('select', panel)">
+  <article
+    class="dashboard-panel"
+    :class="{ highlighted, lowlight, selected }"
+    @pointerenter="handlePointerEnter"
+    @pointerleave="handlePointerLeave"
+    @click="handleSelect"
+  >
     <header class="panel-header">
       <div>
         <p class="panel-kicker">{{ panel.type }} / {{ panel.id }}</p>

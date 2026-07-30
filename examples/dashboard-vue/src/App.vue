@@ -1,15 +1,50 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { Enchant, useEnchantForge, type EnchantMetadataNode } from '@enchantforge/vue';
 import ConfigurableDashboard from './ConfigurableDashboard.vue';
+import DashboardPet from './components/DashboardPet.vue';
 import GlobalDashboardLibrary from './components/GlobalDashboardLibrary.vue';
 import GlobalPanelLibrary from './components/GlobalPanelLibrary.vue';
 import PlatformMenu from './components/PlatformMenu.vue';
 
 type View = 'panels' | 'dashboards' | `dashboard/${string}`;
+const forge = useEnchantForge();
 const view = ref<View>(readView());
 const activeDashboardId = computed(() => {
   if (view.value.startsWith('dashboard/')) return decodeURIComponent(view.value.slice('dashboard/'.length));
   return undefined;
+});
+const pageId = computed(() => {
+  if (view.value === 'panels') return 'panel-library';
+  if (view.value === 'dashboards') return 'dashboard-library';
+  return activeDashboardId.value ?? 'dashboard';
+});
+const routeId = computed(() => `#${view.value}`);
+const pageMetadata = computed<EnchantMetadataNode[]>(() => {
+  const page = {
+    'panel-library': {
+      label: 'Panel Library',
+      description: '浏览、预览和管理可复用的 Panel 定义'
+    },
+    'dashboard-library': {
+      label: 'Dashboard Library',
+      description: '浏览和管理 Dashboard，并使用已有 Panel 组合新的 Dashboard'
+    }
+  }[pageId.value] ?? {
+    label: `Dashboard ${pageId.value}`,
+    description: '查看 Dashboard、筛选数据并分析 Panel'
+  };
+  return [{
+    id: `${pageId.value}:view`,
+    scopeId: pageId.value,
+    kind: 'region',
+    label: page.label,
+    description: page.description,
+    visible: true,
+    enabled: true,
+    source: 'registered',
+    children: []
+  }];
 });
 const menuView = computed<'panels' | 'dashboards'>(() => {
   return view.value === 'panels' ? 'panels' : 'dashboards';
@@ -22,20 +57,40 @@ function readView(): View {
   return 'dashboards';
 }
 
-onMounted(() => window.addEventListener('hashchange', () => { view.value = readView(); }));
+function syncView() {
+  view.value = readView();
+}
+
+watch([pageId, routeId], ([page, route]) => {
+  forge.syncNavigation({ app: 'dashboard-vue', page, route });
+}, { immediate: true });
+
+onMounted(() => window.addEventListener('hashchange', syncView));
+onBeforeUnmount(() => window.removeEventListener('hashchange', syncView));
 </script>
 
 <template>
   <PlatformMenu :active="menuView" />
-  <GlobalPanelLibrary v-if="view === 'panels'" />
-  <ConfigurableDashboard v-else-if="activeDashboardId" :key="activeDashboardId" :dashboard-id="activeDashboardId" />
-  <GlobalDashboardLibrary v-else />
+  <Enchant
+    :key="pageId"
+    class="app-view-scope"
+    :name="`${pageId}-view`"
+    :page="pageId"
+    kind="page"
+    :metadata="pageMetadata"
+  >
+    <GlobalPanelLibrary v-if="view === 'panels'" />
+    <ConfigurableDashboard v-else-if="activeDashboardId" :key="activeDashboardId" :dashboard-id="activeDashboardId" />
+    <GlobalDashboardLibrary v-else />
+  </Enchant>
+  <DashboardPet :page="pageId" :route="routeId" />
 </template>
 
 <style>
 :root { color: #1e293b; background: #f4f7fb; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; }
 * { box-sizing: border-box; }
 body { margin: 0; }
+.app-view-scope { display: contents; }
 button, input, textarea, select { font: inherit; }
 .topbar { display: flex; min-height: 62px; align-items: center; justify-content: space-between; gap: 24px; padding: 0 30px; color: #e5edf8; background: #15263e; }
 .brand-lockup, .topbar-actions, .heading-actions, .filter-bar, .filter-item, .dashboard-footer, .trace-actions { display: flex; align-items: center; }

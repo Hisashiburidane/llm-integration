@@ -123,7 +123,11 @@ LLM_API_KEY=
 LLM_MODEL=gpt-4o-mini
 ```
 
-Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；页面代码只使用 `Aura` 和已注册 capability，不直接处理代理细节。
+Vite dev server 会把 `/api/llm/*` 代理到 `LLM_BASE_URL` 的 origin/path；Aura 和电子向导共享该代理入口，页面不读取上游地址或 API Key。
+
+应用左下角的电子向导与 Aura 独立运行。每次切换页面后，它会读取当前页面公开的结构和 Policy 允许的 Tool 目录，在不注册 Function Tools、也不持有 executor 的前提下生成页面使用提示。提示按路由缓存在浏览器内存中，可以从向导菜单重新生成或清空。
+
+Dashboard Panel 只记录进入顺序、停留时间和选择次数，用于从已生成的提示中选择更符合当前关注点的内容。关注数据不写入 Enchant metadata，不触发 registry version 变化，也不会采集原始鼠标坐标。
 
 ## BTS data
 
@@ -146,4 +150,4 @@ pnpm --filter @enchantforge/data-sources data:download -- --dataset nyc-taxi
 
 `Flight Ops Assistant` 的提示中还内置了机场 P95、航空公司比较、延误原因构成、出港/到港比较等可直接尝试的问题。助手会先读取相关 Panel 数据，再使用已注册的筛选、高亮、添加模板 Panel 和保存视图能力；它不会对当前数据没有覆盖的原因做推断。机场显示使用中文名称并保留 IATA 代码，NAS 表示国家空域系统/空管流量限制。
 
-如果没有可用 LLM，页面仍可使用筛选、Panel 联动、保存视图和 Debug trace；Aura 会显示配置或请求错误，不伪造分析结果。
+如果没有可用 LLM，页面仍可使用筛选、Panel 联动、保存视图和 Debug trace；Aura 和电子向导会显示配置或请求错误，不伪造分析结果。
