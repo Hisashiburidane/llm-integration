@@ -110,6 +110,14 @@ useEnchantAction({
   execute: presentCoaching
 });
 
+useEnchantAction({
+  name: 'support.present_emotion_guidance',
+  description: '根据累计 ASR 的语言信号更新情绪 Pet。',
+  effect: 'visual',
+  inputSchema: emotionGuidanceSchema,
+  execute: updateEmotionPet
+});
+
 async function onOfflineTranscript(latest: string, transcript: string) {
   await enchant.run({
     input: \`本次新增：\${latest}\\n累计转写：\${transcript}\`,
@@ -118,6 +126,7 @@ async function onOfflineTranscript(latest: string, transcript: string) {
       '出现具体问题时再检索售后知识库。',
       '只使用 ASR 原文和读取工具返回的事实。',
       '更新工单草稿，并根据订单或规则结果给坐席建议。',
+      '根据累计文本更新情绪 Pet，不推断未出现的声学特征。',
       '不得提交工单或承诺退款、换新已经获批。'
     ].join('\\n')
   });
@@ -389,7 +398,7 @@ export const demos: DemoSpec[] = [
     id: 'asr-customer-service',
     title: '实时坐席辅助',
     status: '真实 API',
-    summary: '三种人物语速的 ASR online/offline 数据流；业务组件主动触发 Agent，查询订单 API、检索售后知识、更新工单草稿并提示人工坐席。',
+    summary: '三种人物语速的 ASR online/offline 数据流；业务组件主动触发 Agent，查询订单 API、检索售后知识、识别表达情绪、更新工单草稿并提示人工坐席。',
     suggestions: [],
     showAura: false,
     component: AsrCustomerServiceDemo,

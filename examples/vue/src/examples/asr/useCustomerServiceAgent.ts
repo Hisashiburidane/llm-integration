@@ -28,6 +28,16 @@ export interface AssistantNotice {
   timestamp: string;
 }
 
+export type CallerEmotion = '平静' | '犹豫' | '焦虑' | '失望' | '不耐烦' | '生气';
+
+export interface CallerEmotionInsight {
+  emotion: CallerEmotion | '等待识别';
+  confidence: '低' | '中' | '高';
+  evidence: string;
+  guidance: string;
+  timestamp: string;
+}
+
 const fieldLabels: Record<TicketField, string> = {
   customerName: '客户姓名',
   orderNo: '订单号',
@@ -53,7 +63,8 @@ function timestamp() {
 export function useCustomerServiceAgent(
   draft: TicketDraft,
   highlightedFields: Ref<TicketField[]>,
-  notices: Ref<AssistantNotice[]>
+  notices: Ref<AssistantNotice[]>,
+  emotionInsight: Ref<CallerEmotionInsight>
 ) {
   const enchant = useEnchant();
   const forge = useEnchantForge();
@@ -235,6 +246,64 @@ export function useCustomerServiceAgent(
     }
   });
 
+  useEnchantAction<{
+    emotion: CallerEmotion;
+    confidence: '低' | '中' | '高';
+    evidence: string;
+    guidance: string;
+  }>({
+    id: 'customer-service:present-emotion-guidance',
+    name: 'support.present_emotion_guidance',
+    label: '更新来电情绪提示',
+    description: '根据累计离线 ASR 中可直接观察的语言信号，更新来电人的当前情绪和坐席沟通建议。',
+    provider: 'customer-service-demo',
+    effect: 'visual',
+    target: '情绪识别 Pet',
+    inputSchema: {
+      type: 'object',
+      required: ['emotion', 'confidence', 'evidence', 'guidance'],
+      additionalProperties: false,
+      properties: {
+        emotion: {
+          type: 'string',
+          enum: ['平静', '犹豫', '焦虑', '失望', '不耐烦', '生气'],
+          description: '仅根据当前累计转写中明确的措辞、重复、催促或自我修正判断'
+        },
+        confidence: {
+          type: 'string',
+          enum: ['低', '中', '高'],
+          description: '当前文本证据对情绪判断的支持程度'
+        },
+        evidence: {
+          type: 'string',
+          minLength: 2,
+          maxLength: 60,
+          description: '一条来自 ASR 原文的简短语言证据，不添加语音声学特征'
+        },
+        guidance: {
+          type: 'string',
+          minLength: 4,
+          maxLength: 80,
+          description: '给人工坐席的简短沟通建议，不承诺业务处理结果'
+        }
+      }
+    },
+    execute({ emotion, confidence, evidence, guidance }) {
+      emotionInsight.value = {
+        emotion,
+        confidence,
+        evidence,
+        guidance,
+        timestamp: timestamp()
+      };
+      return {
+        status: 'success' as const,
+        summary: `已向坐席提示来电人当前情绪为${emotion}。`,
+        data: emotionInsight.value
+      };
+    }
+  });
+
   async function analyzeTranscript(options: {
     latest: string;
     transcript: string;
@@ -256,6 +325,8 @@ export function useCustomerServiceAgent(
         '读取工具返回前，不要生成依赖其结果的写入或建议；先读取，下一轮再根据 tool result 继续。',
         '必须调用 support.update_ticket_draft 更新已确认的信息。只能使用 ASR 原文或读取工具明确返回的事实。',
         '获得订单 API 或知识库的 tool result 后，可以调用 support.present_coaching；建议必须说明依据来自订单状态、售后规则或两者。',
+        '每轮都要调用 support.present_emotion_guidance 更新情绪 Pet。只根据累计 ASR 中的措辞、重复、催促和自我修正判断，不得推断人格、疾病或未出现的声学特征。',
+        '情绪 Pet 的 evidence 必须概括原文证据；guidance 只调整坐席沟通方式，不得承诺业务处理结果。',
         '建议可以要求继续确认信息，但不能承诺退款、换新、补发或赔付已经获批。',
         '工单只能保持草稿状态。'
       ].join('\n'),

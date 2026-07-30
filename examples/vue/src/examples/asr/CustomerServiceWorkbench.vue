@@ -2,9 +2,11 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue';
 import type { EnchantProgressEvent } from '@enchantforge/vue';
 import { asrScenarios } from './asr-simulation';
+import CallerEmotionPet from './CallerEmotionPet.vue';
 import {
   useCustomerServiceAgent,
   type AssistantNotice,
+  type CallerEmotionInsight,
   type TicketDraft,
   type TicketField
 } from './useCustomerServiceAgent';
@@ -23,6 +25,14 @@ const emptyDraft = (): TicketDraft => ({
   urgency: ''
 });
 
+const emptyEmotionInsight = (): CallerEmotionInsight => ({
+  emotion: '等待识别',
+  confidence: '低',
+  evidence: '',
+  guidance: '',
+  timestamp: ''
+});
+
 const fieldRows: Array<{ key: TicketField; label: string; multiline?: boolean }> = [
   { key: 'customerName', label: '客户姓名' },
   { key: 'orderNo', label: '订单号' },
@@ -39,6 +49,7 @@ const offlineSegments = ref<Array<{ id: string; text: string }>>([]);
 const onlineText = ref('');
 const highlightedFields = ref<TicketField[]>([]);
 const notices = ref<AssistantNotice[]>([]);
+const emotionInsight = ref<CallerEmotionInsight>(emptyEmotionInsight());
 const phase = ref<SimulationPhase>('idle');
 const asrStatus = ref('等待通话接入');
 const agentStatus = ref('等待稳定的 offline 文本');
@@ -48,7 +59,12 @@ const selectedScenarioId = ref(asrScenarios[0].id);
 let runId = 0;
 let controller: AbortController | undefined;
 
-const { analyzeTranscript } = useCustomerServiceAgent(draft, highlightedFields, notices);
+const { analyzeTranscript } = useCustomerServiceAgent(
+  draft,
+  highlightedFields,
+  notices,
+  emotionInsight
+);
 const scenario = computed(() =>
   asrScenarios.find((item) => item.id === selectedScenarioId.value) ?? asrScenarios[0]);
 
@@ -80,6 +96,7 @@ function reset() {
   onlineText.value = '';
   highlightedFields.value = [];
   notices.value = [];
+  emotionInsight.value = emptyEmotionInsight();
   phase.value = 'idle';
   asrStatus.value = '等待通话接入';
   agentStatus.value = '等待稳定的 offline 文本';
@@ -318,6 +335,12 @@ onBeforeUnmount(() => {
           </div>
           <span class="assistant-mark" :class="{ running: agentRunning }">A</span>
         </header>
+
+        <CallerEmotionPet
+          :active="phase === 'listening' || agentRunning"
+          :insight="emotionInsight"
+          :speaker="scenario.shortName"
+        />
 
         <div class="assistant-feed">
           <div v-if="!notices.length" class="assistant-idle">
