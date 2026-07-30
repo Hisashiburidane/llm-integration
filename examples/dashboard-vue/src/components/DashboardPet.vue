@@ -25,12 +25,20 @@ interface RouteMemory {
 }
 
 type PetAction = 'idle' | 'look' | 'hop' | 'scan' | 'nap';
+type PetVariant = 'robot' | 'cat' | 'ghost' | 'slime';
 
 const PET_POSITION_KEY = 'enchantforge.dashboard-pet.position';
 const PET_SILENT_KEY = 'enchantforge.dashboard-pet.silent';
+const PET_VARIANT_KEY = 'enchantforge.dashboard-pet.variant';
 const PET_WIDTH = 58;
 const PET_HEIGHT = 66;
 const EDGE_GAP = 12;
+const petVariants: Array<{ id: PetVariant; name: string; badge: string }> = [
+  { id: 'robot', name: '机器人', badge: 'GUIDE' },
+  { id: 'cat', name: '终端猫', badge: 'CAT.EXE' },
+  { id: 'ghost', name: '小幽灵', badge: 'BOO' },
+  { id: 'slime', name: '史莱姆', badge: 'SLIME' }
+];
 
 const props = defineProps<{
   page: string;
@@ -47,6 +55,7 @@ const visibleTipId = ref('');
 const positioned = ref(false);
 const dragging = ref(false);
 const petAction = ref<PetAction>('idle');
+const petVariant = ref<PetVariant>('robot');
 const position = ref({ x: 20, y: 20 });
 const viewport = ref({ width: 0, height: 0 });
 const memoryRevision = ref(0);
@@ -117,6 +126,9 @@ const rankedTips = computed(() => [...scoredTips.value].sort((left, right) => ri
 const currentTip = computed(() => (
   memory.value.tips.find((tip) => tip.id === visibleTipId.value) ?? rankedTips.value[0]
 ));
+const variantDefinition = computed(() => (
+  petVariants.find((variant) => variant.id === petVariant.value) ?? petVariants[0]!
+));
 const statusText = computed(() => {
   if (memory.value.loading) return '正在对齐页面颗粒度';
   if (memory.value.error) return '建议暂时不可用';
@@ -147,6 +159,7 @@ const rootClasses = computed(() => ({
   'bubble-left': bubbleOnLeft.value,
   'console-left': consoleOnLeft.value,
   'console-below': consoleBelow.value,
+  [`avatar-${petVariant.value}`]: true,
   [`action-${petAction.value}`]: true
 }));
 
@@ -273,6 +286,16 @@ function toggleSilent() {
   else showNextTip();
 }
 
+function selectPetVariant(variant: PetVariant) {
+  petVariant.value = variant;
+  try {
+    window.localStorage.setItem(PET_VARIANT_KEY, variant);
+  } catch {
+    // Storage is optional.
+  }
+  performPetAction('hop');
+}
+
 function clampPosition(value: { x: number; y: number }) {
   return {
     x: Math.min(Math.max(EDGE_GAP, value.x), Math.max(EDGE_GAP, viewport.value.width - PET_WIDTH - EDGE_GAP)),
@@ -397,6 +420,10 @@ onMounted(() => {
   try {
     restoredPosition = JSON.parse(window.localStorage.getItem(PET_POSITION_KEY) ?? 'null') as { x?: unknown; y?: unknown } | undefined;
     silent.value = window.localStorage.getItem(PET_SILENT_KEY) === '1';
+    const restoredVariant = window.localStorage.getItem(PET_VARIANT_KEY);
+    if (petVariants.some((variant) => variant.id === restoredVariant)) {
+      petVariant.value = restoredVariant as PetVariant;
+    }
   } catch {
     restoredPosition = undefined;
   }
@@ -449,6 +476,18 @@ onBeforeUnmount(() => {
         <button type="button" @click="performPetAction('scan')">扫描</button>
         <button type="button" @click="performPetAction('nap')">打盹</button>
       </div>
+      <div class="pet-variants">
+        <span>选择形象</span>
+        <button
+          v-for="variant in petVariants"
+          :key="variant.id"
+          type="button"
+          :class="{ active: petVariant === variant.id }"
+          @click="selectPetVariant(variant.id)"
+        >
+          {{ variant.name }}
+        </button>
+      </div>
       <p v-if="memory.error" class="pet-error">{{ memory.error }}</p>
       <ol v-else-if="rankedTips.length" class="pet-tip-list">
         <li v-for="tip in rankedTips" :key="tip.id">
@@ -487,7 +526,7 @@ onBeforeUnmount(() => {
       class="pet-avatar"
       :aria-expanded="open"
       :aria-grabbed="dragging"
-      aria-label="打开或拖动页面向导"
+      :aria-label="`打开或拖动${variantDefinition.name}`"
       @pointerdown="startDrag"
       @pointermove="movePet"
       @pointerup="endDrag"
@@ -501,7 +540,7 @@ onBeforeUnmount(() => {
         <i></i>
         <b></b>
       </span>
-      <span class="pet-label">GUIDE</span>
+      <span class="pet-label">{{ variantDefinition.badge }}</span>
       <span class="pet-feet" aria-hidden="true"><i></i><i></i></span>
     </button>
   </aside>
@@ -640,11 +679,145 @@ onBeforeUnmount(() => {
   color: #3b82f6;
   font: 700 10px/1 "IBM Plex Mono", monospace;
 }
+.avatar-cat .pet-avatar {
+  border-color: #55280f;
+  color: #311508;
+  background: #c7651b;
+  box-shadow:
+    inset 2px 2px 0 #f5a34f,
+    inset -3px -3px 0 #8c3c12,
+    4px 4px 0 rgb(74 30 8 / 30%);
+}
+.avatar-cat .pet-avatar:hover { background: #d37220; }
+.avatar-cat .pet-antenna {
+  top: -9px;
+  left: 4px;
+  width: 12px;
+  height: 12px;
+  background: #c7651b;
+  box-shadow: 34px 0 0 #c7651b;
+}
+.avatar-cat .pet-antenna::before {
+  top: 4px;
+  left: 3px;
+  width: 6px;
+  height: 6px;
+  background: #ffd18d;
+  box-shadow: 34px 0 0 #ffd18d;
+  animation: none;
+}
+.avatar-cat .pet-screen {
+  border-color: #5b2a0c;
+  background: #e98a2d;
+  box-shadow:
+    inset 2px 2px 0 #ffc36c,
+    2px 2px 0 #84370c;
+}
+.avatar-cat .pet-screen i,
+.avatar-cat .pet-screen b {
+  background: #321508;
+  box-shadow:
+    2px 0 0 #744018,
+    0 2px 0 #744018;
+}
+.avatar-cat .pet-screen b {
+  box-shadow:
+    -3px -2px 0 #321508,
+    3px -2px 0 #321508;
+}
+.avatar-cat .pet-label { color: #ffe0a8; text-shadow: 1px 1px 0 #55280f; }
+.avatar-cat .pet-feet i { border-color: #55280f; background: #c7651b; }
+
+.avatar-ghost .pet-avatar {
+  border-color: #294461;
+  color: #17314c;
+  background: #dceeff;
+  box-shadow:
+    inset 2px 2px 0 #fff,
+    inset -3px -3px 0 #9dbad4,
+    4px 4px 0 rgb(34 65 94 / 24%);
+}
+.avatar-ghost .pet-avatar:hover { background: #e9f5ff; }
+.avatar-ghost .pet-antenna {
+  top: -8px;
+  left: 25px;
+  width: 5px;
+  height: 5px;
+  background: #dceeff;
+  box-shadow:
+    5px -4px 0 #dceeff,
+    10px -4px 0 #dceeff;
+}
+.avatar-ghost .pet-antenna::before { display: none; }
+.avatar-ghost .pet-screen {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.avatar-ghost .pet-screen i,
+.avatar-ghost .pet-screen b {
+  background: #294461;
+  box-shadow: none;
+}
+.avatar-ghost .pet-screen b {
+  width: 6px;
+  height: 5px;
+  box-shadow: 0 -2px 0 #294461;
+}
+.avatar-ghost .pet-label { color: #486985; text-shadow: none; }
+.avatar-ghost .pet-feet i { border-color: #294461; background: #dceeff; }
+
+.avatar-slime .pet-avatar {
+  top: 8px;
+  height: 58px;
+  border-color: #16462e;
+  color: #0b2c1c;
+  background: #39a96b;
+  box-shadow:
+    inset 2px 2px 0 #83e5aa,
+    inset -3px -3px 0 #24784c,
+    4px 4px 0 rgb(15 70 43 / 26%);
+}
+.avatar-slime .pet-avatar:hover { background: #43b878; }
+.avatar-slime .pet-antenna {
+  top: -7px;
+  left: 9px;
+  width: 12px;
+  height: 7px;
+  background: #39a96b;
+  box-shadow:
+    12px -4px 0 #39a96b,
+    24px 0 0 #39a96b;
+}
+.avatar-slime .pet-antenna::before { display: none; }
+.avatar-slime .pet-screen {
+  height: 30px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.avatar-slime .pet-screen i,
+.avatar-slime .pet-screen b {
+  background: #103b27;
+  box-shadow: none;
+}
+.avatar-slime .pet-screen b {
+  box-shadow:
+    -3px -2px 0 #103b27,
+    3px -2px 0 #103b27;
+}
+.avatar-slime .pet-label {
+  margin-top: 3px;
+  color: #c8f4d8;
+  text-shadow: 1px 1px 0 #16462e;
+}
+.avatar-slime .pet-feet i { border-color: #16462e; background: #39a96b; }
+
 .action-look .pet-screen i { transform: translateX(4px); animation: none; }
 .action-hop .pet-avatar { animation: pet-hop 900ms steps(4, end) 1; }
 .action-hop .pet-avatar::after { animation: pet-hop-shadow 900ms steps(4, end) 1; }
 .action-scan .pet-screen { animation: pet-scan 900ms steps(4, end) 1; }
-.action-scan .pet-antenna { animation: pet-signal-fast 300ms steps(2, end) infinite; }
+.avatar-robot.action-scan .pet-antenna { animation: pet-signal-fast 300ms steps(2, end) infinite; }
 .action-nap .pet-screen i {
   height: 2px;
   box-shadow: none;
@@ -769,18 +942,21 @@ onBeforeUnmount(() => {
 }
 .pet-actions button:hover:not(:disabled) { border-color: #8fb7ed; color: #1d5f9f; }
 .pet-actions button:disabled { cursor: not-allowed; opacity: .45; }
-.pet-moves {
+.pet-moves,
+.pet-variants {
   display: flex;
   gap: 6px;
   align-items: center;
   padding: 9px 14px 0;
 }
-.pet-moves > span {
+.pet-moves > span,
+.pet-variants > span {
   margin-right: 2px;
   color: #8495a8;
   font: 8px/1 "IBM Plex Mono", monospace;
 }
-.pet-moves button {
+.pet-moves button,
+.pet-variants button {
   padding: 4px 6px;
   border: 1px solid #dce5ee;
   border-radius: 4px;
@@ -789,7 +965,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font-size: 8px;
 }
-.pet-moves button:hover { border-color: #8fb7ed; color: #1d5f9f; background: #f1f7fd; }
+.pet-moves button:hover,
+.pet-variants button:hover,
+.pet-variants button.active {
+  border-color: #8fb7ed;
+  color: #1d5f9f;
+  background: #f1f7fd;
+}
+.pet-variants button.active { box-shadow: inset 0 -2px 0 #4b8ed5; }
 .pet-tip-list {
   display: grid;
   max-height: 430px;
